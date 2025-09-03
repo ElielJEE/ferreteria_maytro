@@ -1,24 +1,30 @@
 import { NextResponse } from "next/server";
+import jwt from "jsonwebtoken";
 
 export function middleware(req) {
 	const token = req.cookies.get("token")?.value || null;
-	const loginUrl = new URL("/login", req.url);
+	const { pathname } = req.nextUrl;
 
-	// Si el usuario no tiene token y no está en la página de login, redirigir a login
-	if (!token && req.nextUrl.pathname !== "/login") {
-		return NextResponse.redirect(loginUrl);
+	const publicPaths = ["/login", "/api/login"];
+	if (publicPaths.includes(pathname)) {
+		return NextResponse.next();
 	}
 
-	// si el usuario tiene token y está en la página de login, redirigir a dashboard
-	if (token && req.nextUrl.pathname === "/login") {
-		return NextResponse.redirect(new URL("/dashboard", req.url));
+	if (!token) {
+		return NextResponse.redirect(new URL("/login", req.url));
 	}
 
-	return NextResponse.next();
+	try {
+		jwt.verify(token, process.env.JWT_SECRET);
+		return NextResponse.next();
+	} catch (error) {
+		return NextResponse.redirect(new URL("/login", req.url));
+	}
 }
 
+// Rutas que queremos proteger
 export const config = {
 	matcher: [
-		"/((?!login|_next/static|_next/image|favicon.ico).*)",
+		'/inventario/:path*',
 	]
-}
+};

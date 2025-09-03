@@ -1,8 +1,44 @@
-import React from 'react'
+'use client'
+
+import React, { use, useState } from 'react'
 import { Button } from '../atoms'
 import { Input } from '../molecules'
+import { useRouter } from 'next/navigation';
 
 export default function LoginOrg() {
+	const router = useRouter();
+	const [username, setUsername] = useState('');
+	const [password, setPassword] = useState('');
+	const [error, setError] = useState('');
+
+	const handleLogin = async (e) => {
+		e.preventDefault();
+
+		const res = await fetch('/api/login', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				'Accept': 'application/json'
+			},
+			body: JSON.stringify({ username, password }),
+		});
+
+		const data = await res.json();
+		console.log(res);
+
+		if (res.ok) {
+			router.push('/');
+			console.log(username, password);
+		} else {
+			setError(data.message);
+		}
+	};
+
+	const handleButtonClick = () => {
+		console.log('Button clicked!');
+	}
+
+
 	return (
 		<>
 			<div className='min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary via-secondary to-success'>
@@ -25,11 +61,15 @@ export default function LoginOrg() {
 								label={"Nombre de usuario"}
 								type={"username"}
 								placeholder={"usuario_ejemplo123"}
+								value={username}
+								onChange={(e) => setUsername(e.target.value)}
 							/>
 							<Input
 								label={"Contraseña"}
 								type={"password"}
 								placeholder={"•••••••••••"}
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
 							/>
 
 							<div className="flex item-center justify-end text-sm">
@@ -41,9 +81,10 @@ export default function LoginOrg() {
 							<Button
 								text={"Iniciar sesion"}
 								className={"login"}
-								type={"button"}
+								func={handleLogin}
 							/>
 						</form>
+						{error && <p className="text-red-500 text-sm text-center">{error}</p>}
 					</div>
 
 					<div className="flex flex-col space-y-4 pt-6 pb-6">
