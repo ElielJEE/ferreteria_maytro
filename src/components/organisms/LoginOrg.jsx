@@ -14,30 +14,25 @@ export default function LoginOrg() {
 	const handleLogin = async (e) => {
 		e.preventDefault();
 
-		const res = await fetch('/api/login', {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-				'Accept': 'application/json'
-			},
-			body: JSON.stringify({ username, password }),
-		});
+		try {
+			const res = await fetch("/api/login", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ username, password }),
+			});
 
-		const data = await res.json();
-		console.log(res);
+			const data = await res.json();
 
-		if (res.ok) {
-			router.push('/');
-			console.log(username, password);
-		} else {
-			setError(data.message);
+			if (res.ok) {
+				document.cookie = `token=${data.token}; path=/`;
+				router.push("/");
+			} else {
+				setError(data.message);
+			}
+		} catch (error) {
+			console.error(error);
 		}
 	};
-
-	const handleButtonClick = () => {
-		console.log('Button clicked!');
-	}
-
 
 	return (
 		<>
@@ -81,6 +76,7 @@ export default function LoginOrg() {
 							<Button
 								text={"Iniciar sesion"}
 								className={"login"}
+								type={"submit"}
 								func={handleLogin}
 							/>
 						</form>
