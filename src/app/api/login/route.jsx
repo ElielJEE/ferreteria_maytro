@@ -1,5 +1,4 @@
 import { pool } from "@/lib/db";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
@@ -20,9 +19,9 @@ export async function POST(req) {
 
 		const user = rows[0];
 
-		// Verificar contraseña
-		const validPassword = await (password, user.password);
-		if (!validPassword) {
+		// Verificar contraseña (asumiendo que las contraseñas están almacenadas en texto plano)
+		// Si las contraseñas estuvieran hasheadas, usar bcrypt.compare(password, user.password)
+		if (user.password !== password) {
 			return NextResponse.json({ message: "Usuario o contraseña incorrectos" }, { status: 401 });
 		}
 
@@ -39,6 +38,7 @@ export async function POST(req) {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			maxAge: 3600,
+			path: "/"
 		});
 
 		return response;
