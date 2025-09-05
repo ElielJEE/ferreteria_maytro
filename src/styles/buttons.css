@@ -1,25 +1,5 @@
 @import "tailwindcss";
 
 .btn {
-  @apply w-full text-light text-center py-2.5 px-4 rounded-md cursor-pointer transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl;
-}
-
-.btn-login {
-  @apply bg-primary hover:bg-primary/80;
-}
-
-.btn-save {
-	@apply bg-success hover:bg-success/80;
-}
-
-.btn-cancel {
-	@apply bg-secondary hover:bg-secondary/80;
-}
-
-.btn-edit {
-	@apply bg-primary hover:bg-primary/80;
-}
-
-.btn-delete {
-	@apply bg-secondary hover:bg-secondary/80;
+  @apply w-full flex justify-center items-center gap-2 text-center py-2.5 px-4 rounded-md cursor-pointer transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl;
 }

@@ -3,10 +3,14 @@
 
 @theme {
   --color-primary: #ff5e00;
+  --color-primary-light: rgb(255, 94, 0, 0.5);
   --color-secondary: #8a1e1e;
   --color-success: #2faf36;
   --color-light: #ffffff;
   --color-dark: #202124;
+  --color-blue: #1a73e8;
+  --color-yellow: #fbbc04;
+  --color-danger: #d93025;
 }
 
 :root {
