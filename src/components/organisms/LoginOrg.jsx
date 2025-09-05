@@ -75,7 +75,7 @@ export default function LoginOrg() {
 
 							<Button
 								text={"Iniciar sesion"}
-								className={"login"}
+								className={"primary"}
 								type={"submit"}
 								func={handleLogin}
 							/>

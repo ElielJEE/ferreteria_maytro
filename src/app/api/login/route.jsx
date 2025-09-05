@@ -10,7 +10,6 @@ export async function POST(req) {
 			return NextResponse.json({ message: "Usuario y contraseña requeridos" }, { status: 400 });
 		}
 
-		// Buscar usuario en la base de datos
 		const [rows] = await pool.query("SELECT * FROM users WHERE username = ?", [username]);
 
 		if (rows.length === 0) {
@@ -25,14 +24,12 @@ export async function POST(req) {
 			return NextResponse.json({ message: "Usuario o contraseña incorrectos" }, { status: 401 });
 		}
 
-		// Generar token JWT
 		const token = jwt.sign(
 			{ id: user.id, username: user.username },
 			process.env.JWT_SECRET,
 			{ expiresIn: "1h" }
 		);
 
-		// Guardar token en cookie segura
 		const response = NextResponse.json({ message: "Login exitoso" });
 		response.cookies.set("token", token, {
 			httpOnly: true,

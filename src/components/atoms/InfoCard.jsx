@@ -1,0 +1,42 @@
+import React from 'react'
+import { HiMiniArrowTrendingUp } from "react-icons/hi2";
+
+export default function InfoCard({ CardTitle, cardValue, cardIcon, cardIconColor, cardChange, outOfStockIcon }) {
+	const ColorVariants = {
+		success: 'bg-success/10',
+		primary: 'bg-primary/10',
+		blue: 'bg-blue/10',
+		yellow: 'bg-yellow/10',
+		danger: 'bg-danger/10'
+	};
+
+	return (
+		<div className='w-[30%] flex justify-between items-center grow border-dark/20 border rounded-lg p-4'>
+			<div className="flex flex-col justify-between">
+				<span className='text-sm font-medium text-dark/70'>{CardTitle}</span>
+				<h2 className='text-3xl font-bold text-dark'>{cardValue}</h2>
+				<div className="flex items-center gap-1 mt-1">
+					{outOfStockIcon ? outOfStockIcon : (
+						cardChange >= 0
+							? <HiMiniArrowTrendingUp className='text-success' />
+							: <HiMiniArrowTrendingUp className='text-danger rotate-180' />
+					)}
+					{
+						outOfStockIcon
+							? <span className={`${cardChange === 0 ? 'text-success' : 'text-yellow'}`}>{cardChange} Agotados</span>
+							: (
+								<>
+									<span className={`${cardChange >= 0 ? 'text-success' : 'text-danger'}`}>{cardChange}%</span>
+									<span className='text-sm text-dark/60'>vs ayer</span>
+								</>
+							)
+					}
+
+				</div>
+			</div>
+			<div className={`flex items-center justify-center w-12 h-12 ${ColorVariants[cardIconColor]} rounded-lg`}>
+				{cardIcon}
+			</div>
+		</div>
+	)
+}
