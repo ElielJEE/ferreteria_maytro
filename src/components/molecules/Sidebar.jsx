@@ -6,7 +6,7 @@ import { IoIosArrowForward } from "react-icons/io";
 import { Button } from '../atoms';
 import { FiLogOut, FiUserCheck } from 'react-icons/fi';
 
-export default function Sidebar() {
+export default function Sidebar({ openSidebar }) {
 	const [openIndex, setOpenIndex] = useState(null);
 
 	const toggleDropdown = (index) => {
@@ -14,7 +14,8 @@ export default function Sidebar() {
 	};
 
 	return (
-		<aside className='w-[20%] flex flex-col h-screen fixed top-0 bg-light border-r border-dark/10 pl-5'>
+		<aside className={`flex flex-col left-0 h-screen fixed top-0 bg-light border-r border-dark/10 pl-5 transition-all duration-500
+		${openSidebar ? "translate-x-0 w-[20%]" : "-translate-x-full w-[20%]"}`}>
 			<div className='w-full flex p-4 items-center gap-2'>
 				<img src="/images/logo.jpg" alt="logo-el-maytro" className='h-12 w-12' />
 				<div className='flex flex-col'>
