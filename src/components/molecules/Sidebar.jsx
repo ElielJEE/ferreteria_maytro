@@ -3,6 +3,8 @@ import React, { useState } from 'react'
 import sidebarData from '@/data/sidebar'
 import Link from 'next/link'
 import { IoIosArrowForward } from "react-icons/io";
+import { Button } from '../atoms';
+import { FiLogOut, FiUserCheck } from 'react-icons/fi';
 
 export default function Sidebar() {
 	const [openIndex, setOpenIndex] = useState(null);
@@ -12,7 +14,7 @@ export default function Sidebar() {
 	};
 
 	return (
-		<aside className='w-[20%] h-screen fixed bg-light border-r border-dark/10 pl-5'>
+		<aside className='w-[20%] flex flex-col h-screen fixed top-0 bg-light border-r border-dark/10 pl-5'>
 			<div className='w-full flex p-4 items-center gap-2'>
 				<img src="/images/logo.jpg" alt="logo-el-maytro" className='h-12 w-12' />
 				<div className='flex flex-col'>
@@ -75,6 +77,13 @@ export default function Sidebar() {
 							})
 					}
 				</ul>
+			</div>
+			<div className='w-[90%] flex flex-col gap-2 mt-auto mb-4'>
+				<h3 className='flex items-center gap-1 text-medium'>
+					<FiUserCheck />
+					Administrador
+				</h3>
+				<Button className={"primary"} text={"Cerrar Sesion"} icon={<FiLogOut />} />
 			</div>
 		</aside>
 	)
