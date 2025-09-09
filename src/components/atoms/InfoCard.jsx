@@ -11,10 +11,10 @@ export default function InfoCard({ CardTitle, cardValue, cardIcon, cardIconColor
 	};
 
 	return (
-		<div className='w-[30%] flex justify-between items-center grow border-dark/20 border rounded-lg p-4'>
+		<div className='w-full flex justify-between items-center grow border-dark/20 border rounded-lg p-4'>
 			<div className="flex flex-col justify-between">
-				<span className='text-sm font-medium text-dark/70'>{CardTitle}</span>
-				<h2 className='text-3xl font-bold text-dark'>{cardValue}</h2>
+				<span className='text-xs md:text-sm font-medium text-dark/70'>{CardTitle}</span>
+				<h2 className='text-xl sm:text-2xl md:text-3xl font-bold text-dark'>{cardValue}</h2>
 				<div className="flex items-center gap-1 mt-1">
 					{outOfStockIcon ? outOfStockIcon : (
 						cardChange >= 0
@@ -23,18 +23,18 @@ export default function InfoCard({ CardTitle, cardValue, cardIcon, cardIconColor
 					)}
 					{
 						outOfStockIcon
-							? <span className={`${cardChange === 0 ? 'text-success' : 'text-yellow'}`}>{cardChange} Agotados</span>
+							? <span className={`${cardChange === 0 ? 'text-success' : 'text-yellow'} text-xs md:text-sm`}>{cardChange} Agotados</span>
 							: (
 								<>
-									<span className={`${cardChange >= 0 ? 'text-success' : 'text-danger'}`}>{cardChange}%</span>
-									<span className='text-sm text-dark/60'>vs ayer</span>
+									<span className={`${cardChange >= 0 ? 'text-success' : 'text-danger'} text-xs md:text-sm`}>{cardChange}%</span>
+									<span className='text-xs md:text-sm text-dark/60'>vs ayer</span>
 								</>
 							)
 					}
 
 				</div>
 			</div>
-			<div className={`flex items-center justify-center w-12 h-12 ${ColorVariants[cardIconColor]} rounded-lg`}>
+			<div className={`flex items-center justify-center w-10 h-10 md:w-12 md:h-12 ${ColorVariants[cardIconColor]} rounded-lg`}>
 				{cardIcon}
 			</div>
 		</div>

@@ -14,7 +14,7 @@ export default function Button({ func, text, type, className, icon, iconRight })
 	}
 
 	return (
-		<button className={`btn ${ColorVariants[className]}`} onClick={func} type={type}>
+		<button className={`btn ${ColorVariants[className]} sm:text-sm text-xs`} onClick={func} type={type}>
 			{icon} {text} {iconRight}
 		</button>
 	)

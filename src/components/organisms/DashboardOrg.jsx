@@ -15,7 +15,6 @@ export default function DashboardOrg() {
 		{ day: 'Jue', amount: 3500 },
 		{ day: 'Vie', amount: 5590 },
 		{ day: 'Sab', amount: 4500 },
-		{ day: 'Dom', amount: 6000 },
 	];
 
 	const masVendidos = [
@@ -38,7 +37,7 @@ export default function DashboardOrg() {
 
 	return (
 		<div className='w-full p-6 flex flex-col'>
-			<section className='w-[60%] flex items-center justify-start gap-4 mb-6'>
+			<section className='w-full grid grid-cols-1 xl:grid-cols-5 lg:grid-cols-4 md:grid-cols-3 gap-4 mb-6'>
 				<Button
 					className={"primary"}
 					text={"Abrir punto de venta"}
@@ -55,82 +54,82 @@ export default function DashboardOrg() {
 					icon={<BsEye className='h-4 w-4' />}
 				/>
 			</section>
-			<section className='w-full flex gap-4'>
+			<section className='w-full grid grid-cols-1 gap-4 xl:grid-cols-4 md:grid-cols-2'>
 				<InfoCard
 					CardTitle={"Ventas Hoy"}
 					cardValue={"$1,200.00"}
 					cardIconColor={"success"}
 					cardChange={12.5}
-					cardIcon={<FiDollarSign className='h-6 w-6 text-success' />}
+					cardIcon={<FiDollarSign className='h-4 w-4 md:h-6 md:w-6 text-success' />}
 				/>
 				<InfoCard
 					CardTitle={"Productos Vendidos"}
 					cardValue={"150"}
 					cardIconColor={"primary"}
 					cardChange={8.2}
-					cardIcon={<BsCart2 className='h-6 w-6 text-primary' />}
+					cardIcon={<BsCart2 className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
 				/>
 				<InfoCard
 					CardTitle={"Clientes atendidos"}
 					cardValue={"75"}
 					cardIconColor={"blue"}
 					cardChange={-5}
-					cardIcon={<HiOutlineUserGroup className='h-6 w-6 text-blue' />}
+					cardIcon={<HiOutlineUserGroup className='h-4 w-4 md:h-6 md:w-6 text-blue' />}
 				/>
 				<InfoCard
 					CardTitle={"Productos en stock"}
 					cardValue={"320"}
 					cardIconColor={"yellow"}
 					cardChange={4}
-					outOfStockIcon={<CiWarning className='h-6 w-6 text-yellow' />}
-					cardIcon={<BsBoxSeam className='h-6 w-6 text-yellow' />}
+					outOfStockIcon={<CiWarning className='h-4 w-4 md:h-6 md:w-6 text-yellow' />}
+					cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-yellow' />}
 				/>
 			</section>
-			<section className='w-full mt-6 flex gap-4'>
-				<div className='flex w-[60%] border border-dark/20 rounded-lg flex-col gap-4 p-4'>
+			<section className='w-full mt-6 flex flex-col gap-4 lg:flex-row'>
+				<div className='flex w-full lg:w-[60%] border border-dark/20 rounded-lg flex-col gap-1 md:gap-4 p-4'>
 					<div>
-						<h2 className='text-2xl font-bold text-dark'>Ventas de la Semana</h2>
-						<span className='text-medium text-dark/50'>Comparacion de ventas diarias</span>
+						<h2 className='md:text-2xl font-bold text-dark'>Ventas de la Semana</h2>
+						<span className='text-sm md:text-medium text-dark/50'>Comparacion de ventas diarias</span>
 					</div>
 					{
 						ventasData.map((data, index) => (
-							<div key={index} className='w-full flex justify-center items-center gap-2'>
+							<div key={index} className='w-full flex text-sm md:text-medium justify-center items-center gap-2'>
 								<span className='w-12 text-dark/80'>{data.day}</span>
-								<div className='bg-primary-light h-5 w-full rounded-full'>
-									<div className='bg-primary h-5 rounded-full transition-all duration-700' style={{ width: `${(data.amount / maxAmount) * 100}%` }}></div>
+								<div className='bg-primary-light h-3 md:h-5 w-full rounded-full'>
+									<div className='bg-primary h-3 md:h-5 rounded-full transition-all duration-700' style={{ width: `${(data.amount / maxAmount) * 100}%` }}></div>
 								</div>
-								<span className='font-bold'>C${data.amount}</span>
+								<span className='text-xs md:text-medium font-bold'>C${data.amount}</span>
 							</div>
 						))
 					}
 				</div>
-				<div className='flex w-[40%] border border-dark/20 rounded-lg flex-col gap-4 p-4'>
+				<div className='flex w-full lg:w-[40%] border border-dark/20 rounded-lg flex-col gap-4 p-4'>
 					<div>
-						<h2 className='text-2xl font-bold text-dark'>Productos mas vendidos</h2>
-						<span className='text-medium text-dark/50'>Top 5 productos de la semana</span>
+						<h2 className='md:text-2xl font-bold text-dark'>Productos mas vendidos</h2>
+						<span className='text-sm md:text-medium text-dark/50'>Top 5 productos de la semana</span>
 					</div>
 					{
 						masVendidosOrdered.map((item, index) => (
 							<div key={index} className='w-full flex gap-2 justify-center items-center'>
-								<div className='text-primary bg-primary/10 w-10 h-10 text-center flex justify-center items-center rounded-lg font-semibold'>#{index + 1}</div>
+								<div className='text-primary bg-primary/10 w-8 h-8 md:w-10 md:h-10 text-center flex justify-center items-center rounded-lg font-semibold'>#{index + 1}</div>
 								<div className='flex flex-col w-full'>
-									<span className='font-semibold text-dark/80 text-lg'>{item.product}</span>
-									<p className='text-dark/60 text-sm'>Vendidos: {item.count} - Total: C${item.amount}</p>
+									<span className='font-semibold text-dark/80 text-sm md:text-lg'>{item.product}</span>
+									<p className='text-dark/60 text-xs md:text-sm'>Vendidos: {item.count} - Total: C${item.amount}</p>
 								</div>
 							</div >
 						))
 					}
 				</div>
 			</section>
-			<section className='w-full mt-6 flex gap-4'>
-				<div className='flex w-[50%] border border-dark/20 rounded-lg flex-col gap-4 p-4'>
-					<div className='flex justify-between items-center'>
+			<section className='w-full mt-6 flex flex-col lg:flex-row gap-4'>
+				<div className='flex w-full lg:w-[50%] border border-dark/20 rounded-lg flex-col gap-4 p-4'>
+					<div className='flex flex-col md:flex-row md:justify-between md:items-center'>
 						<div>
 							<div className='flex items-center gap-1'>
-								<CiWarning className='h-9 w-9 text-yellow' />
-								<h2 className='text-2xl font-bold text-dark'>Alertas de Stock</h2>
+								<CiWarning className='h-6 w-6 md:h-9 md:w-9 text-yellow' />
+								<h2 className='md:text-2xl font-bold text-dark'>Alertas de Stock</h2>
 							</div>
-							<span className='text-medium text-dark/50'>Productos que necesitan reabastecimiento</span>
+							<span className='text-sm md:text-medium text-dark/50'>Productos que necesitan reabastecimiento</span>
 						</div>
 						<div>
 							<Button
@@ -146,15 +145,15 @@ export default function DashboardOrg() {
 								item.stock <= (item.maxStock * 0.3) && (
 									<div key={index} className='w-full flex justify-center items-center border rounded-lg border-dark/20 p-2'>
 										<div className='w-full flex flex-col'>
-											<h2 className='text-dark text-lg font-semibold mb-2'>{item.product}</h2>
+											<h2 className='text-dark text-sm md:text-lg font-semibold mb-2'>{item.product}</h2>
 											<div className='w-full flex'>
 												<div className='w-full bg-secondary rounded-full h-2'>
 													<div className='bg-dark h-2 rounded-full' style={{ width: `${(item.stock / item.maxStock) * 100}%` }}></div>
 												</div>
-												<p className='text-dark/70 text-sm'>{item.stock}/{item.maxStock}</p>
+												<p className='text-dark/70 text-xs md:text-sm'>{item.stock}/{item.maxStock}</p>
 											</div>
 										</div>
-										<span className='bg-secondary text-light p-4 text-center text-sm rounded-full flex justify-center items-center h-5'>
+										<span className='bg-secondary text-light p-2 md:p-4 text-center text-xs md:text-sm rounded-full flex justify-center items-center h-5'>
 											{
 												item.stock === 0
 													? "Agotado"
@@ -171,10 +170,10 @@ export default function DashboardOrg() {
 						}
 					</div>
 				</div>
-				<div className='flex w-[50%] border border-dark/20 rounded-lg flex-col gap-4 p-4'>
+				<div className='flex w-full lg:w-[50%] border border-dark/20 rounded-lg flex-col gap-4 p-4'>
 					<div>
-						<h2 className='text-2xl font-bold text-dark'>Actividad Reciente</h2>
-						<span className='text-medium text-dark/50'>Ultimas acciones realizadas en el sistema</span>
+						<h2 className='md:text-2xl font-bold text-dark'>Actividad Reciente</h2>
+						<span className='text-sm md:text-medium text-dark/50'>Ultimas acciones realizadas en el sistema</span>
 					</div>
 					<div className='w-full h-48 flex justify-center items-center text-dark/50'>
 						<p>No hay actividad reciente</p>
@@ -182,34 +181,34 @@ export default function DashboardOrg() {
 				</div>
 			</section>
 			<section className='w-full mt-6 flex border border-dark/20 rounded-lg flex-col p-4'>
-				<h2 className='text-dark text-xl font-bold'>Resumen del Mes</h2>
-				<span className='text-dark/50 text-medium'>Septiembre 2025</span>
-				<div className='w-full flex justify-around items-center mt-4'>
+				<h2 className='text-dark md:text-xl font-bold'>Resumen del Mes</h2>
+				<span className='text-dark/50 text-sm md:text-medium'>Septiembre 2025</span>
+				<div className='w-full grid grid-cols-2 gap-4 md:grid-cols-2 lg:gap-0 lg:grid-cols-4 justify-around items-center mt-4'>
 					<div className='text-center flex flex-col justify-center items-center'>
-						<h2 className='text-xl font-bold text-success'>C$43000</h2>
-						<span className='text-medium text-dark/50'>Ingresos Totales</span>
-						<span className='text-success flex items-center gap-1'>
+						<h2 className='md:text-xl font-bold text-success'>C$43000</h2>
+						<span className='text-sm md:text-medium text-dark/50'>Ingresos Totales</span>
+						<span className='text-success text-sm md:text-medium flex items-center gap-1'>
 							<HiArrowTrendingUp className='text-success' /> +15.6%
 						</span>
 					</div>
 					<div className='text-center flex flex-col justify-center items-center'>
-						<h2 className='text-xl font-bold text-primary'>3000</h2>
-						<span className='text-medium text-dark/50'>Productos Vendidos</span>
-						<span className='text-success flex items-center gap-1'>
+						<h2 className='md:text-xl font-bold text-primary'>3000</h2>
+						<span className='text-sm md:text-medium text-dark/50'>Productos Vendidos</span>
+						<span className='text-success text-sm md:text-medium flex items-center gap-1'>
 							<HiArrowTrendingUp className='text-success' /> +5.6%
 						</span>
 					</div>
 					<div className='text-center flex flex-col justify-center items-center'>
-						<h2 className='text-xl font-bold text-blue'>300</h2>
-						<span className='text-medium text-dark/50'>Clientes Unicos</span>
-						<span className='text-success flex items-center gap-1'>
+						<h2 className='md:text-xl font-bold text-blue'>300</h2>
+						<span className='text-sm md:text-medium text-dark/50'>Clientes Unicos</span>
+						<span className='text-success text-sm md:text-medium flex items-center gap-1'>
 							<HiArrowTrendingUp className='text-success' /> +1%
 						</span>
 					</div>
 					<div className='text-center flex flex-col justify-center items-center'>
-						<h2 className='text-xl font-bold text-purple-500'>100%</h2>
-						<span className='text-medium text-dark/50'>Satisfaccion</span>
-						<span className='text-success flex items-center gap-1'>
+						<h2 className='md:text-xl font-bold text-purple-500'>100%</h2>
+						<span className='text-sm md:text-medium text-dark/50'>Satisfaccion</span>
+						<span className='text-success text-sm md:text-medium flex items-center gap-1'>
 							<HiArrowTrendingUp className='text-success' /> +6%
 						</span>
 					</div>
