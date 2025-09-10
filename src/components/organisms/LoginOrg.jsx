@@ -25,7 +25,7 @@ export default function LoginOrg() {
 
 			if (res.ok) {
 				document.cookie = `token=${data.token}; path=/`;
-				router.push("/");
+				router.push("/dashboard");
 			} else {
 				setError(data.message);
 			}

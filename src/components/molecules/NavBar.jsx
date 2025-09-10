@@ -11,15 +11,22 @@ export default function NavBar({ openSidebar, setOpenSidebar }) {
 	useEffect(() => {
 		const actualizar = () => {
 			const ahora = new Date();
-			const formateado = ahora.toLocaleString("es-ES", {
-				weekday: "long",
-				day: "numeric",
-				month: "long",
-				year: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-				second: "2-digit",
-			});
+
+			const isMovil = window.innerWidth <= 820;
+
+			const options = isMovil
+				? { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }
+				: {
+					weekday: "long",
+					day: "numeric",
+					month: "long",
+					year: "numeric",
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+				};
+
+			const formateado = ahora.toLocaleString("es-ES", options);
 			setDate(formateado);
 		};
 
@@ -35,11 +42,10 @@ export default function NavBar({ openSidebar, setOpenSidebar }) {
 	);
 
 	return (
-		<nav className={`fixed right-0 top-0 h-20 px-5 bg-light transition-all duration-500 ${
-			openSidebar ? "w-[80%]" : "w-full"
-		}`}>
+		<nav className={`fixed right-0 top-0 h-20 px-5 bg-light transition-all duration-500 z-30 ${openSidebar ? "xl:w-[80%] w-full" : "w-full"
+			}`}>
 			<div className='h-full border-b border-dark/10'>
-				<div className='flex justify-between items-center h-full'>
+				<div className='flex flex-col justify-center items-start md:flex-row md:justify-between md:items-center h-full'>
 					<div className='flex gap-1 justify-center items-center text-xl font-bold'>
 						<div className='flex justify-center items-center border-r border-dark/10 pr-4'>
 							<FiSidebar
@@ -47,8 +53,8 @@ export default function NavBar({ openSidebar, setOpenSidebar }) {
 								onClick={() => setOpenSidebar(!openSidebar)}
 							/>
 						</div>
-						<BiHomeAlt className='text-primary h-5 w-5 ml-4' />
-						<h3 className='text-2x1'>{formattedPaths.join(" > ")} - El Maytro</h3>
+						<BiHomeAlt className='text-primary h-4 w-4 ml-4 md:h-5 md:w-5' />
+						<h3 className='text-sm md:text-lg lg:text-xl xl:text-2xl'>{formattedPaths.join(" > ")} - El Maytro</h3>
 					</div>
 					<span className='flex gap-1 justify-center items-center text-medium text-dark/70'><FiCalendar /> {date}</span>
 				</div>
