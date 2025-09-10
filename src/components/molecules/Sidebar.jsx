@@ -14,23 +14,6 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 		setOpenIndex(openIndex === index ? null : index)
 	};
 
-	useEffect(() => {
-		const user = async () => {
-			try {
-				const res = await fetch("/api/users");
-				if (!res.ok) {
-					throw new Error("error al obtener usuario.")
-				}
-				const data = await res.json();
-				setUsername(data.username)
-			} catch (error) {
-				console.error(error)
-			}
-		}
-
-		user();
-	}, [])
-
 	return (
 		<>
 			{openSidebar && (
@@ -40,7 +23,7 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 				></div>
 			)}
 			<aside className={`flex flex-col left-0 h-screen fixed top-0 bg-light border-r border-dark/10 pl-5 transition-all duration-500 z-40
-		${openSidebar ? "translate-x-0" : "-translate-x-full"} xl:w-20% `}>
+		${openSidebar ? "translate-x-0" : "-translate-x-full"} xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%]`}>
 				<div className='w-full flex p-4 items-center gap-2'>
 					<img src="/images/logo.jpg" alt="logo-el-maytro" className='h-12 w-12' />
 					<div className='flex flex-col'>
@@ -107,7 +90,7 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 				<div className='w-[90%] flex flex-col gap-2 mt-auto mb-4'>
 					<h3 className='flex items-center gap-1 text-medium'>
 						<FiUserCheck />
-						{username}
+						Administrador
 					</h3>
 					<Button className={"primary"} text={"Cerrar Sesion"} icon={<FiLogOut />} />
 				</div>
