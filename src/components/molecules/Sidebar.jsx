@@ -5,14 +5,37 @@ import Link from 'next/link'
 import { IoIosArrowForward } from "react-icons/io";
 import { Button } from '../atoms';
 import { FiLogOut, FiUserCheck } from 'react-icons/fi';
+import { AuthService } from '@/services';
+import { useRouter } from 'next/navigation';
 
 export default function Sidebar({ openSidebar, setOpenSidebar }) {
 	const [openIndex, setOpenIndex] = useState(null);
-	const [username, setUsername] = useState(true);
+	const [user, setUser] = useState(true);
+	const router = useRouter();
 
 	const toggleDropdown = (index) => {
 		setOpenIndex(openIndex === index ? null : index)
 	};
+
+	const handleLogout = async () => {
+		try {
+			const success = await AuthService.logout();
+			if (success) {
+				router.push("/login");
+			}
+		} catch (error) {
+			console.error("Error al cerrar sesion:", error);
+		}
+	}
+
+	useEffect(() => {
+		const fetchUser = async () => {
+			const currentUser = await AuthService.getCurrentUser();
+			setUser(currentUser);
+		}
+		fetchUser();
+	}, [])
+	console.log(user);
 
 	return (
 		<>
@@ -88,11 +111,11 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 					</ul>
 				</div>
 				<div className='w-[90%] flex flex-col gap-2 mt-auto mb-4'>
-					<h3 className='flex items-center gap-1 text-medium'>
+					<h3 className='flex items-center gap-1 text-medium font-semibold'>
 						<FiUserCheck />
-						Administrador
+						{!user ? "Cargando..." : user.username}
 					</h3>
-					<Button className={"primary"} text={"Cerrar Sesion"} icon={<FiLogOut />} />
+					<Button className={"primary"} text={"Cerrar Sesion"} icon={<FiLogOut />} func={handleLogout} />
 				</div>
 			</aside>
 		</>
