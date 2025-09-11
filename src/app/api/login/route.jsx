@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import bcrypt from 'bcryptjs';
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
@@ -7,25 +8,43 @@ export async function POST(req) {
 		const { username, password } = await req.json();
 
 		if (!username || !password) {
-			return NextResponse.json({ message: "Usuario y contraseña requeridos" }, { status: 400 });
+			return NextResponse.json(
+				{ message: "Usuario y contraseña requeridos" },
+				{ status: 400 }
+			);
 		}
 
-		const [rows] = await pool.query("SELECT * FROM users WHERE username = ?", [username]);
+		const [rows] = await pool.query(
+			"SELECT * FROM usuarios WHERE NOMBRE_USUARIO = ?",
+			[username]
+		);
 
 		if (rows.length === 0) {
-			return NextResponse.json({ message: "Usuario o contraseña incorrectos" }, { status: 401 });
+			return NextResponse.json(
+				{ message: "Usuario o contraseña incorrectos" },
+				{ status: 401 }
+			);
 		}
 
 		const user = rows[0];
 
-		// Verificar contraseña (asumiendo que las contraseñas están almacenadas en texto plano)
-		// Si las contraseñas estuvieran hasheadas, usar bcrypt.compare(password, user.password)
-		if (user.password !== password) {
-			return NextResponse.json({ message: "Usuario o contraseña incorrectos" }, { status: 401 });
+		if (user.ESTATUS !== 'ACTIVO') {
+			return NextResponse.json(
+				{ message: "El usuario esta inactivo." },
+				{ status: 403 }
+			)
+		}
+
+		const passwordMatch = await bcrypt.compare(password, user.CONTRASENA);
+		if (!passwordMatch) {
+			return NextResponse.json(
+				{ message: "Usuario o contraseña incorrectos" },
+				{ status: 401 }
+			)
 		}
 
 		const token = jwt.sign(
-			{ id: user.id, username: user.username },
+			{ id: user.ID, username: user.NOMBRE_USUARIO, role: user.ID_ROL },
 			process.env.JWT_SECRET,
 			{ expiresIn: "1h" }
 		);
@@ -35,12 +54,17 @@ export async function POST(req) {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			maxAge: 3600,
-			path: "/"
+			path: "/",
+			sameSite: "strict"
 		});
 
 		return response;
+
 	} catch (error) {
 		console.error("Error en login:", error);
-		return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
+		return NextResponse.json(
+			{ message: "Error interno del servidor" },
+			{ status: 500 }
+		);
 	}
 }
