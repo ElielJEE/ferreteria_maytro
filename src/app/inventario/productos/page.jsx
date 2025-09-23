@@ -6,9 +6,7 @@ export default function Productos() {
 		<>
 			<div>
 				<ProductsOrg />
-		</div>
-			<img src='/images/Products.png' className='w-screen h-screen' />
-
+			</div>
 		</>
 	)
 }
