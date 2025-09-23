@@ -1,1 +1,3 @@
 export {default as LoginOrg} from './LoginOrg';
+export {default as DashboardOrg} from './DashboardOrg';
+export {default as ProductsOrg} from './ProductsOrg';

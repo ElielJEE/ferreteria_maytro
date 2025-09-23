@@ -6,18 +6,23 @@ import { BsEye } from "react-icons/bs";
 import { BsEyeSlash } from "react-icons/bs";
 import { HiOutlineUser } from "react-icons/hi2";
 
-export default function Input({ type, placeholder, className, value, onChange, label }) {
+export default function Input({ type, placeholder, iconInput, value, onChange, label }) {
 	const [showPassword, setShowPassword] = useState(false);
+
 	return (
 		<>
 			<div className="space-y-2">
-				<label htmlFor={type} className="text-dark font-medium">{label}</label>
-				<div className="relative mt-2">
+				{label &&
+					<label htmlFor={type} className="flex text-dark font-medium mb-2">{label}</label>
+				}
+				<div className="relative">
 					{type === 'password' ? (
 						<HiOutlineLockClosed className='absolute left-3 top-3 h-5 w-5 text-dark/50' />
 					) : (
-						type !== 'email' && type !== 'username' ? (
-							""
+						type !== 'username' ? (
+							<>
+								{iconInput}
+							</>
 						) : (
 							<HiOutlineUser className='absolute left-3 top-3 h-5 w-5 text-dark/50' />
 						)

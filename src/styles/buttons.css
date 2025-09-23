@@ -1,5 +1,5 @@
 @import "tailwindcss";
 
 .btn {
-  @apply w-full flex justify-center items-center gap-2 text-center py-2.5 px-4 rounded-md cursor-pointer transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl;
+  @apply flex justify-center items-center gap-2 text-center rounded-md cursor-pointer transition-all duration-200 transform hover:scale-[1.02];
 }
