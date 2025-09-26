@@ -36,10 +36,24 @@ export default function NavBar({ openSidebar, setOpenSidebar }) {
 		return () => clearInterval(intervalo);
 	}, []);
 
+	const customPathname = {
+		"control-stock": "Control de Stock",
+	}
+
 	const paths = pathname.split("/").filter(Boolean);
-	const formattedPaths = paths.map(segment =>
-		segment.charAt(0).toUpperCase() + segment.slice(1)
-	);
+	const formattedPaths = paths.map(segment => {
+		if (customPathname[segment.toLowerCase()]) {
+			return customPathname[segment.toLowerCase()];
+		} else {
+			const withSpaces = segment.replace(/-/g, ' ');
+			return withSpaces
+				.split(' ')
+				.map(word => word.charAt(0).toUpperCase() + word.slice(1))
+				.join(' ');
+		}
+	});
+
+	console.log(formattedPaths);
 
 	return (
 		<nav className={`fixed right-0 top-0 h-20 px-5 bg-light transition-all duration-500 z-30 ${openSidebar ? "xl:w-[80%] w-full" : "w-full"
