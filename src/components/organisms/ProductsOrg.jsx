@@ -102,18 +102,6 @@ export default function ProductsOrg() {
 					cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
 				/>
 				<InfoCard
-					CardTitle={"Stock Bajo"}
-					cardValue={"15"}
-					cardIconColor={"yellow"}
-					cardIcon={<FiAlertTriangle className='h-4 w-4 md:h-6 md:w-6 text-yellow' />}
-				/>
-				<InfoCard
-					CardTitle={"Productos Agotados"}
-					cardValue={"3"}
-					cardIconColor={"secondary"}
-					cardIcon={<FiTrendingDown className='h-4 w-4 md:h-6 md:w-6 text-secondary' />}
-				/>
-				<InfoCard
 					CardTitle={"valor total de inventario"}
 					cardValue={"$75,000"}
 					cardIconColor={"success"}
@@ -142,16 +130,11 @@ export default function ProductsOrg() {
 						onChange={(e) => setSearchTerm(e.target.value)}
 						iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
 					/>
-					<div className='md:w-1/2 w-full flex gap-2 flex-col md:flex-row'>
+					<div className='md:w-1/4 w-full flex gap-2 flex-col md:flex-row'>
 						<DropdownMenu
 							options={tools.map(tool => tool.category).filter((value, index, self) => self.indexOf(value) === index).concat(['Todas las categorias'])}
 							defaultValue={'Todas las categorias'}
 							onChange={(value) => setSelectedCategory(value)}
-						/>
-						<DropdownMenu
-							options={['Todos los estados', 'En stock', 'Agotados', 'Bajo stock']}
-							defaultValue={'Todos los estados'}
-							onChange={(value) => setSelectedStatus(value)}
 						/>
 					</div>
 				</div>
@@ -164,10 +147,8 @@ export default function ProductsOrg() {
 										<th className='text-start text-dark/50 font-semibold p-2'>Codigo</th>
 										<th className='text-start text-dark/50 font-semibold p-2'>Producto</th>
 										<th className='text-start text-dark/50 font-semibold p-2'>Categoria</th>
-										<th className='text-start text-dark/50 font-semibold p-2'>Stock</th>
 										<th className='text-start text-dark/50 font-semibold p-2'>Precio Compra</th>
 										<th className='text-start text-dark/50 font-semibold p-2'>Precio Venta</th>
-										<th className='text-start text-dark/50 font-semibold p-2'>Estado</th>
 										<th className='text-start text-dark/50 font-semibold p-2'>Acciones</th>
 									</tr>
 								</thead>
@@ -181,16 +162,8 @@ export default function ProductsOrg() {
 													{item.category}
 												</span>
 											</td>
-											<td className='p-2'>{item.stock}</td>
 											<td className='p-2'>C${item.purchasePrice}</td>
 											<td className='p-2'>C${item.salePrice}</td>
-											<td className='p-2'>
-												<span
-													className={`px-2 py-1 rounded-full text-xs font-medium ${item.stock === 0 ? 'bg-secondary' : item.stock >= 15 ? 'bg-success' : 'bg-yellow'} text-light`}
-												>
-													{item.stock === 0 ? 'Agotado' : item.stock >= 15 ? 'Disponible' : 'Stock Bajo'}
-												</span>
-											</td>
 											<td className='p-2'>
 												<div className='flex gap-2'>
 													<Button
@@ -215,10 +188,8 @@ export default function ProductsOrg() {
 									<Card
 										key={index}
 										productName={item.name}
-										status={item.stock === 0 ? 'Agotado' : item.stock >= 15 ? 'Disponible' : 'Stock Bajo'}
 										id={item.id}
 										category={item.category}
-										stock={item.stock}
 										salePrice={item.salePrice}
 										purshasePrice={item.purchasePrice}
 									/>
