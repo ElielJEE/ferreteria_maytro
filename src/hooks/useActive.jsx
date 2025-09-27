@@ -1,12 +1,19 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 export default function useActive() {
-	const [isActive, setIsActive] = useState(null);
+	const [isActiveItem, setIsActiveItem] = useState(null);
+	const [isActiveModal, setIsActiveModal] = useState(null);
 
 	const toggleActiveItem = (index) => {
-		isActive === index ? setIsActive(null) : setIsActive(index);
-		console.log("isActive: ", isActive, "index", index);
+		isActiveItem === index ? setIsActiveItem(null) : setIsActiveItem(index);
+		console.log("isActive: ", isActiveItem, "index", index);
 	}
 
-	return { isActive, toggleActiveItem };
+	useEffect(() => {
+		isActiveModal
+			? document.body.style.overflow = 'hidden'
+			: document.body.style.overflow = 'auto';
+	}, [isActiveModal]);
+
+	return { isActiveItem, toggleActiveItem, isActiveModal, setIsActiveModal };
 }

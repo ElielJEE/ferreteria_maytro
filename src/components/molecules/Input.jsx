@@ -6,7 +6,7 @@ import { BsEye } from "react-icons/bs";
 import { BsEyeSlash } from "react-icons/bs";
 import { HiOutlineUser } from "react-icons/hi2";
 
-export default function Input({ type, placeholder, iconInput, value, onChange, label }) {
+export default function Input({ type, placeholder, iconInput, value, onChange, label, inputClass }) {
 	const [showPassword, setShowPassword] = useState(false);
 
 	return (
@@ -33,7 +33,7 @@ export default function Input({ type, placeholder, iconInput, value, onChange, l
 						value={value}
 						onChange={onChange}
 						id={type}
-						className='w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light pl-10 py-2 px-3 h-10 transition-colors outline-none focus-visible:ring-1'
+						className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
 						required
 					/>
 					{

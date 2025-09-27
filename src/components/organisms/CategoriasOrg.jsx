@@ -260,7 +260,7 @@ export default function CategoriasOrg() {
 
 
 	const [searchTerm, setSearchTerm] = useState("")
-	const { toggleActiveItem, isActive } = useActive();
+	const { toggleActiveItem, isActiveItem } = useActive();
 
 	const searchHandler = categories.filter((category) => {
 		const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -324,7 +324,7 @@ export default function CategoriasOrg() {
 									onClick={() => toggleActiveItem(index)}
 								>
 									<div className='flex items-center gap-2'>
-										<FiArrowRight className={`h-4 w-4 text-dark/50 ${isActive === index ? 'rotate-90' : ''}`} />
+										<FiArrowRight className={`h-4 w-4 text-dark/50 ${isActiveItem === index ? 'rotate-90' : ''}`} />
 										<div
 											className='w-3 h-3 rounded-full'
 											style={{ backgroundColor: categoryColors[index] }}
