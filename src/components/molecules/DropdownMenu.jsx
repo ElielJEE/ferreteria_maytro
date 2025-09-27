@@ -28,7 +28,7 @@ export default function DropdownMenu({ options, defaultValue, onChange, label })
 			</div>
 			{
 				isOpen && (
-					<ul className='absolute top-12 bg-light border border-dark/20 rounded-md w-full shadow-lg z-10 p-1'>
+					<ul className={`absolute ${label ? "top-20" : "top-12"} bg-light border border-dark/20 rounded-md w-full shadow-lg z-10 p-1 md:max-h-60 max-h-50 overflow-y-auto`}>
 						{options && options.map((option, index) => (
 							<li
 								key={index}
