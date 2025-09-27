@@ -1,10 +1,10 @@
 "use client"
 import React, { useState } from 'react'
-import { Button, InfoCard } from '@/components/atoms'
+import { Button, InfoCard, ModalContainer } from '@/components/atoms'
 import { FiAlertTriangle, FiBox, FiDelete, FiEdit, FiPlus, FiSearch, FiTrash, FiTrendingDown, FiTrendingUp } from 'react-icons/fi'
 import { BsBoxSeam, BsFillBoxFill } from 'react-icons/bs'
 import { Card, DropdownMenu, Input } from '../molecules'
-import { useIsMobile, useLoadMore } from '@/hooks'
+import { useActive, useIsMobile, useLoadMore } from '@/hooks'
 
 export default function ProductsOrg() {
 	const tools = [
@@ -92,124 +92,170 @@ export default function ProductsOrg() {
 		return categoryMatch && statusMatch && matchesSearch;
 	});
 
+	const { setIsActiveModal, isActiveModal } = useActive();
+
 	return (
-		<div className='w-full p-6 flex flex-col'>
-			<section className='w-full grid grid-cols-1 gap-4 xl:grid-cols-4 md:grid-cols-2'>
-				<InfoCard
-					CardTitle={"Total Productos"}
-					cardValue={"1,250"}
-					cardIconColor={"primary"}
-					cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
-				/>
-				<InfoCard
-					CardTitle={"valor total de inventario"}
-					cardValue={"$75,000"}
-					cardIconColor={"success"}
-					cardIcon={<FiTrendingUp className='h-4 w-4 md:h-6 md:w-6 text-success' />}
-				/>
-			</section>
-			<section className='w-full mt-6 border-dark/20 border rounded-lg p-4 flex flex-col'>
-				<div className='w-full flex sm:flex-row flex-col sm:justify-between sm:items-center mb-4 gap-2 md:gap-0'>
-					<div className='flex flex-col'>
-						<h2 className='md:text-2xl font-semibold'>Lista de productos</h2>
-						<span className='text-sm md:text-medium text-dark/50'>Gestiona y administra tu inventario</span>
-					</div>
-					<div className='flex xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%] w-full md:justify-end'>
-						<Button
-							className={"primary"}
-							text={"Agregar Producto"}
-							icon={<FiPlus className='h-4 w-4' />}
-						/>
-					</div>
-				</div>
-				<div className='w-full flex flex-col gap-1 sticky top-20 bg-light pt-4'>
-					<Input
-						placeholder={"Buscar producto..."}
-						type={"search"}
-						value={searchTerm}
-						onChange={(e) => setSearchTerm(e.target.value)}
-						iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
+		<>
+			<div className='w-full p-6 flex flex-col'>
+				<section className='w-full grid grid-cols-1 gap-4 xl:grid-cols-4 md:grid-cols-2'>
+					<InfoCard
+						CardTitle={"Total Productos"}
+						cardValue={"1,250"}
+						cardIconColor={"primary"}
+						cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
 					/>
-					<div className='md:w-1/4 w-full flex gap-2 flex-col md:flex-row'>
-						<DropdownMenu
-							options={tools.map(tool => tool.category).filter((value, index, self) => self.indexOf(value) === index).concat(['Todas las categorias'])}
-							defaultValue={'Todas las categorias'}
-							onChange={(value) => setSelectedCategory(value)}
-						/>
-					</div>
-				</div>
-				{!isMobile ?
-					(
-						<div className='w-full overflow-x-auto rounded-lg border border-dark/20 mt-2'>
-							<table className='w-full border-collapse'>
-								<thead className=' w-full border-b border-dark/20'>
-									<tr className='w-full'>
-										<th className='text-start text-dark/50 font-semibold p-2'>Codigo</th>
-										<th className='text-start text-dark/50 font-semibold p-2'>Producto</th>
-										<th className='text-start text-dark/50 font-semibold p-2'>Categoria</th>
-										<th className='text-start text-dark/50 font-semibold p-2'>Precio Compra</th>
-										<th className='text-start text-dark/50 font-semibold p-2'>Precio Venta</th>
-										<th className='text-start text-dark/50 font-semibold p-2'>Acciones</th>
-									</tr>
-								</thead>
-								<tbody className='w-full'>
-									{filteredTools.slice(0, visibleItems).map((item, index) => (
-										<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
-											<td className='p-2'>{item.id}</td>
-											<td className='p-2 max-w-[180px] truncate'>{item.name}</td>
-											<td className='p-2'>
-												<span className='flex items-center justify-center border border-dark/20 p-1 rounded-full text-xs font-medium'>
-													{item.category}
-												</span>
-											</td>
-											<td className='p-2'>C${item.purchasePrice}</td>
-											<td className='p-2'>C${item.salePrice}</td>
-											<td className='p-2'>
-												<div className='flex gap-2'>
-													<Button
-														className={"none"}
-														icon={<FiEdit className='h-4 w-4' />}
-													/>
-													<Button
-														className={"none"}
-														icon={<FiTrash className='h-4 w-4' />}
-													/>
-												</div>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
+					<InfoCard
+						CardTitle={"valor total de inventario"}
+						cardValue={"$75,000"}
+						cardIconColor={"success"}
+						cardIcon={<FiTrendingUp className='h-4 w-4 md:h-6 md:w-6 text-success' />}
+					/>
+				</section>
+				<section className='w-full mt-6 border-dark/20 border rounded-lg p-4 flex flex-col'>
+					<div className='w-full flex sm:flex-row flex-col sm:justify-between sm:items-center mb-4 gap-2 md:gap-0'>
+						<div className='flex flex-col'>
+							<h2 className='md:text-2xl font-semibold'>Lista de productos</h2>
+							<span className='text-sm md:text-medium text-dark/50'>Gestiona y administra tu inventario</span>
 						</div>
-					) : (
-						<div className='w-full overflow-x-auto mt-2 flex flex-col gap-2'>
-							{
-								filteredTools.slice(0, visibleItems).map((item, index) => (
-									<Card
-										key={index}
-										productName={item.name}
-										id={item.id}
-										category={item.category}
-										salePrice={item.salePrice}
-										purshasePrice={item.purchasePrice}
-									/>
-								))
-							}
-						</div>
-					)
-				}
-				<div className='w-full flex justify-center items-center'>
-					{visibleItems < filteredTools.length && (
-						<div className='w-full mt-4 md:w-1/4'>
+						<div className='flex xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%] w-full md:justify-end'>
 							<Button
-								className={"transparent"}
-								text={"Ver Mas"}
-								func={loadMore}
+								className={"primary"}
+								text={"Agregar Producto"}
+								icon={<FiPlus className='h-4 w-4' />}
+								func={() => setIsActiveModal(true)}
 							/>
 						</div>
-					)}
-				</div>
-			</section>
-		</div>
+					</div>
+					<div className='w-full flex flex-col gap-1 sticky top-20 bg-light pt-4'>
+						<Input
+							placeholder={"Buscar producto..."}
+							type={"search"}
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+							iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
+						/>
+						<div className='md:w-1/4 w-full flex gap-2 flex-col md:flex-row'>
+							<DropdownMenu
+								options={tools.map(tool => tool.category).filter((value, index, self) => self.indexOf(value) === index).concat(['Todas las categorias'])}
+								defaultValue={'Todas las categorias'}
+								onChange={(value) => setSelectedCategory(value)}
+							/>
+						</div>
+					</div>
+					{!isMobile ?
+						(
+							<div className='w-full overflow-x-auto rounded-lg border border-dark/20 mt-2'>
+								<table className='w-full border-collapse'>
+									<thead className=' w-full border-b border-dark/20'>
+										<tr className='w-full'>
+											<th className='text-start text-dark/50 font-semibold p-2'>Codigo</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Producto</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Categoria</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Precio Compra</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Precio Venta</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Acciones</th>
+										</tr>
+									</thead>
+									<tbody className='w-full'>
+										{filteredTools.slice(0, visibleItems).map((item, index) => (
+											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
+												<td className='p-2'>{item.id}</td>
+												<td className='p-2 max-w-[180px] truncate'>{item.name}</td>
+												<td className='p-2'>
+													<span className='flex items-center justify-center border border-dark/20 p-1 rounded-full text-xs font-medium'>
+														{item.category}
+													</span>
+												</td>
+												<td className='p-2'>C${item.purchasePrice}</td>
+												<td className='p-2'>C${item.salePrice}</td>
+												<td className='p-2'>
+													<div className='flex gap-2'>
+														<Button
+															className={"none"}
+															icon={<FiEdit className='h-4 w-4' />}
+														/>
+														<Button
+															className={"none"}
+															icon={<FiTrash className='h-4 w-4' />}
+														/>
+													</div>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						) : (
+							<div className='w-full overflow-x-auto mt-2 flex flex-col gap-2'>
+								{
+									filteredTools.slice(0, visibleItems).map((item, index) => (
+										<Card
+											key={index}
+											productName={item.name}
+											id={item.id}
+											category={item.category}
+											salePrice={item.salePrice}
+											purshasePrice={item.purchasePrice}
+										/>
+									))
+								}
+							</div>
+						)
+					}
+					<div className='w-full flex justify-center items-center'>
+						{visibleItems < filteredTools.length && (
+							<div className='w-full mt-4 md:w-1/4'>
+								<Button
+									className={"transparent"}
+									text={"Ver Mas"}
+									func={loadMore}
+								/>
+							</div>
+						)}
+					</div>
+				</section>
+			</div>
+			{
+				isActiveModal &&
+				<ModalContainer
+					modalTitle={"Agregar Nuevo Producto"}
+					modalDescription={"Completa la informacion del producto"}
+					txtButton={"Agregar Producto"}
+					setIsActiveModal={setIsActiveModal}
+				>
+					<form className='w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'>
+						<Input
+							label={"Codigo del producto"}
+							placeholder={"EJ: H0001"}
+							type={"text"}
+							inputClass={"no icon"}
+						/>
+						<Input
+							label={"Nombre del producto"}
+							placeholder={"EJ: Martillo de carpintero"}
+							type={"text"}
+							inputClass={"no icon"}
+						/>
+						<DropdownMenu
+							label={"Categoria"}
+							options={tools.map(tool => tool.category).filter((value, index, self) => self.indexOf(value) === index)}
+							defaultValue={'Selecciona una categoria'}
+						/>
+						<Input
+							label={"precio de compra"}
+							placeholder={"EJ: 120"}
+							type={"number"}
+							inputClass={"no icon"}
+						/>
+						<Input
+							label={"precio de venta"}
+							placeholder={"EJ: 180"}
+							type={"number"}
+							inputClass={"no icon"}
+						/>
+					</form>
+				</ModalContainer>
+			}
+		</>
 	)
 }

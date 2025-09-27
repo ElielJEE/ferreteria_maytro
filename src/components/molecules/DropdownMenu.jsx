@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { IoIosArrowDown } from "react-icons/io";
 
 
-export default function DropdownMenu({ options, defaultValue, onChange }) {
+export default function DropdownMenu({ options, defaultValue, onChange, label }) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [selectedOption, setSelectedOption] = useState(defaultValue || "Select an option");
 
@@ -15,7 +15,10 @@ export default function DropdownMenu({ options, defaultValue, onChange }) {
 	}
 
 	return (
-		<div className='relative flex w-full'>
+		<div className='relative flex flex-col w-full'>
+			{label &&
+				<label htmlFor="dropdown" className="flex text-dark font-medium mb-2">{label}</label>
+			}
 			<div
 				className='flex h-10 border border-dark/20 hover:border-dark/30 rounded-lg bg-light px-3 w-full cursor-pointer justify-between items-center gap-2'
 				onClick={() => setIsOpen(!isOpen)}
