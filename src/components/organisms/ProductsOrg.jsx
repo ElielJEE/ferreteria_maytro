@@ -1,6 +1,6 @@
 "use client"
 import React, { useState } from 'react'
-import { Button, InfoCard } from '@/components/atoms'
+import { Button, InfoCard, ModalContainer } from '@/components/atoms'
 import { FiAlertTriangle, FiBox, FiDelete, FiEdit, FiPlus, FiSearch, FiTrash, FiTrendingDown, FiTrendingUp } from 'react-icons/fi'
 import { BsBoxSeam, BsFillBoxFill } from 'react-icons/bs'
 import { Card, DropdownMenu, Input } from '../molecules'
@@ -217,62 +217,44 @@ export default function ProductsOrg() {
 			</div>
 			{
 				isActiveModal &&
-				<div
-					className='w-screen h-screen fixed z-100 bottom-0 left-0 p-4 flex justify-center items-center bg-dark/80'
-					onClick={() => setIsActiveModal(false)}
+				<ModalContainer
+					modalTitle={"Agregar Nuevo Producto"}
+					modalDescription={"Completa la informacion del producto"}
+					txtButton={"Agregar Producto"}
+					setIsActiveModal={setIsActiveModal}
 				>
-					<div
-						className='w-full max-w-lg bg-light rounded-lg p-4'
-						onClick={(e) => e.stopPropagation()}
-					>
-						<div className='w-full'>
-							<h2 className='md:text-lg font-semibold'>Agregar Nuevo Producto</h2>
-							<span className='text-sm text-dark/70'>Completa la informacion del producto</span>
-						</div>
-						<form className='w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'>
-							<Input
-								label={"Codigo del producto"}
-								placeholder={"EJ: H0001"}
-								type={"text"}
-								inputClass={"no icon"}
-							/>
-							<Input
-								label={"Nombre del producto"}
-								placeholder={"EJ: Martillo de carpintero"}
-								type={"text"}
-								inputClass={"no icon"}
-							/>
-							<DropdownMenu
-								label={"Categoria"}
-								options={tools.map(tool => tool.category).filter((value, index, self) => self.indexOf(value) === index)}
-								defaultValue={'Selecciona una categoria'}
-							/>
-							<Input
-								label={"precio de compra"}
-								placeholder={"EJ: 120"}
-								type={"number"}
-								inputClass={"no icon"}
-							/>
-							<Input
-								label={"precio de venta"}
-								placeholder={"EJ: 180"}
-								type={"number"}
-								inputClass={"no icon"}
-							/>
-						</form>
-						<div className='w-full flex justify-end items-center gap-2 mt-4'>
-							<Button
-								className={"secondary"}
-								text={"Cancelar"}
-								func={() => setIsActiveModal(false)}
-							/>
-							<Button 
-								className={"success"}
-								text={"Agregar Producto"}
-							/>
-						</div>
-					</div>
-				</div>
+					<form className='w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'>
+						<Input
+							label={"Codigo del producto"}
+							placeholder={"EJ: H0001"}
+							type={"text"}
+							inputClass={"no icon"}
+						/>
+						<Input
+							label={"Nombre del producto"}
+							placeholder={"EJ: Martillo de carpintero"}
+							type={"text"}
+							inputClass={"no icon"}
+						/>
+						<DropdownMenu
+							label={"Categoria"}
+							options={tools.map(tool => tool.category).filter((value, index, self) => self.indexOf(value) === index)}
+							defaultValue={'Selecciona una categoria'}
+						/>
+						<Input
+							label={"precio de compra"}
+							placeholder={"EJ: 120"}
+							type={"number"}
+							inputClass={"no icon"}
+						/>
+						<Input
+							label={"precio de venta"}
+							placeholder={"EJ: 180"}
+							type={"number"}
+							inputClass={"no icon"}
+						/>
+					</form>
+				</ModalContainer>
 			}
 		</>
 	)
