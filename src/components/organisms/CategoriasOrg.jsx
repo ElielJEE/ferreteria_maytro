@@ -4,46 +4,53 @@ import { Button, InfoCard, ModalContainer } from '../atoms';
 import { BiCategory, BiCategoryAlt } from 'react-icons/bi';
 import { FiArrowRight, FiEdit, FiPlus, FiSearch, FiTrash } from 'react-icons/fi';
 import { DropdownMenu, Input } from '../molecules';
-import { useActive, useRandomColor } from '@/hooks';
+import { useActive, useFilter, useRandomColor } from '@/hooks';
+import { CategoriesService } from '@/services';
 
 export default function CategoriasOrg() {
-  const [categories, setCategories] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [newCategory, setNewCategory] = useState({ name: "", parent: null });
+	const [categories, setCategories] = useState([]);
+	const [searchTerm, setSearchTerm] = useState("");
+	const [error, setError] = useState("");
+	const [message, setMessage] = useState("");
+	const [newCategory, setNewCategory] = useState({ name: "", parent: null });
   const [editMode, setEditMode] = useState(false);
   const [editType, setEditType] = useState(null); // 'categoria' | 'subcategoria'
   const [editId, setEditId] = useState(null);
-  const { toggleActiveItem, isActiveItem, setIsActiveModal, isActiveModal } = useActive();
+	const { toggleActiveItem, isActiveItem, setIsActiveModal, isActiveModal } = useActive();
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      const res = await fetch('/api/categorias');
-      const data = await res.json();
-      setCategories(data);
-    };
-    fetchCategories();
-  }, []);
+	useEffect(() => {
+		const fetchCategories = async () => {
+			try {
+				const data = await CategoriesService.getCategories();
+				setCategories(data);
+			} catch (error) {
+				console.error(error);
+			}
+		};
+		fetchCategories();
+	}, []);
+	console.log(categories);
 
-  const searchHandler = categories.filter((category) => {
-    const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSubcategory = category.subcategories && category.subcategories.some(subcat =>
-      subcat.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    return matchesSearch || matchesSubcategory;
-  });
+	const filteredCategories = useFilter({
+		data: categories,
+		searchTerm,
+		matcher: (item, term) =>
+			item.name.toLowerCase().includes(term.toLowerCase()) ||
+			(item.subcategories && item.subcategories.some(sub => sub.name.toLowerCase().includes(term.toLowerCase())))
+	});
 
-  const categoryColors = useMemo(() => {
-    return categories.map((category) => (
-      useRandomColor(category.id)
-    ));
-  }, [categories]);
+	const categoryColors = useMemo(() => {
+		return categories.map((category, index) => (
+			useRandomColor(index)
+		));
+	}, [categories]);
 
-  const handleInputChange = (e) => {
-    setNewCategory({ ...newCategory, name: e.target.value });
-  };
-  const handleParentChange = (value) => {
-    setNewCategory({ ...newCategory, parent: value });
-  };
+	const handleInputChange = (e) => {
+		setNewCategory({ ...newCategory, name: e.target.value });
+	};
+	const handleParentChange = (value) => {
+		setNewCategory({ ...newCategory, parent: value });
+	};
 
   const handleAddCategory = async (e) => {
     e.preventDefault();
@@ -154,7 +161,7 @@ export default function CategoriasOrg() {
           </div>
           <div className='w-full border border-dark/20 rounded-lg overflow-x-auto'>
             {categories.length > 0 &&
-              searchHandler.map((category, index) => (
+              filteredCategories.map((category, index) => (
                 <div key={index}>
                   <div
                     className='w-full flex border-b border-dark/20 p-4 items-center justify-between gap-1 cursor-pointer'
