@@ -55,13 +55,15 @@ export default function ProductsOrg() {
 				<section className='w-full grid grid-cols-1 gap-4 xl:grid-cols-4 md:grid-cols-2'>
 					<InfoCard
 						CardTitle={"Total Productos"}
-						cardValue={"1,250"}
+						cardValue={products.reduce((acc, prod) => acc + (Number(prod.CANTIDAD) || 0), 0)}
 						cardIconColor={"primary"}
 						cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
 					/>
 					<InfoCard
-						CardTitle={"valor total de inventario"}
-						cardValue={"$75,000"}
+						CardTitle={"Valor total de inventario"}
+						cardValue={
+								`C$${products.reduce((acc, prod) => acc + ((Number(prod.CANTIDAD) || 0) * (Number(prod.PRECIO) || 0)), 0).toLocaleString()}`
+						}
 						cardIconColor={"success"}
 						cardIcon={<FiTrendingUp className='h-4 w-4 md:h-6 md:w-6 text-success' />}
 					/>
@@ -103,7 +105,7 @@ export default function ProductsOrg() {
 								<table className='w-full border-collapse'>
 									<thead className=' w-full border-b border-dark/20'>
 										<tr className='w-full'>
-											<th className='text-center text-dark/50 font-semibold p-2'>Codigo</th>
+											<th className='text-center text-dark/50 font-semibold p-2'>Código</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Producto</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Categoría</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Cantidad</th>
@@ -114,7 +116,7 @@ export default function ProductsOrg() {
 									<tbody className='w-full'>
 										{filteredProducts.map((item, index) => (
 											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
-												<td className='p-2 text-center'>{item.ID_PRODUCT}</td>
+												<td className='p-2 text-center'>{item.CODIGO_PRODUCTO}</td>
 												<td className='p-2 max-w-[180px] truncate text-center'>{item.PRODUCT_NAME}</td>
 												<td className='p-2 text-center'>
 													<span className='flex items-center justify-center border border-dark/20 p-1 rounded-full text-xs font-medium'>
@@ -131,7 +133,7 @@ export default function ProductsOrg() {
 															func={() => {
 																setForm({
 																	id: item.ID_PRODUCT,
-																	codigo: item.ID_PRODUCT,
+																	codigo: item.CODIGO_PRODUCTO,
 																	nombre: item.PRODUCT_NAME,
 																	subcategoria: item.ID_SUBCATEGORIAS,
 																	precio_venta: item.PRECIO,
@@ -164,7 +166,7 @@ export default function ProductsOrg() {
 									filteredProducts.map((item, index) => (
 										<div key={index} className='border rounded-lg p-4 flex flex-col gap-2 bg-white items-center text-center'>
 											<div className='font-semibold'>{item.PRODUCT_NAME}</div>
-											<div className='text-xs text-dark/60'>Código: {item.ID_PRODUCT}</div>
+											<div className='text-xs text-dark/60'>Código: {item.CODIGO_PRODUCTO}</div>
 											<div className='text-xs text-dark/60'>Categoría: {item.NOMBRE_SUBCATEGORIA}</div>
 											<div className='text-xs text-dark/60'>Cantidad: {item.CANTIDAD}</div>
 											<div className='text-xs text-dark/60'>Precio Venta: C${item.PRECIO}</div>
