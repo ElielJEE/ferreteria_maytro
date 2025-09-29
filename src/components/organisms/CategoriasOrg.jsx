@@ -10,6 +10,9 @@ export default function CategoriasOrg() {
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newCategory, setNewCategory] = useState({ name: "", parent: null });
+  const [editMode, setEditMode] = useState(false);
+  const [editType, setEditType] = useState(null); // 'categoria' | 'subcategoria'
+  const [editId, setEditId] = useState(null);
   const { toggleActiveItem, isActiveItem, setIsActiveModal, isActiveModal } = useActive();
 
   useEffect(() => {
@@ -46,24 +49,65 @@ export default function CategoriasOrg() {
     e.preventDefault();
     if (!newCategory.name) return;
     try {
-      console.log('Submitting new category:', newCategory);
-      const response = await fetch('/api/categorias', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newCategory),
-      });
+      let response;
+      if (editMode) {
+        // Editar
+        response = await fetch('/api/categorias', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editId, name: newCategory.name, type: editType }),
+        });
+      } else {
+        // Crear
+        response = await fetch('/api/categorias', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newCategory),
+        });
+      }
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error adding category:', errorText);
+        console.error('Error saving category:', errorText);
         return;
       }
       setIsActiveModal(false);
+      setEditMode(false);
+      setEditType(null);
+      setEditId(null);
       setNewCategory({ name: "", parent: null });
       const res = await fetch('/api/categorias');
       const data = await res.json();
       setCategories(data);
     } catch (err) {
       console.error('Exception in handleAddCategory:', err);
+    }
+  };
+
+  const handleEdit = (item, type, parent = null) => {
+    setEditMode(true);
+    setEditType(type);
+    setEditId(item.id);
+    setNewCategory({ name: item.name, parent: parent });
+    setIsActiveModal(true);
+  };
+
+  const handleDelete = async (id, type) => {
+    try {
+      const response = await fetch('/api/categorias', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, type }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error deleting:', errorText);
+        return;
+      }
+      const res = await fetch('/api/categorias');
+      const data = await res.json();
+      setCategories(data);
+    } catch (err) {
+      console.error('Exception in handleDelete:', err);
     }
   };
 
@@ -130,10 +174,12 @@ export default function CategoriasOrg() {
                         <Button
                           className={"none"}
                           icon={<FiEdit className='h-4 w-4' />}
+                          func={() => handleEdit(category, 'categoria')}
                         />
                         <Button
                           className={"none"}
                           icon={<FiTrash className='h-4 w-4' />}
+                          func={() => handleDelete(category.id, 'categoria')}
                         />
                       </div>
                     </div>
@@ -154,10 +200,12 @@ export default function CategoriasOrg() {
                             <Button
                               className={"none"}
                               icon={<FiEdit className='h-4 w-4' />}
+                              func={() => handleEdit(subcat, 'subcategoria', category.id)}
                             />
                             <Button
                               className={"none"}
                               icon={<FiTrash className='h-4 w-4' />}
+                              func={() => handleDelete(subcat.id, 'subcategoria')}
                             />
                           </div>
                         </div>
@@ -171,9 +219,15 @@ export default function CategoriasOrg() {
         </section>
         {isActiveModal && (
           <ModalContainer
-            setIsActiveModal={setIsActiveModal}
-            modalTitle={"Agregar Nueva Categoría"}
-            modalDescription={"Rellena el formulario para agregar una nueva categoría"}
+            setIsActiveModal={() => {
+              setIsActiveModal(false);
+              setEditMode(false);
+              setEditType(null);
+              setEditId(null);
+              setNewCategory({ name: "", parent: null });
+            }}
+            modalTitle={editMode ? "Editar Categoría/Subcategoría" : "Agregar Nueva Categoría"}
+            modalDescription={editMode ? "Modifica los datos y guarda los cambios" : "Rellena el formulario para agregar una nueva categoría"}
           >
             <form className='w-full grid grid-cols-1 gap-4' onSubmit={handleAddCategory}>
               <Input
@@ -185,23 +239,31 @@ export default function CategoriasOrg() {
                 onChange={handleInputChange}
                 inputClass={"no icon"}
               />
-              <DropdownMenu
-                label={"Categoría Padre (Opcional)"}
-                options={[{ label: "Ninguna", value: "Ninguna" }, ...categories.map(cat => ({ label: cat.name, value: cat.id }))]}
-                defaultValue={"Ninguna"}
-                onChange={handleParentChange}
-              />
+              {!editMode && (
+                <DropdownMenu
+                  label={"Categoría Padre (Opcional)"}
+                  options={[{ label: "Ninguna", value: "Ninguna" }, ...categories.map(cat => ({ label: cat.name, value: cat.id }))]}
+                  defaultValue={"Ninguna"}
+                  onChange={handleParentChange}
+                />
+              )}
               <div className='flex gap-4 mt-2'>
                 <Button
                   className={"primary"}
-                  text={"Agregar Categoria"}
+                  text={editMode ? "Guardar Cambios" : "Agregar Categoria"}
                   type="submit"
                 />
                 <Button
                   className={"danger"}
                   text={"Cancelar"}
                   type="button"
-                  func={() => setIsActiveModal(false)}
+                  func={() => {
+                    setIsActiveModal(false);
+                    setEditMode(false);
+                    setEditType(null);
+                    setEditId(null);
+                    setNewCategory({ name: "", parent: null });
+                  }}
                 />
               </div>
             </form>
