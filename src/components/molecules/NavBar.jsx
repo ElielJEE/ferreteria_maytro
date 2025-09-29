@@ -53,8 +53,6 @@ export default function NavBar({ openSidebar, setOpenSidebar }) {
 		}
 	});
 
-	console.log(formattedPaths);
-
 	return (
 		<nav className={`fixed right-0 top-0 h-20 px-5 bg-light transition-all duration-500 z-30 ${openSidebar ? "xl:w-[80%] w-full" : "w-full"
 			}`}>

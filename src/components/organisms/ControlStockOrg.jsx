@@ -1,7 +1,7 @@
 "use client"
-import React from 'react'
+import React, { useState } from 'react'
 import { Button, InfoCard, ModalContainer } from '../atoms'
-import { FiAlertTriangle, FiBox, FiDollarSign, FiEye, FiGlobe, FiSearch, FiShoppingCart, FiTrendingUp, FiX } from 'react-icons/fi'
+import { FiAlertTriangle, FiBox, FiDollarSign, FiEye, FiFile, FiGlobe, FiSearch, FiShoppingCart, FiTrendingUp, FiX, FiXCircle } from 'react-icons/fi'
 import { BsBoxSeam, BsBuilding, BsGear } from 'react-icons/bs'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { useActive, useIsMobile } from '@/hooks'
@@ -108,9 +108,19 @@ export default function ControlStockOrg() {
 		{ key: "valor_total", title: "Valor total", icon: FiDollarSign, color: "success", prefix: "C$ " },
 	];
 
+	const [activeTab, setActiveTab] = useState("Resumen");
+
+	const tabs = [
+		{ label: "Resumen", icon: <FiEye /> },
+		{ label: "Movimientos", icon: <FiFile /> },
+		{ label: "Alertas", icon: <FiAlertTriangle /> },
+		{ label: "Dañados", icon: <FiXCircle /> },
+		{ label: "Reservados", icon: <FiShoppingCart /> },
+	];
+
 	const isMobile = useIsMobile({ breakpoint: 768 });
 	const { setIsActiveModal, isActiveModal } = useActive();
-	
+
 
 	return (
 		<>
@@ -141,7 +151,21 @@ export default function ControlStockOrg() {
 						))
 					}
 				</section>
-				{/* Aca tienen que ir los tabs */}
+				<section className='w-full mt-6'>
+					<div className='grid grid-cols-5 p-1 h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold'>
+						{tabs.map((tab) => (
+							<div
+								key={tab.label}
+								className={`flex gap-2 items-center justify-center cursor-pointer rounded-sm ${activeTab === tab.label ? "bg-light text-dark" : ""
+									}`}
+								onClick={() => setActiveTab(tab.label)}
+							>
+								{tab.icon}
+								<h2>{tab.label}</h2>
+							</div>
+						))}
+					</div>
+				</section>
 				<section className='w-full mt-6 border-dark/20 border rounded-lg p-4 flex flex-col'>
 					<div className='w-full flex sm:flex-row flex-col sm:justify-between sm:items-center mb-4 gap-2 md:gap-0'>
 						<div className='flex flex-col'>

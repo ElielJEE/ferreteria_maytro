@@ -34,7 +34,7 @@ export default function Input({ type, placeholder, iconInput, value, onChange, l
 							onChange={onChange}
 							id={type}
 							className={`w-full h-30 min-h-30 border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} transition-colors outline-none focus-visible:ring-1`}
-							required
+							/* required */
 						/>
 						:
 						<input
@@ -44,7 +44,7 @@ export default function Input({ type, placeholder, iconInput, value, onChange, l
 							onChange={onChange}
 							id={type}
 							className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
-							required
+							/* required */
 						/>
 					}
 					{

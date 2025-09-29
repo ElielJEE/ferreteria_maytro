@@ -4,9 +4,15 @@ import { Button, InfoCard, ModalContainer } from '@/components/atoms'
 import { FiAlertTriangle, FiBox, FiDelete, FiEdit, FiPlus, FiSearch, FiTrash, FiTrendingDown, FiTrendingUp } from 'react-icons/fi'
 import { BsBoxSeam, BsFillBoxFill } from 'react-icons/bs'
 import { Card, DropdownMenu, Input } from '../molecules'
-import { useActive, useIsMobile, useLoadMore } from '@/hooks'
+import { useActive, useFilter, useIsMobile, useLoadMore } from '@/hooks'
 
 export default function ProductsOrg() {
+	const [selectedCategory, setSelectedCategory] = useState('Todas las categorias');
+	const [searchTerm, setSearchTerm] = useState('');
+	const isMobile = useIsMobile({ breakpoint: 768 });
+	const { visibleItems, loadMore } = useLoadMore();
+	const { setIsActiveModal, isActiveModal } = useActive();
+
 	// Estado para productos y subcategorías
 	const [products, setProducts] = useState([]);
 	const [subcategories, setSubcategories] = useState([]);
@@ -32,11 +38,6 @@ export default function ProductsOrg() {
 			.then(data => setSubcategories(data));
 	}, []);
 
-	const isMobile = useIsMobile({ breakpoint: 768 });
-
-	const [selectedCategory, setSelectedCategory] = useState('Todas las categorias');
-	const [searchTerm, setSearchTerm] = useState('');
-
 	const filteredProducts = products.filter(product => {
 		const categoryMatch =
 			selectedCategory === 'Todas las categorias' ||
@@ -46,8 +47,6 @@ export default function ProductsOrg() {
 			String(product.ID_PRODUCT).toLowerCase().includes(searchTerm.toLocaleLowerCase());
 		return categoryMatch && matchesSearch;
 	});
-
-	const { setIsActiveModal, isActiveModal } = useActive();
 
 	return (
 		<>
