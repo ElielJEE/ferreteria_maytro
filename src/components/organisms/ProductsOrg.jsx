@@ -60,7 +60,6 @@ export default function ProductsOrg() {
 		{ id: "H0050", name: "Cargador de baterías", category: "Herramientas eléctricas", stock: 0, purchasePrice: 700, salePrice: 950 },
 	]
 
-
 	const isMobile = useIsMobile({ breakpoint: 768 });
 
 	const { visibleItems, loadMore } = useLoadMore();
@@ -194,9 +193,16 @@ export default function ProductsOrg() {
 											productName={item.name}
 											id={item.id}
 											category={item.category}
-											salePrice={item.salePrice}
-											purshasePrice={item.purchasePrice}
-										/>
+										>
+											<div className='flex flex-col'>
+												<span className='text-sm text-dark/70'>Precio Venta</span>
+												<span className='text-lg font-semibold'>C${item.salePrice}</span>
+											</div>
+											<div className='flex flex-col'>
+												<span className='text-sm text-dark/70'>Precio Compra</span>
+												<span className='text-lg font-semibold'>C${item.purchasePrice}</span>
+											</div>
+										</Card>
 									))
 								}
 							</div>
