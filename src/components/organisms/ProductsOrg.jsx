@@ -44,7 +44,7 @@ export default function ProductsOrg() {
 			product.NOMBRE_SUBCATEGORIA === selectedCategory;
 		const matchesSearch =
 			product.PRODUCT_NAME?.toLowerCase().includes(searchTerm.toLocaleLowerCase()) ||
-			String(product.ID_PRODUCT).toLowerCase().includes(searchTerm.toLocaleLowerCase());
+			String(product.CODIGO_PRODUCTO).toLowerCase().includes(searchTerm.toLocaleLowerCase());
 		return categoryMatch && matchesSearch;
 	});
 
