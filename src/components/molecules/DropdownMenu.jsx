@@ -39,9 +39,9 @@ export default function DropdownMenu({ options, defaultValue, onChange, label })
 								className='hover:bg-primary rounded-sm p-1 px-2 hover:text-white cursor-pointer flex items-center'
 							>
 								<span className='w-[20px]'>
-									{option === selectedOption && '✓'}
+									{getLabel(option) === selectedOption && '✓'}
 								</span>
-								{option}
+								{getLabel(option)}
 							</li>
 						))}
 					</ul>
