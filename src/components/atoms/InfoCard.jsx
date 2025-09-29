@@ -8,7 +8,8 @@ export default function InfoCard({ CardTitle, cardValue, cardIcon, cardIconColor
 		secondary: 'bg-secondary/10',
 		blue: 'bg-blue/10',
 		yellow: 'bg-yellow/10',
-		danger: 'bg-danger/10'
+		danger: 'bg-danger/10',
+		purple: 'bg-purple/10',
 	};
 
 	return (
