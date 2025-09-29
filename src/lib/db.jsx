@@ -7,3 +7,5 @@ export const pool = mysql.createPool({
 	database: process.env.DB_NAME || 'ferreteria_maytro',
 	port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306
 });
+
+export default pool; // 👈 importante
