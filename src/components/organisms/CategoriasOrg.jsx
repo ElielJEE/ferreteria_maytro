@@ -8,114 +8,129 @@ import { useActive, useFilter, useRandomColor } from '@/hooks';
 import { CategoriesService } from '@/services';
 
 export default function CategoriasOrg() {
-	const [categories, setCategories] = useState([]);
-	const [searchTerm, setSearchTerm] = useState("");
-	const [error, setError] = useState("");
-	const [message, setMessage] = useState("");
-	const [newCategory, setNewCategory] = useState({ name: "", parent: null });
+  const [categories, setCategories] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [newCategory, setNewCategory] = useState({ name: "", parent: null });
   const [editMode, setEditMode] = useState(false);
-  const [editType, setEditType] = useState(null); // 'categoria' | 'subcategoria'
-  const [editId, setEditId] = useState(null);
-	const { toggleActiveItem, isActiveItem, setIsActiveModal, isActiveModal } = useActive();
+  const [editCategory, setEditCategory] = useState({ id: null, categoryType: null })
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const { toggleActiveItem, isActiveItem, setIsActiveModal, isActiveModal } = useActive();
 
-	useEffect(() => {
-		const fetchCategories = async () => {
-			try {
-				const data = await CategoriesService.getCategories();
-				setCategories(data);
-			} catch (error) {
-				console.error(error);
-			}
-		};
-		fetchCategories();
-	}, []);
-	console.log(categories);
+  const handleInputChange = (e) => {
+    setNewCategory({ ...newCategory, name: e.target.value });
+  };
+  const handleParentChange = (value) => {
+    setNewCategory({ ...newCategory, parent: value });
+  };
 
-	const filteredCategories = useFilter({
-		data: categories,
-		searchTerm,
-		matcher: (item, term) =>
-			item.name.toLowerCase().includes(term.toLowerCase()) ||
-			(item.subcategories && item.subcategories.some(sub => sub.name.toLowerCase().includes(term.toLowerCase())))
-	});
-
-	const categoryColors = useMemo(() => {
-		return categories.map((category, index) => (
-			useRandomColor(index)
-		));
-	}, [categories]);
-
-	const handleInputChange = (e) => {
-		setNewCategory({ ...newCategory, name: e.target.value });
-	};
-	const handleParentChange = (value) => {
-		setNewCategory({ ...newCategory, parent: value });
-	};
-
-  const handleAddCategory = async (e) => {
+  const handleCategoryForm = async (e) => {
     e.preventDefault();
-    if (!newCategory.name) return;
+    if (!newCategory.name || newCategory.name.trim() === '') {
+      setError('El nombre es requerido');
+      setMessage("");
+      return;
+    }
     try {
-      let response;
       if (editMode) {
-        // Editar
-        response = await fetch('/api/categorias', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editId, name: newCategory.name, type: editType }),
-        });
+        await CategoriesService.editCategory({ id: editCategory.id, name: newCategory.name, type: editCategory.categoryType });
+        setMessage('Categoría actualizada correctamente');
+        setIsActiveModal(false)
+        setEditCategory({ id: null, categoryType: null });
       } else {
-        // Crear
-        response = await fetch('/api/categorias', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newCategory),
-        });
+        await CategoriesService.createCategory(newCategory);
+        setMessage('Categoría agregada correctamente');
+
+        if (!isActiveModal) {
+          setNewCategory({ name: "", parent: null });
+        }
       }
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error saving category:', errorText);
-        return;
+
+      setError("");
+      const data = await CategoriesService.getCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error('Exception in handleAddCategory:', error);
+      setError(error.message || 'Error en la operación');
+      setMessage("");
+    }
+  };
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await CategoriesService.getCategories();
+        setCategories(data);
+      } catch (error) {
+        console.error(error);
       }
-      setIsActiveModal(false);
+    };
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    if (!message) return;
+    const id = setTimeout(() => setMessage(''), 3000);
+    return () => clearTimeout(id);
+  }, [message]);
+
+  const filteredCategories = useFilter({
+    data: categories,
+    searchTerm,
+    matcher: (item, term) =>
+      item.name.toLowerCase().includes(term.toLowerCase()) ||
+      (item.subcategories && item.subcategories.some(sub => sub.name.toLowerCase().includes(term.toLowerCase())))
+  });
+
+  const categoryColors = useMemo(() => {
+    return categories.map((category, index) => (
+      useRandomColor(index)
+    ));
+  }, [categories]);
+
+  const toggleModalType = (action, item = null, type = null, parent = null) => {
+    if (action === 'create') {
       setEditMode(false);
-      setEditType(null);
-      setEditId(null);
+      setEditCategory({ id: null, categoryType: null })
       setNewCategory({ name: "", parent: null });
-      const res = await fetch('/api/categorias');
-      const data = await res.json();
-      setCategories(data);
-    } catch (err) {
-      console.error('Exception in handleAddCategory:', err);
+      setConfirmDelete(null);
+      setIsActiveModal(true);
+      return;
+    }
+
+    if (action === 'edit') {
+      setEditMode(true);
+      setEditCategory({ id: item.id, categoryType: type })
+      setNewCategory({ name: item.name, parent: parent });
+      setConfirmDelete(null);
+      setIsActiveModal(true);
+      return;
+    }
+
+    if (action === 'delete') {
+      setConfirmDelete({ id: item.id, type, name: item.name });
+      setIsActiveModal(true);
+      return;
     }
   };
 
-  const handleEdit = (item, type, parent = null) => {
-    setEditMode(true);
-    setEditType(type);
-    setEditId(item.id);
-    setNewCategory({ name: item.name, parent: parent });
-    setIsActiveModal(true);
-  };
-
-  const handleDelete = async (id, type) => {
+  const handleDelete = async () => {
     try {
-      const response = await fetch('/api/categorias', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, type }),
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error deleting:', errorText);
-        return;
-      }
-      const res = await fetch('/api/categorias');
-      const data = await res.json();
+      await CategoriesService.deleteCategory({ id: confirmDelete.id, type: confirmDelete.type });
+      const data = await CategoriesService.getCategories();
       setCategories(data);
-    } catch (err) {
-      console.error('Exception in handleDelete:', err);
+    } catch (error) {
+      console.error('Exception in handleDelete:', error);
     }
+  };
+
+  const handleModalClose = () => {
+    setIsActiveModal(false);
+    setEditMode(false);
+    setEditCategory({ id: null, categoryType: null })
+    setNewCategory({ name: "", parent: null });
+    setConfirmDelete(null);
   };
 
   return (
@@ -146,7 +161,7 @@ export default function CategoriasOrg() {
                 className={"primary"}
                 text={"Agregar Categoría"}
                 icon={<FiPlus className='h-4 w-4' />}
-                func={() => setIsActiveModal(true)}
+                func={() => toggleModalType('create')}
               />
             </div>
           </div>
@@ -181,12 +196,12 @@ export default function CategoriasOrg() {
                         <Button
                           className={"none"}
                           icon={<FiEdit className='h-4 w-4' />}
-                          func={() => handleEdit(category, 'categoria')}
+                          func={() => toggleModalType('edit', category, 'categoria')}
                         />
                         <Button
                           className={"none"}
                           icon={<FiTrash className='h-4 w-4' />}
-                          func={() => handleDelete(category.id, 'categoria')}
+                          func={() => toggleModalType('delete', category, 'categoria')}
                         />
                       </div>
                     </div>
@@ -207,12 +222,12 @@ export default function CategoriasOrg() {
                             <Button
                               className={"none"}
                               icon={<FiEdit className='h-4 w-4' />}
-                              func={() => handleEdit(subcat, 'subcategoria', category.id)}
+                              func={() => toggleModalType('edit', subcat, 'subcategoria', category.id)}
                             />
                             <Button
                               className={"none"}
                               icon={<FiTrash className='h-4 w-4' />}
-                              func={() => handleDelete(subcat.id, 'subcategoria')}
+                              func={() => toggleModalType('delete', subcat, 'subcategoria')}
                             />
                           </div>
                         </div>
@@ -226,54 +241,57 @@ export default function CategoriasOrg() {
         </section>
         {isActiveModal && (
           <ModalContainer
-            setIsActiveModal={() => {
-              setIsActiveModal(false);
-              setEditMode(false);
-              setEditType(null);
-              setEditId(null);
-              setNewCategory({ name: "", parent: null });
-            }}
-            modalTitle={editMode ? "Editar Categoría/Subcategoría" : "Agregar Nueva Categoría"}
-            modalDescription={editMode ? "Modifica los datos y guarda los cambios" : "Rellena el formulario para agregar una nueva categoría"}
+            setIsActiveModal={handleModalClose}
+            modalTitle={confirmDelete ? `Confirmar borrado` : (editMode ? "Editar Categoría/Subcategoría" : "Agregar Nueva Categoría")}
+            modalDescription={confirmDelete ? `¿Estás seguro que deseas borrar "${confirmDelete?.name}"? Esta acción no se puede deshacer.` : (editMode ? "Modifica los datos y guarda los cambios" : "Rellena el formulario para agregar una nueva categoría")}
           >
-            <form className='w-full grid grid-cols-1 gap-4' onSubmit={handleAddCategory}>
-              <Input
-                label={"Nombre de la Categoría"}
-                placeholder={"Ej: Herramientas"}
-                type={"text"}
-                name="name"
-                value={newCategory.name}
-                onChange={handleInputChange}
-                inputClass={"no icon"}
-              />
-              {!editMode && (
-                <DropdownMenu
-                  label={"Categoría Padre (Opcional)"}
-                  options={[{ label: "Ninguna", value: "Ninguna" }, ...categories.map(cat => ({ label: cat.name, value: cat.id }))]}
-                  defaultValue={"Ninguna"}
-                  onChange={handleParentChange}
-                />
-              )}
-              <div className='flex gap-4 mt-2'>
-                <Button
-                  className={"primary"}
-                  text={editMode ? "Guardar Cambios" : "Agregar Categoria"}
-                  type="submit"
-                />
-                <Button
-                  className={"danger"}
-                  text={"Cancelar"}
-                  type="button"
-                  func={() => {
-                    setIsActiveModal(false);
-                    setEditMode(false);
-                    setEditType(null);
-                    setEditId(null);
-                    setNewCategory({ name: "", parent: null });
-                  }}
-                />
+            {confirmDelete ? (
+              <div className='w-full flex flex-col gap-4'>
+                <p className='text-dark/70'>Confirma que quieres eliminar la {confirmDelete.type === 'categoria' ? 'categoría' : 'subcategoría'} <strong>{confirmDelete.name}</strong>.</p>
+                <div className='flex gap-4'>
+                  <Button className={'danger'} text={'Cancelar'} func={handleModalClose} />
+                  <Button className={'success'} text={'Eliminar'} func={async () => {
+                    await handleDelete();
+                    handleModalClose();
+                  }} />
+                </div>
               </div>
-            </form>
+            ) : (
+              <form className='w-full grid grid-cols-1 gap-4' onSubmit={handleCategoryForm}>
+                <Input
+                  label={"Nombre de la Categoría"}
+                  placeholder={"Ej: Herramientas"}
+                  type={"text"}
+                  name="name"
+                  value={newCategory.name}
+                  onChange={handleInputChange}
+                  inputClass={"no icon"}
+                />
+                {!editMode && (
+                  <DropdownMenu
+                    label={"Categoría Padre (Opcional)"}
+                    options={[{ label: "Ninguna", value: "Ninguna" }, ...categories.map(cat => ({ label: cat.name, value: cat.id }))]}
+                    defaultValue={"Ninguna"}
+                    onChange={handleParentChange}
+                  />
+                )}
+                <div className='flex gap-4 mt-2'>
+                  <Button
+                    className={"danger"}
+                    text={"Cancelar"}
+                    type="button"
+                    func={handleModalClose}
+                  />
+                  <Button
+                    className={"success"}
+                    text={editMode ? "Guardar Cambios" : "Agregar Categoria"}
+                    type="submit"
+                  />
+                </div>
+                {error && <span className='text-danger text-center'>{error}</span>}
+                {message && <span className='text-success text-center'>{message}</span>}
+              </form>
+            )}
           </ModalContainer>
         )}
       </div>
