@@ -26,8 +26,54 @@ export const createCategory = async (category) => {
 			body: JSON.stringify(category)
 		});
 
-		return await res.json();
+		const data = await res.json();
+		if (!res.ok) {
+			throw new Error(data?.error || data?.message || res.statusText || 'Error creating category');
+		}
+
+		return data;
 	} catch (error) {
 		console.error("createCategory error:", error);
+		throw error;
+	}
+}
+
+export const editCategory = async (category) => {
+	try {
+		const res = await fetch(API_URL, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(category)
+		});
+
+		const data = await res.json();
+		if (!res.ok) {
+			throw new Error(data?.error || data?.message || res.statusText || 'Error editing category');
+		}
+
+		return data;
+	} catch (error) {
+		console.error("editCategory error:", error);
+		throw error;
+	}
+}
+
+export const deleteCategory = async (category) => {
+	try {
+		const res = await fetch(API_URL, {
+			method: "DELETE",
+			headers: { "Content-Typer": "application/json" },
+			body: JSON.stringify(category)
+		})
+
+		const data = await res.json();
+		if (!res.ok) {
+			throw new Error(data?.error || data?.message || res.statusText || 'Error deleting category');
+		}
+
+		return data;
+	} catch (error) {
+		console.error("deteleCategory error:", error);
+		throw error;
 	}
 }
