@@ -90,44 +90,31 @@ export default function CategoriasOrg() {
     ));
   }, [categories]);
 
-  // Handlers for modal actions: create / edit / delete / onClose
-  const handlers = React.useMemo(() => ({
-    create: () => {
-      setEditMode(false);
-      setEditCategory({ id: null, categoryType: null });
-      setNewCategory({ name: "", parent: null });
-      setConfirmDelete(null);
-      setIsActiveModal(true);
-    },
-    edit: (p) => {
-      const payload = p || {};
-      setEditMode(true);
-      setEditCategory({ id: payload.id ?? null, categoryType: payload.type ?? null });
-      setNewCategory({ name: payload.name ?? "", parent: payload.parent ?? null });
-      setConfirmDelete(null);
-      setIsActiveModal(true);
-    },
-    delete: (p) => {
-      const payload = p || {};
-      setConfirmDelete({ id: payload.id ?? null, type: payload.type ?? null, name: payload.name ?? "" });
-      setIsActiveModal(true);
-    },
-    onClose: () => {
-      setIsActiveModal(false);
-      setEditMode(false);
-      setEditCategory({ id: null, categoryType: null });
-      setNewCategory({ name: "", parent: null });
-      setConfirmDelete(null);
-    }
-  }), [setIsActiveModal]);
-
-  const { open, close } = useModalManagerWithHandlers(handlers);
-
   const toggleModalType = (action, item = null, type = null, parent = null) => {
-    if (action === 'create') return open('create');
-    if (action === 'edit') return open('edit', { id: item?.id, name: item?.name, type, parent });
-    if (action === 'delete') return open('delete', { id: item?.id, name: item?.name, type });
-  };
+		if (action === 'create') {
+			setEditMode(false);
+			setEditCategory({ id: null, categoryType: null })
+			setNewCategory({ name: "", parent: null });
+			setConfirmDelete(null);
+			setIsActiveModal(true);
+			return;
+		}
+
+		if (action === 'edit') {
+			setEditMode(true);
+			setEditCategory({ id: item.id, categoryType: type })
+			setNewCategory({ name: item.name, parent: parent });
+			setConfirmDelete(null);
+			setIsActiveModal(true);
+			return;
+		}
+
+		if (action === 'delete') {
+			setConfirmDelete({ id: item.id, type, name: item.name });
+			setIsActiveModal(true);
+			return;
+		}
+	};
 
   const handleDelete = async () => {
     try {
@@ -140,8 +127,7 @@ export default function CategoriasOrg() {
   };
 
   const handleModalClose = () => {
-    // delegate to hook's close to ensure onClose handler runs
-    close();
+    setIsActiveModal(false)
   };
 
   return (
