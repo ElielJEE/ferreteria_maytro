@@ -4,15 +4,14 @@ import { Button, InfoCard, ModalContainer } from '../atoms';
 import { BiCategory, BiCategoryAlt } from 'react-icons/bi';
 import { FiArrowRight, FiEdit, FiPlus, FiSearch, FiTrash } from 'react-icons/fi';
 import { DropdownMenu, Input } from '../molecules';
-import { useActive, useFilter, useRandomColor } from '@/hooks';
-import useModalManagerWithHandlers from '@/hooks/useModalManagerWithHandlers';
+import { useActive, useFilter, useMessage, useRandomColor } from '@/hooks';
 import { CategoriesService } from '@/services';
 
 export default function CategoriasOrg() {
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const { message, setMessage } = useMessage();
   const [newCategory, setNewCategory] = useState({ name: "", parent: null });
   const [editMode, setEditMode] = useState(false);
   const [editCategory, setEditCategory] = useState({ id: null, categoryType: null })
@@ -70,12 +69,6 @@ export default function CategoriasOrg() {
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    if (!message) return;
-    const id = setTimeout(() => setMessage(''), 3000);
-    return () => clearTimeout(id);
-  }, [message]);
-
   const filteredCategories = useFilter({
     data: categories,
     searchTerm,
@@ -91,30 +84,30 @@ export default function CategoriasOrg() {
   }, [categories]);
 
   const toggleModalType = (action, item = null, type = null, parent = null) => {
-		if (action === 'create') {
-			setEditMode(false);
-			setEditCategory({ id: null, categoryType: null })
-			setNewCategory({ name: "", parent: null });
-			setConfirmDelete(null);
-			setIsActiveModal(true);
-			return;
-		}
+    if (action === 'create') {
+      setEditMode(false);
+      setEditCategory({ id: null, categoryType: null })
+      setNewCategory({ name: "", parent: null });
+      setConfirmDelete(null);
+      setIsActiveModal(true);
+      return;
+    }
 
-		if (action === 'edit') {
-			setEditMode(true);
-			setEditCategory({ id: item.id, categoryType: type })
-			setNewCategory({ name: item.name, parent: parent });
-			setConfirmDelete(null);
-			setIsActiveModal(true);
-			return;
-		}
+    if (action === 'edit') {
+      setEditMode(true);
+      setEditCategory({ id: item.id, categoryType: type })
+      setNewCategory({ name: item.name, parent: parent });
+      setConfirmDelete(null);
+      setIsActiveModal(true);
+      return;
+    }
 
-		if (action === 'delete') {
-			setConfirmDelete({ id: item.id, type, name: item.name });
-			setIsActiveModal(true);
-			return;
-		}
-	};
+    if (action === 'delete') {
+      setConfirmDelete({ id: item.id, type, name: item.name });
+      setIsActiveModal(true);
+      return;
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -127,6 +120,12 @@ export default function CategoriasOrg() {
   };
 
   const handleModalClose = () => {
+    setEditMode(false);
+    setEditCategory({ id: null, categoryType: null })
+    setNewCategory({ name: "", parent: null });
+    setConfirmDelete(null);
+    setMessage("")
+    setError("")
     setIsActiveModal(false)
   };
 

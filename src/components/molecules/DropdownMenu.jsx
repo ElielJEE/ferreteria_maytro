@@ -4,18 +4,18 @@ import { useState } from 'react'
 import { IoIosArrowDown } from "react-icons/io";
 
 
-export default function DropdownMenu({ options, defaultValue, onChange, label }) {
-		const [isOpen, setIsOpen] = useState(false);
-		// Si defaultValue es un objeto, usa su label, si no, usa el string
-		const getLabel = (opt) => (typeof opt === 'object' ? opt.label : opt);
-		const getValue = (opt) => (typeof opt === 'object' ? opt.value : opt);
-		const [selectedOption, setSelectedOption] = useState(defaultValue || "Select an option");
+export default function DropdownMenu({ options, defaultValue, onChange, label, error }) {
+	const [isOpen, setIsOpen] = useState(false);
+	// Si defaultValue es un objeto, usa su label, si no, usa el string
+	const getLabel = (opt) => (typeof opt === 'object' ? opt.label : opt);
+	const getValue = (opt) => (typeof opt === 'object' ? opt.value : opt);
+	const [selectedOption, setSelectedOption] = useState(defaultValue || "Select an option");
 
-		const handleSelect = (option) => {
-			setSelectedOption(getLabel(option));
-			onChange && onChange(getValue(option));
-			setIsOpen(false);
-		}
+	const handleSelect = (option) => {
+		setSelectedOption(getLabel(option));
+		onChange && onChange(getValue(option));
+		setIsOpen(false);
+	}
 
 	return (
 		<div className='relative flex flex-col w-full'>
@@ -26,7 +26,7 @@ export default function DropdownMenu({ options, defaultValue, onChange, label })
 				className='flex h-10 border border-dark/20 hover:border-dark/30 rounded-lg bg-light px-3 w-full cursor-pointer justify-between items-center gap-2'
 				onClick={() => setIsOpen(!isOpen)}
 			>
-			<span>{selectedOption}</span>
+				<span>{selectedOption}</span>
 				<IoIosArrowDown />
 			</div>
 			{
@@ -47,6 +47,7 @@ export default function DropdownMenu({ options, defaultValue, onChange, label })
 					</ul>
 				)
 			}
+			{error && <span className='text-danger text-sm'>{error}</span>}
 		</div>
 	)
 }

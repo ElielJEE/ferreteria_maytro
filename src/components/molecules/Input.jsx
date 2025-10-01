@@ -6,7 +6,7 @@ import { BsEye } from "react-icons/bs";
 import { BsEyeSlash } from "react-icons/bs";
 import { HiOutlineUser } from "react-icons/hi2";
 
-export default function Input({ type, placeholder, iconInput, value, onChange, label, inputClass, isTextarea }) {
+export default function Input({ type, placeholder, iconInput, value, onChange, label, inputClass, isTextarea, error }) {
 	const [showPassword, setShowPassword] = useState(false);
 
 	return (
@@ -28,24 +28,30 @@ export default function Input({ type, placeholder, iconInput, value, onChange, l
 						)
 					)}
 					{isTextarea ?
-						<textarea
-							placeholder={placeholder}
-							value={value}
-							onChange={onChange}
-							id={type}
-							className={`w-full h-30 min-h-30 border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} transition-colors outline-none focus-visible:ring-1`}
+						<div className='w-full flex flex-col'>
+							<textarea
+								placeholder={placeholder}
+								value={value}
+								onChange={onChange}
+								id={type}
+								className={`w-full h-30 min-h-30 border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} transition-colors outline-none focus-visible:ring-1`}
 							/* required */
-						/>
+							/>
+							{error && <span className='text-danger text-sm'>{error}</span>}
+						</div>
 						:
-						<input
-							type={type === 'password' ? showPassword ? 'text' : 'password' : type}
-							placeholder={placeholder}
-							value={value}
-							onChange={onChange}
-							id={type}
-							className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
+						<div className='w-full flex flex-col'>
+							<input
+								type={type === 'password' ? showPassword ? 'text' : 'password' : type}
+								placeholder={placeholder}
+								value={value}
+								onChange={onChange}
+								id={type}
+								className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
 							/* required */
-						/>
+							/>
+							{error && <span className='text-danger text-sm'>{error}</span>}
+						</div>
 					}
 					{
 						type === 'password' && (
