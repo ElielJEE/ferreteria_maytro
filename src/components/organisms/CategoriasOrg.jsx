@@ -5,6 +5,7 @@ import { BiCategory, BiCategoryAlt } from 'react-icons/bi';
 import { FiArrowRight, FiEdit, FiPlus, FiSearch, FiTrash } from 'react-icons/fi';
 import { DropdownMenu, Input } from '../molecules';
 import { useActive, useFilter, useRandomColor } from '@/hooks';
+import useModalManagerWithHandlers from '@/hooks/useModalManagerWithHandlers';
 import { CategoriesService } from '@/services';
 
 export default function CategoriasOrg() {
@@ -89,30 +90,43 @@ export default function CategoriasOrg() {
     ));
   }, [categories]);
 
-  const toggleModalType = (action, item = null, type = null, parent = null) => {
-    if (action === 'create') {
+  // Handlers for modal actions: create / edit / delete / onClose
+  const handlers = React.useMemo(() => ({
+    create: () => {
       setEditMode(false);
-      setEditCategory({ id: null, categoryType: null })
+      setEditCategory({ id: null, categoryType: null });
       setNewCategory({ name: "", parent: null });
       setConfirmDelete(null);
       setIsActiveModal(true);
-      return;
-    }
-
-    if (action === 'edit') {
+    },
+    edit: (p) => {
+      const payload = p || {};
       setEditMode(true);
-      setEditCategory({ id: item.id, categoryType: type })
-      setNewCategory({ name: item.name, parent: parent });
+      setEditCategory({ id: payload.id ?? null, categoryType: payload.type ?? null });
+      setNewCategory({ name: payload.name ?? "", parent: payload.parent ?? null });
       setConfirmDelete(null);
       setIsActiveModal(true);
-      return;
-    }
-
-    if (action === 'delete') {
-      setConfirmDelete({ id: item.id, type, name: item.name });
+    },
+    delete: (p) => {
+      const payload = p || {};
+      setConfirmDelete({ id: payload.id ?? null, type: payload.type ?? null, name: payload.name ?? "" });
       setIsActiveModal(true);
-      return;
+    },
+    onClose: () => {
+      setIsActiveModal(false);
+      setEditMode(false);
+      setEditCategory({ id: null, categoryType: null });
+      setNewCategory({ name: "", parent: null });
+      setConfirmDelete(null);
     }
+  }), [setIsActiveModal]);
+
+  const { open, close } = useModalManagerWithHandlers(handlers);
+
+  const toggleModalType = (action, item = null, type = null, parent = null) => {
+    if (action === 'create') return open('create');
+    if (action === 'edit') return open('edit', { id: item?.id, name: item?.name, type, parent });
+    if (action === 'delete') return open('delete', { id: item?.id, name: item?.name, type });
   };
 
   const handleDelete = async () => {
@@ -126,11 +140,8 @@ export default function CategoriasOrg() {
   };
 
   const handleModalClose = () => {
-    setIsActiveModal(false);
-    setEditMode(false);
-    setEditCategory({ id: null, categoryType: null })
-    setNewCategory({ name: "", parent: null });
-    setConfirmDelete(null);
+    // delegate to hook's close to ensure onClose handler runs
+    close();
   };
 
   return (

@@ -5,6 +5,7 @@ import { FiAlertTriangle, FiBox, FiDelete, FiEdit, FiPlus, FiSearch, FiTrash, Fi
 import { BsBoxSeam, BsFillBoxFill } from 'react-icons/bs'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { useActive, useFilter, useIsMobile, useLoadMore } from '@/hooks'
+import { ProductService } from '@/services'
 
 export default function ProductsOrg() {
 	const [selectedCategory, setSelectedCategory] = useState('Todas las categorias');
@@ -28,14 +29,21 @@ export default function ProductsOrg() {
 	});
 	const [isEdit, setIsEdit] = useState(false);
 
-	// Cargar productos y subcategorías al montar
 	useEffect(() => {
-		fetch('/api/productos')
-			.then(res => res.json())
-			.then(data => setProducts(data));
-		fetch('/api/productos?type=subcategorias')
-			.then(res => res.json())
-			.then(data => setSubcategories(data));
+		const fetchAll = async () => {
+			try {
+				const [productsData, subcats] = await Promise.all([
+					ProductService.getProducts(),
+					ProductService.getSubcategories()
+				]);
+				setProducts(productsData);
+				setSubcategories(subcats);
+				console.log(productsData, subcats);
+			} catch (error) {
+				console.error(error)
+			}
+		}
+		fetchAll();
 	}, []);
 
 	const filteredProducts = products.filter(product => {
@@ -61,7 +69,7 @@ export default function ProductsOrg() {
 					<InfoCard
 						CardTitle={"Valor total de inventario"}
 						cardValue={
-								`C$${products.reduce((acc, prod) => acc + ((Number(prod.CANTIDAD) || 0) * (Number(prod.PRECIO) || 0)), 0).toLocaleString()}`
+							`C$${products.reduce((acc, prod) => acc + ((Number(prod.CANTIDAD) || 0) * (Number(prod.PRECIO) || 0)), 0).toLocaleString()}`
 						}
 						cardIconColor={"success"}
 						cardIcon={<FiTrendingUp className='h-4 w-4 md:h-6 md:w-6 text-success' />}
@@ -146,10 +154,13 @@ export default function ProductsOrg() {
 															className={"none"}
 															icon={<FiTrash className='h-4 w-4' />}
 															func={async () => {
-																await fetch(`/api/productos?id=${item.ID_PRODUCT}`, { method: 'DELETE' });
-																fetch('/api/productos')
-																	.then(res => res.json())
-																	.then(data => setProducts(data));
+																try {
+																	await ProductService.deleteProduct(item.ID_PRODUCT);
+																	const data = await ProductService.getProducts();
+																	setProducts(data);
+																} catch (err) {
+																	console.error('Error deleting product:', err);
+																}
 															}}
 														/>
 													</div>
@@ -191,25 +202,20 @@ export default function ProductsOrg() {
 						onSubmit={async (e) => {
 							e.preventDefault();
 							if (!form.nombre || !form.subcategoria || !form.precio_venta) return;
-							if (isEdit) {
-								await fetch('/api/productos', {
-									method: 'PUT',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify(form)
-								});
-							} else {
-								await fetch('/api/productos', {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify(form)
-								});
+							try {
+								if (isEdit) {
+									await ProductService.editProduct(form);
+								} else {
+									await ProductService.createProducts(form);
+								}
+								const data = await ProductService.getProducts();
+								setProducts(data);
+								setIsActiveModal(false);
+								setForm({ id: '', codigo: '', nombre: '', subcategoria: '', precio_venta: '', cantidad: '' });
+								setIsEdit(false);
+							} catch (err) {
+								console.error('Error saving product:', err);
 							}
-							fetch('/api/productos')
-								.then(res => res.json())
-								.then(data => setProducts(data));
-							setIsActiveModal(false);
-							setForm({ id: '', codigo: '', nombre: '', subcategoria: '', precio_venta: '', cantidad: '' });
-							setIsEdit(false);
 						}}
 					>
 						<Input
