@@ -196,6 +196,7 @@ export default function ProductsOrg() {
 								<table className='w-full border-collapse'>
 									<thead className=' w-full border-b border-dark/20'>
 										<tr className='w-full'>
+											<th className='text-center text-dark/50 font-semibold p-2'>#</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Código</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Producto</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Categoría</th>
@@ -205,8 +206,9 @@ export default function ProductsOrg() {
 										</tr>
 									</thead>
 									<tbody className='w-full'>
-										{filteredProducts.map((item, index) => (
+										{filteredProducts.slice(0, visibleItems).map((item, index) => (
 											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
+												<td className='p-2 text-center'>{index + 1}</td>
 												<td className='p-2 text-center'>{item.CODIGO_PRODUCTO}</td>
 												<td className='p-2 max-w-[180px] truncate text-center'>{item.PRODUCT_NAME}</td>
 												<td className='p-2 text-center'>
@@ -238,7 +240,7 @@ export default function ProductsOrg() {
 						) : (
 							<div className='w-full overflow-x-auto mt-2 flex flex-col gap-2'>
 								{
-									filteredProducts.map((item, index) => (
+									filteredProducts.slice(0, visibleItems).map((item, index) => (
 										<Card
 											key={index}
 											id={item.CODIGO_PRODUCTO}
@@ -261,7 +263,17 @@ export default function ProductsOrg() {
 							</div>
 						)
 					}
-					{/* Eliminado paginación y botón Ver Más innecesario */}
+					<div className='w-full flex justify-center items-center'>
+						{visibleItems < filteredProducts.length && (
+							<div className='w-full mt-4 md:w-1/4'>
+								<Button
+									className={"transparent"}
+									text={"Ver Mas"}
+									func={loadMore}
+								/>
+							</div>
+						)}
+					</div>
 				</section>
 			</div>
 			{
