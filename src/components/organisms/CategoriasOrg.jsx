@@ -4,7 +4,7 @@ import { Button, InfoCard, ModalContainer } from '../atoms';
 import { BiCategory, BiCategoryAlt } from 'react-icons/bi';
 import { FiArrowRight, FiEdit, FiPlus, FiSearch, FiTrash } from 'react-icons/fi';
 import { DropdownMenu, Input } from '../molecules';
-import { useActive, useFilter, useMessage, useRandomColor } from '@/hooks';
+import { useActive, useFilter, useLoadMore, useMessage, useRandomColor } from '@/hooks';
 import { CategoriesService } from '@/services';
 
 export default function CategoriasOrg() {
@@ -17,6 +17,7 @@ export default function CategoriasOrg() {
   const [editCategory, setEditCategory] = useState({ id: null, categoryType: null })
   const [confirmDelete, setConfirmDelete] = useState(null);
   const { toggleActiveItem, isActiveItem, setIsActiveModal, isActiveModal } = useActive();
+  const { visibleItems, loadMore } = useLoadMore();
 
   const handleInputChange = (e) => {
     setNewCategory({ ...newCategory, name: e.target.value });
@@ -41,6 +42,7 @@ export default function CategoriasOrg() {
       } else {
         await CategoriesService.createCategory(newCategory);
         setMessage('Categoría agregada correctamente');
+        setNewCategory({ name: "", parent: null });
 
         if (!isActiveModal) {
           setNewCategory({ name: "", parent: null });
@@ -172,7 +174,7 @@ export default function CategoriasOrg() {
           </div>
           <div className='w-full border border-dark/20 rounded-lg overflow-x-auto'>
             {categories.length > 0 &&
-              filteredCategories.map((category, index) => (
+              filteredCategories.slice(0, visibleItems).map((category, index) => (
                 <div key={index}>
                   <div
                     className='w-full flex border-b border-dark/20 p-4 items-center justify-between gap-1 cursor-pointer'
@@ -182,7 +184,7 @@ export default function CategoriasOrg() {
                       <FiArrowRight className={`h-4 w-4 text-dark/50 ${isActiveItem === index ? 'rotate-90' : ''}`} />
                       <div
                         className='w-3 h-3 rounded-full'
-                        style={{ backgroundColor: categoryColors[index] }}
+                        style={{ backgroundColor: categoryColors[category.name.length] }}
                       ></div>
                       <h2 className='font-semibold'>{category.name}</h2>
                     </div>
@@ -233,6 +235,17 @@ export default function CategoriasOrg() {
                 </div>
               ))
             }
+          </div>
+          <div className='w-full flex justify-center items-center'>
+            {visibleItems < filteredCategories.length && (
+              <div className='w-full mt-4 md:w-1/4'>
+                <Button
+                  className={"transparent"}
+                  text={"Ver Mas"}
+                  func={loadMore}
+                />
+              </div>
+            )}
           </div>
         </section>
         {isActiveModal && (

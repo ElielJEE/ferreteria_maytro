@@ -3,3 +3,8 @@ export { default as Sidebar } from './Sidebar';
 export { default as NavBar } from './NavBar';
 export { default as DropdownMenu } from './DropdownMenu';
 export { default as Card } from './Card';
+export { default as Summary } from './Summary';
+export { default as Movements } from './Movements';
+export { default as Alerts } from './Alerts';
+export { default as Reserved } from './Reserved';
+export { default as Damaged } from './Damaged';

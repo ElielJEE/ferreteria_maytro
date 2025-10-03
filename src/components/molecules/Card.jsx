@@ -2,7 +2,7 @@ import React from 'react'
 import { Button } from '../atoms'
 import { FiDelete, FiEdit, FiTrash } from 'react-icons/fi'
 
-export default function Card({ productName, status, sucursal, id, category, children }) {
+export default function Card({ productName, status, sucursal, id, category, children, func, funcSecundary }) {
 	return (
 		<div className='flex flex-col justify-center items-center bg-light border border-dark/30 rounded-lg p-4 w-full'>
 			<div className='w-full flex flex-col gap-2'>
@@ -25,7 +25,9 @@ export default function Card({ productName, status, sucursal, id, category, chil
 				<div className='w-full flex flex-col justify-start items-start gap-1'>
 					<span className='text-sm text-dark/70 font-semibold'>{id}</span>
 					<div className='flex gap-2'>
-						<span className='border border-dark/80 rounded-full px-2 font-semibold'>{category}</span>
+						{category &&
+							<span className='border border-dark/80 rounded-full px-2 font-semibold'>{category}</span>
+						}
 						{sucursal &&
 							<span className='border border-dark/80 rounded-full px-2 font-semibold'>{sucursal}</span>
 						}
@@ -36,8 +38,8 @@ export default function Card({ productName, status, sucursal, id, category, chil
 				{children}
 			</div>
 			<div className='w-full flex justify-between items-center gap-2 mt-4'>
-				<Button className={"none"} text={"Editar"} icon={<FiEdit />} />
-				<Button className={"none"} text={"Eliminar"} icon={<FiTrash />} />
+				<Button className={"none"} text={"Editar"} icon={<FiEdit />} func={func} />
+				<Button className={"none"} text={"Eliminar"} icon={<FiTrash />} func={funcSecundary} />
 			</div>
 		</div>
 	)
