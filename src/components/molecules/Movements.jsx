@@ -87,49 +87,6 @@ export default function Movements() {
 
 	const isMobile = useIsMobile({ breakpoint: 768 });
 
-	const renderCard = (item, index) => {
-		const cfg = tiposConfig.find(t => t.type === item.tipo) || {};
-		return (
-			<Card
-				key={index}
-				productName={item.producto.nombre}
-				id={item.producto.codigo}
-				sucursal={item.sucursal}
-			>
-				<div className='flex items-center justify-between mb-2'>
-					<div className={`inline-flex items-center gap-2 px-2 py-1 rounded-full ${cfg.bgColor ?? 'bg-dark/10'}`}>
-						{cfg.Icon && <span className='inline-flex'>{cfg.Icon}</span>}
-						<span className='text-sm'>{item.tipo}</span>
-					</div>
-				</div>
-				<div className='flex flex-col'>
-					<span className='text-sm text-dark/70'>Stock Actual</span>
-					<span className='text-lg font-semibold'>{item.stock_actual}</span>
-				</div>
-				<div className='flex flex-col'>
-					<span className='text-sm text-dark/70'>En Bodega</span>
-					<span className='text-lg font-semibold'>{item.en_bodega}</span>
-				</div>
-				<div className='flex flex-col'>
-					<span className='text-sm text-dark/70'>Fisico Total</span>
-					<span className='text-lg font-semibold'>{item.fisico_total}</span>
-				</div>
-				<div className='flex flex-col'>
-					<span className='text-sm text-dark/70'>Dañados</span>
-					<span className='text-lg font-semibold text-danger'>{item.danados}</span>
-				</div>
-				<div className='flex flex-col'>
-					<span className='text-sm text-dark/70'>Reservados</span>
-					<span className='text-lg font-semibold text-purple'>{item.reservados}</span>
-				</div>
-				<div className='flex flex-col'>
-					<span className='text-sm text-dark/70'>Rango</span>
-					<span className='text-lg font-semibold'>{item.min_stock} - {item.max_stock}</span>
-				</div>
-			</Card>
-		)
-	}
-
 	return (
 		<>
 			<div className='w-full flex flex-col mb-4'>
@@ -192,13 +149,13 @@ export default function Movements() {
 											</span>
 										</td>
 										<td className='p-2 flex flex-col'>
-											<span className=''>{item.producto.nombre}</span>
+											<span className='md:truncate lg:whitespace-normal'>{item.producto.nombre}</span>
 											<span className='text-dark/60 text-sm'>{item.producto.codigo}</span>
 										</td>
 										<td className={`p-2 text-center ${cfg.textColor} ${cfg.bgColor}/10`}>{item.cantidad}</td>
 										<td className='p-2 text-center'>{item.stock_anterior}</td>
 										<td className='p-2 text-center'>{item.stock_nuevo}</td>
-										<td className='p-2'>{item.motivo}</td>
+										<td className='p-2 md:truncate lg:whitespace-normal'>{item.motivo}</td>
 										<td className='p-2'>
 											<div className='flex items-center gap-1 truncate'>
 												<FiUser />
@@ -214,7 +171,54 @@ export default function Movements() {
 				</div>
 			) : (
 				<div className='flex flex-col mt-2 gap-2'>
-					{data.map(renderCard)}
+					{data.map((item, index) => {
+						const cfg = tiposConfig.find(t => t.type === item.tipo) || {};
+						return (
+							<Card
+								key={index}
+								productName={item.producto.nombre}
+								id={item.producto.codigo}
+								sucursal={item.sucursal}
+							>
+								<div className='flex flex-col'>
+									<span className='text-lg font-semibold'>{item.fecha}</span>
+									<span className='text-sm text-dark/70'>{item.hora}</span>
+								</div>
+								<div className='flex items-center justify-between mb-2'>
+									<div className='flex items-center gap-1'>
+										{cfg.Icon}
+										<div className={`inline-flex items-center gap-2 px-2 text-light py-1 rounded-full ${cfg.bgColor ?? 'bg-dark/10'}`}>
+											<span className='text-sm'>{item.tipo}</span>
+										</div>
+									</div>
+								</div>
+								<div className='flex flex-col'>
+									<span className='text-sm text-dark/70'>Cantidad</span>
+									<span className='text-lg font-semibold'>{item.cantidad}</span>
+								</div>
+								<div className='flex flex-col'>
+									<span className='text-sm text-dark/70'>Stock Anterior</span>
+									<span className='text-lg font-semibold'>{item.stock_anterior}</span>
+								</div>
+								<div className='flex flex-col'>
+									<span className='text-sm text-dark/70'>Stock Nuevo</span>
+									<span className='text-lg font-semibold'>{item.stock_nuevo}</span>
+								</div>
+								<div className='flex flex-col'>
+									<span className='text-sm text-dark/70'>Usuario</span>
+									<span className='text-lg font-semibold'>{item.usuario}</span>
+								</div>
+								<div className='flex flex-col'>
+									<span className='text-sm text-dark/70'>Motivo</span>
+									<span className='text-lg font-semibold'>{item.motivo}</span>
+								</div>
+								<div className='flex flex-col'>
+									<span className='text-sm text-dark/70'>Referencia</span>
+									<span className='text-lg font-semibold'>{item.referencia ? item.referencia : "-"}</span>
+								</div>
+							</Card>
+						)
+					})}
 				</div>
 			)}
 		</>

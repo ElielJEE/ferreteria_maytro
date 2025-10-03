@@ -25,7 +25,9 @@ export default function Card({ productName, status, sucursal, id, category, chil
 				<div className='w-full flex flex-col justify-start items-start gap-1'>
 					<span className='text-sm text-dark/70 font-semibold'>{id}</span>
 					<div className='flex gap-2'>
-						<span className='border border-dark/80 rounded-full px-2 font-semibold'>{category}</span>
+						{category &&
+							<span className='border border-dark/80 rounded-full px-2 font-semibold'>{category}</span>
+						}
 						{sucursal &&
 							<span className='border border-dark/80 rounded-full px-2 font-semibold'>{sucursal}</span>
 						}
