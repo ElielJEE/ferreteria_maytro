@@ -185,20 +185,17 @@ export default function ControlStockOrg() {
 						<Input
 							placeholder={"Buscar producto..."}
 							type={"search"}
-							/* value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)} */
 							iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
 						/>
 						<div className='md:w-1/2 w-full flex gap-2 flex-col md:flex-row'>
 							<DropdownMenu
 								options={['Todas las Categorias', ...data.map(item => item.categoria).filter((value, index, self) => self.indexOf(value) === index)]}
 								defaultValue={'Todas las Categorias'}
-							/* onChange={(value) => setSelectedCategory(value)} */
 							/>
 							<DropdownMenu
 								options={['Todos los Estados', ...data.map(item => item.estado).filter((value, index, self) => self.indexOf(value) === index)]}
 								defaultValue={'Todos los estados'}
-							/* onChange={(value) => setSelectedCategory(value)} */
+							
 							/>
 						</div>
 					</div>

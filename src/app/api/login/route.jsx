@@ -46,7 +46,7 @@ export async function POST(req) {
 		const token = jwt.sign(
 			{ id: user.ID, username: user.NOMBRE_USUARIO, role: user.ID_ROL },
 			process.env.JWT_SECRET,
-			{ expiresIn: "1h" }
+			{ expiresIn: "8h" }
 		);
 
 		const response = NextResponse.json({ message: "Login exitoso" });

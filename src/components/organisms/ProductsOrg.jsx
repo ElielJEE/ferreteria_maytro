@@ -239,13 +239,23 @@ export default function ProductsOrg() {
 							<div className='w-full overflow-x-auto mt-2 flex flex-col gap-2'>
 								{
 									filteredProducts.map((item, index) => (
-										<div key={index} className='border rounded-lg p-4 flex flex-col gap-2 bg-white items-center text-center'>
-											<div className='font-semibold'>{item.PRODUCT_NAME}</div>
-											<div className='text-xs text-dark/60'>Código: {item.CODIGO_PRODUCTO}</div>
-											<div className='text-xs text-dark/60'>Categoría: {item.NOMBRE_SUBCATEGORIA}</div>
-											<div className='text-xs text-dark/60'>Cantidad: {item.CANTIDAD}</div>
-											<div className='text-xs text-dark/60'>Precio Venta: C${item.PRECIO}</div>
-										</div>
+										<Card
+											key={index}
+											id={item.CODIGO_PRODUCTO}
+											productName={item.PRODUCT_NAME}
+											category={item.NOMBRE_SUBCATEGORIA}
+											func={() => toggleModalType('edit', item)}
+											funcSecundary={() => toggleModalType('delete', item)}
+										>
+											<div className='flex flex-col'>
+												<span className='text-sm text-dark/70'>Cantidad</span>
+												<span className='text-lg font-semibold'>{item.CANTIDAD}</span>
+											</div>
+											<div className='flex flex-col'>
+												<span className='text-sm text-dark/70'>Cantidad</span>
+												<span className='text-lg font-semibold'>{item.PRECIO}</span>
+											</div>
+										</Card>
 									))
 								}
 							</div>
