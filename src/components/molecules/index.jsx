@@ -8,3 +8,4 @@ export { default as Movements } from './Movements';
 export { default as Alerts } from './Alerts';
 export { default as Reserved } from './Reserved';
 export { default as Damaged } from './Damaged';
+export { default as AlertCard } from './AlertCard';
