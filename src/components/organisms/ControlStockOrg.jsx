@@ -19,7 +19,7 @@ export default function ControlStockOrg() {
 		"valor_total": 1250.00
 	}
 
-		const cardsConfig = [
+	const cardsConfig = [
 		{ key: "en_bodega", title: "En Bodega Disponible", icon: BsBoxSeam, color: "primary" },
 		{ key: "en_stock", title: "En stock", icon: FiTrendingUp, color: "success" },
 		{ key: "fisico_total", title: "Fisico Total", icon: FiEye, color: "blue" },
@@ -54,7 +54,7 @@ export default function ControlStockOrg() {
 			const url = `${window.location.pathname}?${params.toString()}`;
 			router.replace(url);
 		} catch (e) {
-			
+
 		}
 	}, [activeTab, router]);
 
@@ -98,11 +98,11 @@ export default function ControlStockOrg() {
 					}
 				</section>
 				<section className='w-full mt-6'>
-					<div className='grid grid-cols-5 p-1 h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold'>
+					<div className='grid grid-cols-1 md:grid-cols-5 p-1 md:h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold'>
 						{tabs.map((tab) => (
 							<div
 								key={tab.label}
-								className={`flex gap-2 items-center justify-center cursor-pointer rounded-sm ${activeTab === tab.label ? "bg-light text-dark" : ""
+								className={`flex gap-2 p-2 md:p-0 items-center md:justify-center cursor-pointer rounded-sm ${activeTab === tab.label ? "bg-light text-dark" : ""
 									}`}
 								onClick={() => setActiveTab(tab.label)}
 							>
