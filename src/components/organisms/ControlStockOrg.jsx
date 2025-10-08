@@ -98,16 +98,16 @@ export default function ControlStockOrg() {
 					}
 				</section>
 				<section className='w-full mt-6'>
-					<div className='grid grid-cols-1 md:grid-cols-5 p-1 md:h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold'>
+					<div className='grid grid-cols-5 p-1 h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold'>
 						{tabs.map((tab) => (
 							<div
 								key={tab.label}
-								className={`flex gap-2 p-2 md:p-0 items-center md:justify-center cursor-pointer rounded-sm ${activeTab === tab.label ? "bg-light text-dark" : ""
+								className={`flex gap-2 items-center justify-center cursor-pointer rounded-sm ${activeTab === tab.label ? "bg-light text-dark" : ""
 									}`}
 								onClick={() => setActiveTab(tab.label)}
 							>
 								{tab.icon}
-								<h2>{tab.label}</h2>
+								<h2 className='hidden md:block'>{tab.label}</h2>
 							</div>
 						))}
 					</div>

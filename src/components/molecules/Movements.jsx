@@ -90,8 +90,8 @@ export default function Movements() {
 	return (
 		<>
 			<div className='w-full flex flex-col mb-4'>
-				<h2 className='md:text-2xl font-semibold'>Estado Detallado del Inventario</h2>
-				<span className='text-sm md:text-medium text-dark/50'>Vista consolidada de todas las surcusales</span>
+				<h2 className='md:text-2xl font-semibold'>Historial de Movimientos</h2>
+				<span className='text-sm md:text-medium text-dark/50'>Movimientos de todas las sucursales</span>
 			</div>
 			<div className='w-full flex flex-col gap-1 sticky top-0 bg-light pt-2 mb-4'>
 				<Input
@@ -155,7 +155,7 @@ export default function Movements() {
 										<td className={`p-2 text-center ${cfg.textColor} ${cfg.bgColor}/10`}>{item.cantidad}</td>
 										<td className='p-2 text-center'>{item.stock_anterior}</td>
 										<td className='p-2 text-center'>{item.stock_nuevo}</td>
-										<td className='p-2 md:truncate lg:whitespace-normal'>{item.motivo}</td>
+										<td className="p-2 truncate max-w-[150px]" title={item.motivo}>{item.motivo}</td>
 										<td className='p-2'>
 											<div className='flex items-center gap-1 truncate'>
 												<FiUser />
