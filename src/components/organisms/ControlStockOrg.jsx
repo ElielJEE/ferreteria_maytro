@@ -19,7 +19,7 @@ export default function ControlStockOrg() {
 		"valor_total": 1250.00
 	}
 
-		const cardsConfig = [
+	const cardsConfig = [
 		{ key: "en_bodega", title: "En Bodega Disponible", icon: BsBoxSeam, color: "primary" },
 		{ key: "en_stock", title: "En stock", icon: FiTrendingUp, color: "success" },
 		{ key: "fisico_total", title: "Fisico Total", icon: FiEye, color: "blue" },
@@ -54,7 +54,7 @@ export default function ControlStockOrg() {
 			const url = `${window.location.pathname}?${params.toString()}`;
 			router.replace(url);
 		} catch (e) {
-			
+
 		}
 	}, [activeTab, router]);
 
@@ -107,7 +107,7 @@ export default function ControlStockOrg() {
 								onClick={() => setActiveTab(tab.label)}
 							>
 								{tab.icon}
-								<h2>{tab.label}</h2>
+								<h2 className='hidden md:block'>{tab.label}</h2>
 							</div>
 						))}
 					</div>

@@ -5,6 +5,7 @@ import Input from './Input';
 import { FiSearch } from 'react-icons/fi';
 import { BsBuilding, BsGear } from 'react-icons/bs';
 import { Button } from '../atoms';
+import Card from './Card';
 
 export default function Summary({ setIsActiveModal }) {
 	const data = [
@@ -142,7 +143,7 @@ export default function Summary({ setIsActiveModal }) {
 							{data.map((item, index) => (
 								<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
 									<td className='p-2'>{item.codigo}</td>
-									<td className='p-2 max-w-[180px] truncate flex flex-col'>
+									<td className='p-2 flex flex-col'>
 										{item.nombre}
 										<span className='text-dark/60 text-sm'>{item.categoria}</span>
 									</td>
