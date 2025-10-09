@@ -7,7 +7,7 @@ import { BsBuilding, BsGear } from 'react-icons/bs';
 import { Button } from '../atoms';
 import Card from './Card';
 
-export default function Summary({ setIsActiveModal }) {
+export default function Summary() {
 	const data = [
 		{
 			"codigo": "P001",
@@ -94,14 +94,6 @@ export default function Summary({ setIsActiveModal }) {
 				<div className='flex flex-col'>
 					<h2 className='md:text-2xl font-semibold'>Estado Detallado del Inventario</h2>
 					<span className='text-sm md:text-medium text-dark/50'>Vista consolidada de todas las surcusales</span>
-				</div>
-				<div className='flex xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%] w-full md:justify-end'>
-					<Button
-						className={"primary"}
-						text={"Ajustar Stock"}
-						icon={<BsGear className='h-4 w-4' />}
-						func={() => setIsActiveModal(true)}
-					/>
 				</div>
 			</div>
 			<div className='w-full flex flex-col gap-1 sticky top-0 bg-light pt-2 mb-4'>

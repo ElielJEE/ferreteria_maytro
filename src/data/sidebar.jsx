@@ -30,11 +30,6 @@ const sidebarData = [
 				path: "/inventario/control-stock",
 				roles: ["admin", "vendedor"]
 			},
-			{
-				name: "Productos Agotados",
-				path: "/inventario/productos-agotados",
-				roles: ["admin", "vendedor"]
-			},
 		]
 	},
 	{

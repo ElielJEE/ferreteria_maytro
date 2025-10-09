@@ -8,6 +8,16 @@ import { Alerts, Card, Damaged, DropdownMenu, Input, Movements, Reserved, Summar
 import { useActive, useIsMobile } from '@/hooks'
 
 export default function ControlStockOrg() {
+	const [tipoMovimiento, setTipoMovimiento] = useState("");
+
+	const movimientos = [
+		"Entrada (Aumentar Stock)",
+		"Salida (Reducir Stock)",
+		"Marcar como Dañado",
+		"Marcar como Reservado",
+		"Transferencia",
+	];
+
 	const cardData = {
 		"en_bodega": 1250,
 		"en_stock": 12,
@@ -68,6 +78,39 @@ export default function ControlStockOrg() {
 
 	const { setIsActiveModal, isActiveModal } = useActive();
 
+	const data = [
+		{ producto: "Martillo de Carpintero 16oz", sucursal: "Sucursal Sur" },
+		{ producto: "Destornillador Phillips #2", sucursal: "Sucursal Centro" },
+		{ producto: "Cable Eléctrico 12 AWG", sucursal: "Sucursal Centro" },
+	];
+
+	const clientes = [
+		{ id: 1, nombre: "Juan Pérez", telefono: "8888-8888" },
+		{ id: 2, nombre: "María López", telefono: "7777-7777" },
+		{ id: 3, nombre: "Carlos Ramírez", telefono: "9999-9999" },
+	];
+
+	const [cliente, setCliente] = useState("");
+	const [telefono, setTelefono] = useState("");
+	const [clientesFiltrados, setClientesFiltrados] = useState([]);
+
+	const handleClienteChange = (e) => {
+		const value = e.target.value;
+		setCliente(value);
+
+		// Filtrar coincidencias
+		const resultados = clientes.filter(c =>
+			c.nombre.toLowerCase().includes(value.toLowerCase())
+		);
+		setClientesFiltrados(resultados);
+
+		// Si coincide exactamente con un cliente, llenar teléfono
+		const clienteExistente = clientes.find(c => c.nombre.toLowerCase() === value.toLowerCase());
+		if (clienteExistente) setTelefono(clienteExistente.telefono);
+		else setTelefono(""); // Si no existe, se limpia
+	};
+
+
 	return (
 		<>
 			<div className='w-full p-6 flex flex-col'>
@@ -112,7 +155,17 @@ export default function ControlStockOrg() {
 						))}
 					</div>
 				</section>
-				<section className='w-full mt-6 border-dark/20 border rounded-lg p-4 flex flex-col'>
+				<section className='flex mt-4 w-full justify-end'>
+					<div className='flex xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%] w-full md:justify-end'>
+						<Button
+							className={"primary"}
+							text={"Ajustar Stock"}
+							icon={<BsGear className='h-4 w-4' />}
+							func={() => setIsActiveModal(true)}
+						/>
+					</div>
+				</section>
+				<section className='w-full mt-4 border-dark/20 border rounded-lg p-4 flex flex-col'>
 					{activeTab === 'Resumen' && <Summary setIsActiveModal={setIsActiveModal} />}
 					{activeTab === 'Movimientos' && <Movements />}
 					{activeTab === 'Alertas' && <Alerts />}
@@ -120,52 +173,143 @@ export default function ControlStockOrg() {
 					{activeTab === 'Reservados' && <Reserved />}
 				</section>
 			</div>
-			{
-				isActiveModal &&
+			{isActiveModal && (
 				<ModalContainer
 					setIsActiveModal={setIsActiveModal}
-					txtButton={'Registrar Movimiento'}
-					modalTitle={'Ajustar Stock de Producto'}
-					modalDescription={'Registra un movimiento de inventario'}
+					txtButton={"Registrar Movimiento"}
+					modalTitle={"Ajustar Stock de Producto"}
+					modalDescription={"Registra un movimiento de inventario"}
 				>
-					<form className='w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'>
+					<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+						{/* 🔹 Sucursal */}
 						<DropdownMenu
 							label={"Sucursal"}
-							options={data.map(data => data.sucursal).filter((value, index, self) => self.indexOf(value) === index)}
-							defaultValue={'Selecciona una sucursal'}
+							options={[...new Set(data.map((d) => d.sucursal))]}
+							defaultValue={"Selecciona una sucursal"}
 						/>
+
+						{/* 🔹 Producto */}
 						<DropdownMenu
 							label={"Producto"}
-							options={data.map(data => data.nombre).filter((value, index, self) => self.indexOf(value) === index)}
-							defaultValue={'Selecciona un producto'}
+							options={[...new Set(data.map((d) => d.producto))]}
+							defaultValue={"Selecciona un producto"}
 						/>
+
+						{/* 🔹 Tipo de Movimiento */}
 						<DropdownMenu
 							label={"Tipo de Movimiento"}
-							options={['Entrada (Aumentar Stock)', 'Salida (Reducir Stock)', 'Marcar como Dañado', 'Marcar como Reservado', 'Transferencia']}
-							defaultValue={'Ajuste (Correccion)'}
+							options={movimientos}
+							defaultValue={"Selecciona un tipo"}
+							onChange={(value) => setTipoMovimiento(value)}
 						/>
-						<Input
-							label={"Cantidad"}
-							placeholder={"0"}
-							type={"number"}
-							inputClass={"no icon"}
-						/>
-						<Input
-							label={"Referencia (opcional)"}
-							placeholder={"Ej: ORD-001, VEN-1234"}
-							type={"text"}
-							inputClass={"no icon"}
-						/>
-						<Input
-							label={"Motivo"}
-							placeholder={"Describe el motivo del ajuste..."}
-							type={""}
-							inputClass={"no icon"}
-							isTextarea={true}
-						/>
+
+						{/* 🔹 Campos dinámicos */}
+						{tipoMovimiento === "Marcar como Dañado" && (
+							<>
+								<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" />
+								<DropdownMenu
+									label="Tipo de Daño"
+									options={["Vencido", "Deteriorado", "Defectuoso"]}
+									defaultValue="Selecciona un tipo de daño"
+								/>
+								<DropdownMenu
+									label="Estado"
+									options={["Recuperable", "Perdida Total"]}
+									defaultValue="Selecciona estado"
+								/>
+								<Input
+									label="Descripción"
+									placeholder="Describe el daño..."
+									isTextarea={true}
+									inputClass="no icon"
+									isLastElement={true}
+								/>
+							</>
+						)}
+
+						{tipoMovimiento === "Marcar como Reservado" && (
+							<>
+								<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" />
+								<div className="relative">
+									<Input
+										label="Cliente"
+										placeholder="Nombre del cliente"
+										value={cliente}
+										onChange={handleClienteChange}
+										inputClass="no icon"
+									/>
+									{clientesFiltrados.length > 0 && cliente !== "" && (
+										<ul className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10">
+											{clientesFiltrados.map((c) => (
+												<li
+													key={c.id}
+													onClick={() => {
+														setCliente(c.nombre);
+														setTelefono(c.telefono);
+														setClientesFiltrados([]);
+													}}
+													className="px-2 py-1 cursor-pointer hover:bg-primary hover:text-white"
+												>
+													{c.nombre}
+												</li>
+											))}
+										</ul>
+									)}
+									<span>
+										⚠️ ATENCIÓN: Esta advertencia debe eliminarse cuando se implemente la lógica final.
+										El input "Cliente" debe permitir buscar un cliente existente y autocompletar el campo "Teléfono".
+										Si el cliente no existe, se registrará como nuevo junto con su número de teléfono.
+									</span>
+								</div>
+								<Input
+									label="Teléfono"
+									placeholder="Número del cliente"
+									value={telefono}
+									onChange={(e) => setTelefono(e.target.value)}
+									inputClass="no icon"
+								/>
+								<Input label="Fecha de Entrega" type="date" inputClass="no icon" />
+								<Input
+									label="Notas"
+									placeholder="Agrega una nota..."
+									isTextarea={true}
+									inputClass="no icon"
+								/>
+							</>
+						)}
+
+						{(tipoMovimiento === "Entrada (Aumentar Stock)" ||
+							tipoMovimiento === "Salida (Reducir Stock)") && (
+								<>
+									<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" />
+									<Input label="Motivo" placeholder="Describe el motivo..." inputClass="no icon" isTextarea={true} />
+									<Input
+										label="Referencia (opcional)"
+										placeholder="Ej: ORD-001, VEN-1234"
+										inputClass="no icon"
+									/>
+								</>
+							)}
+
+						{tipoMovimiento === "Transferencia" && (
+							<>
+								<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" />
+								<Input
+									label="Referencia (opcional)"
+									placeholder="Ej: ORD-001, VEN-1234"
+									inputClass="no icon"
+								/>
+								<DropdownMenu
+									label="Sucursal destino"
+									options={[...new Set(data.map((d) => d.sucursal))]}
+									defaultValue="Selecciona destino"
+								/>
+								<Input label="Motivo" placeholder="Describe el motivo..." inputClass="no icon" isTextarea={true} isLastElement={true} />
+							</>
+						)}
 					</form>
 				</ModalContainer>
-			}
+			)}
 		</>
 	)
 }
