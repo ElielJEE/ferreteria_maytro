@@ -6,12 +6,12 @@ import { BsEye } from "react-icons/bs";
 import { BsEyeSlash } from "react-icons/bs";
 import { HiOutlineUser } from "react-icons/hi2";
 
-export default function Input({ type, placeholder, iconInput, value, onChange, label, inputClass, isTextarea, error }) {
+export default function Input({ type, placeholder, iconInput, value = "", onChange, label, inputClass, isTextarea, error = "", isLastElement }) {
 	const [showPassword, setShowPassword] = useState(false);
 
 	return (
 		<>
-			<div className="space-y-2">
+			<div className={`space-y-2 ${isLastElement && 'col-span-2'}`}>
 				{label &&
 					<label htmlFor={type} className="flex text-dark font-medium mb-2">{label}</label>
 				}
@@ -31,8 +31,7 @@ export default function Input({ type, placeholder, iconInput, value, onChange, l
 						<div className='w-full flex flex-col'>
 							<textarea
 								placeholder={placeholder}
-								value={value}
-								onChange={onChange}
+								{...(onChange ? { value, onChange } : { defaultValue: value })}
 								id={type}
 								className={`w-full h-30 min-h-30 border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} transition-colors outline-none focus-visible:ring-1`}
 							/* required */
@@ -44,8 +43,7 @@ export default function Input({ type, placeholder, iconInput, value, onChange, l
 							<input
 								type={type === 'password' ? showPassword ? 'text' : 'password' : type}
 								placeholder={placeholder}
-								value={value}
-								onChange={onChange}
+								{...(onChange ? { value, onChange } : { defaultValue: value })}
 								id={type}
 								className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
 							/* required */
