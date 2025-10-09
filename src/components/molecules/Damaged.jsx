@@ -104,9 +104,9 @@ export default function Damaged() {
 	]
 
 	const tiposConfig = [
-		{ type: 'Deteriorado', bgColor: 'bg-danger', textColor: 'text-danger' },
-		{ type: 'Defectuoso', bgColor: 'bg-primary', textColor: 'text-primary' },
-		{ type: 'Vencido', bgColor: 'bg-danger', textColor: 'text-danger' },
+		{ type: 'Deteriorado', bgColor: 'bg-danger', color: 'danger', textColor: 'text-danger' },
+		{ type: 'Defectuoso', bgColor: 'bg-primary', color: 'primary', textColor: 'text-primary' },
+		{ type: 'Vencido', bgColor: 'bg-danger', color: 'danger', textColor: 'text-danger' },
 		{ type: 'Recuperable', bgColor: 'bg-success' },
 		{ type: 'Pérdida Total', bgColor: 'bg-danger' },
 	]
@@ -205,6 +205,7 @@ export default function Damaged() {
 									sucursal={item.sucursal}
 									other={item.tipo_de_dano}
 									status={item.estado}
+									bgColor={cfg.color}
 								>
 									<div className='flex flex-col'>
 										<span className='text-sm text-dark/70'>Cantidad</span>
