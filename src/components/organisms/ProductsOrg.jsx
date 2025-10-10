@@ -246,8 +246,6 @@ export default function ProductsOrg() {
 											id={item.CODIGO_PRODUCTO}
 											productName={item.PRODUCT_NAME}
 											category={item.NOMBRE_SUBCATEGORIA}
-											func={() => toggleModalType('edit', item)}
-											funcSecundary={() => toggleModalType('delete', item)}
 										>
 											<div className='flex flex-col'>
 												<span className='text-sm text-dark/70'>Cantidad</span>
@@ -256,6 +254,10 @@ export default function ProductsOrg() {
 											<div className='flex flex-col'>
 												<span className='text-sm text-dark/70'>Cantidad</span>
 												<span className='text-lg font-semibold'>{item.PRECIO}</span>
+											</div>
+											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
+												<Button className={"none"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('edit', item)} />
+												<Button className={"none"} text={"Eliminar"} icon={<FiTrash />} func={() => toggleModalType('delete', item)} />
 											</div>
 										</Card>
 									))
