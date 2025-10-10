@@ -307,6 +307,19 @@ export default function ControlStockOrg() {
 								<Input label="Motivo" placeholder="Describe el motivo..." inputClass="no icon" isTextarea={true} isLastElement={true} />
 							</>
 						)}
+						<div className='col-span-2 flex gap-2 mt-2'>
+							<Button
+								className={"danger"}
+								text={"Cancelar"}
+								type="button"
+								func={null}
+							/>
+							<Button
+								className={"success"}
+								text={"Ajustar Stock"}
+								type="submit"
+							/>
+						</div>
 					</form>
 				</ModalContainer>
 			)}
