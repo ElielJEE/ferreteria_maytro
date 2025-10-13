@@ -5,6 +5,7 @@ import { Button, InfoCard, ModalContainer } from '../atoms'
 import { FiAlertTriangle, FiBox, FiDollarSign, FiEye, FiFile, FiGlobe, FiSearch, FiShoppingCart, FiTrendingUp, FiX, FiXCircle } from 'react-icons/fi'
 import { BsBoxSeam, BsBuilding, BsGear } from 'react-icons/bs'
 import { Alerts, Card, Damaged, DropdownMenu, Input, Movements, Reserved, Summary } from '../molecules'
+import StockService from '@/services/StockService';
 import { useActive, useIsMobile } from '@/hooks'
 
 export default function ControlStockOrg() {
@@ -78,11 +79,70 @@ export default function ControlStockOrg() {
 
 	const { setIsActiveModal, isActiveModal } = useActive();
 
+	// Top dropdown: selected sucursal for filtering resumen
+	const [topSucursales, setTopSucursales] = useState([]);
+	const [topSucursal, setTopSucursal] = useState('Todas');
+
+	// Cargar sucursales para el dropdown superior al montar
+	useEffect(() => {
+		fetch('/api/sucursales')
+			.then(res => res.json())
+			.then(data => {
+				const list = data.sucursales || [];
+				setTopSucursales(list);
+			});
+	}, []);
+
+
+
 	const data = [
-		{ producto: "Martillo de Carpintero 16oz", sucursal: "Sucursal Sur" },
-		{ producto: "Destornillador Phillips #2", sucursal: "Sucursal Centro" },
-		{ producto: "Cable Eléctrico 12 AWG", sucursal: "Sucursal Centro" },
+			{ producto: "Martillo de Carpintero 16oz", sucursal: "Sucursal Sur" },
+			{ producto: "Destornillador Phillips #2", sucursal: "Sucursal Centro" },
+			{ producto: "Cable Eléctrico 12 AWG", sucursal: "Sucursal Centro" },
 	];
+
+	// Estado para productos reales
+	const [productos, setProductos] = useState([]);
+
+	// Form state para ajustar stock (guardamos objetos { label, value } retornados por el API)
+	const [selectedSucursal, setSelectedSucursal] = useState(null);
+	const [selectedProducto, setSelectedProducto] = useState(null);
+	const [cantidadMovimiento, setCantidadMovimiento] = useState(0);
+	const [motivoMovimiento, setMotivoMovimiento] = useState("");
+	const [referenciaMovimiento, setReferenciaMovimiento] = useState("");
+
+	// Cargar productos reales al abrir el modal
+	useEffect(() => {
+		if (isActiveModal) {
+			fetch('/api/productos-lista')
+				.then(res => res.json())
+				.then(data => setProductos(data.productos || []));
+		}
+	}, [isActiveModal]);
+
+	// Estado para sucursales reales
+	const [sucursales, setSucursales] = useState([]);
+
+	// Cargar sucursales reales al abrir el modal
+	useEffect(() => {
+		if (isActiveModal) {
+			fetch('/api/sucursales')
+				.then(res => res.json())
+				.then(data => setSucursales(data.sucursales || []));
+		}
+	}, [isActiveModal]);
+
+	// Reset form when modal opens/closes
+	useEffect(() => {
+		if (!isActiveModal) {
+			setSelectedSucursal(null);
+			setSelectedProducto(null);
+			setCantidadMovimiento(0);
+			setMotivoMovimiento("");
+			setReferenciaMovimiento("");
+			setTipoMovimiento("");
+		}
+	}, [isActiveModal]);
 
 	const clientes = [
 		{ id: 1, nombre: "Juan Pérez", telefono: "8888-8888" },
@@ -121,8 +181,9 @@ export default function ControlStockOrg() {
 					</div>
 					<div className='lg:w-1/3 md:w-1/2'>
 						<DropdownMenu
-							options={['Vista general (Todas las sucursales)', 'sucursal 1', 'sucursal 2']}
-							defaultValue={"Vista general (Todas las sucursales)"}
+							options={[ { label: 'Todas', value: 'Todas' }, ...topSucursales ]}
+							defaultValue={topSucursal === 'Todas' ? 'Vista general (Todas las sucursales)' : topSucursal}
+							onChange={(opt) => setTopSucursal(opt.value === 'Todas' ? 'Todas' : opt.label)}
 						/>
 					</div>
 				</section>
@@ -166,7 +227,7 @@ export default function ControlStockOrg() {
 					</div>
 				</section>
 				<section className='w-full mt-4 border-dark/20 border rounded-lg p-4 flex flex-col'>
-					{activeTab === 'Resumen' && <Summary setIsActiveModal={setIsActiveModal} />}
+					{activeTab === 'Resumen' && <Summary setIsActiveModal={setIsActiveModal} sucursalFilter={topSucursal} />}
 					{activeTab === 'Movimientos' && <Movements />}
 					{activeTab === 'Alertas' && <Alerts />}
 					{activeTab === 'Dañados' && <Damaged />}
@@ -180,19 +241,47 @@ export default function ControlStockOrg() {
 					modalTitle={"Ajustar Stock de Producto"}
 					modalDescription={"Registra un movimiento de inventario"}
 				>
-					<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+					<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={async (e) => {
+						e.preventDefault();
+						try {
+							if (!selectedSucursal) throw new Error('Selecciona una sucursal');
+							if (!selectedProducto) throw new Error('Selecciona un producto');
+							if (!tipoMovimiento) throw new Error('Selecciona un tipo de movimiento');
+							if ((tipoMovimiento === 'Entrada (Aumentar Stock)' || tipoMovimiento === 'Salida (Reducir Stock)') && (!cantidadMovimiento || Number(cantidadMovimiento) <= 0)) throw new Error('Ingresa una cantidad válida');
+
+							const payload = {
+								tipo: tipoMovimiento,
+								producto: selectedProducto,
+								sucursal: selectedSucursal,
+								cantidad: Number(cantidadMovimiento),
+								motivo: motivoMovimiento,
+								referencia: referenciaMovimiento,
+								descripcion: motivoMovimiento,
+							};
+
+							const res = await StockService.registrarMovimiento(payload);
+							// cerrar modal y notificar a componentes que escuchen para re-fetch
+							setIsActiveModal(false);
+							window.dispatchEvent(new CustomEvent('stock:updated', { detail: { tipo: tipoMovimiento, producto: selectedProducto, sucursal: selectedSucursal, cantidad: Number(cantidadMovimiento), result: res } }));
+						} catch (err) {
+							console.error(err);
+							alert(err.message || 'Error al registrar movimiento');
+						}
+					}}>
 						{/* 🔹 Sucursal */}
 						<DropdownMenu
 							label={"Sucursal"}
-							options={[...new Set(data.map((d) => d.sucursal))]}
-							defaultValue={"Selecciona una sucursal"}
+							options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
+							defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
+							onChange={(opt) => setSelectedSucursal(opt)}
 						/>
 
 						{/* 🔹 Producto */}
 						<DropdownMenu
 							label={"Producto"}
-							options={[...new Set(data.map((d) => d.producto))]}
-							defaultValue={"Selecciona un producto"}
+							options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
+							defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
+							onChange={(opt) => setSelectedProducto(opt)}
 						/>
 
 						{/* 🔹 Tipo de Movimiento */}
@@ -281,12 +370,14 @@ export default function ControlStockOrg() {
 						{(tipoMovimiento === "Entrada (Aumentar Stock)" ||
 							tipoMovimiento === "Salida (Reducir Stock)") && (
 								<>
-									<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" />
-									<Input label="Motivo" placeholder="Describe el motivo..." inputClass="no icon" isTextarea={true} />
+									<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" value={cantidadMovimiento} onChange={(e) => setCantidadMovimiento(e.target.value)} />
+									<Input label="Motivo" placeholder="Describe el motivo..." inputClass="no icon" isTextarea={true} value={motivoMovimiento} onChange={(e) => setMotivoMovimiento(e.target.value)} />
 									<Input
 										label="Referencia (opcional)"
 										placeholder="Ej: ORD-001, VEN-1234"
 										inputClass="no icon"
+										value={referenciaMovimiento}
+										onChange={(e) => setReferenciaMovimiento(e.target.value)}
 									/>
 								</>
 							)}

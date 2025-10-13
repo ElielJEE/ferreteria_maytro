@@ -13,7 +13,7 @@ export default function DropdownMenu({ options, defaultValue, onChange, label, e
 
 	const handleSelect = (option) => {
 		setSelectedOption(getLabel(option));
-		onChange && onChange(getValue(option));
+		onChange && onChange(option);
 		setIsOpen(false);
 	}
 

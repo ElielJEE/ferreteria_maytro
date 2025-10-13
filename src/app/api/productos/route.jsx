@@ -16,6 +16,8 @@ export async function DELETE(request) {
 	try {
 		const { searchParams } = new URL(request.url);
 		const id = searchParams.get('id');
+		// Eliminar stock en sucursales asociado (defensivo) y luego el producto
+		await pool.query('DELETE FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ?', [id]);
 		await pool.query('DELETE FROM PRODUCTOS WHERE ID_PRODUCT = ?', [id]);
 		return Response.json({ success: true });
 	} catch (error) {
@@ -40,7 +42,7 @@ export async function GET(request) {
 
 	// Obtener productos
 	try {
-	const [rows] = await pool.query(`SELECT P.ID_PRODUCT, P.CODIGO_PRODUCTO, P.PRODUCT_NAME, P.CANTIDAD, P.PRECIO, P.STATUS, S.ID_SUBCATEGORIAS, S.NOMBRE_SUBCATEGORIA FROM PRODUCTOS P LEFT JOIN SUBCATEGORIAS S ON P.ID_SUBCATEGORIAS = S.ID_SUBCATEGORIAS`);
+	const [rows] = await pool.query(`SELECT P.ID_PRODUCT, P.CODIGO_PRODUCTO, P.PRODUCT_NAME, P.CANTIDAD, P.PRECIO, S.ID_SUBCATEGORIAS, S.NOMBRE_SUBCATEGORIA FROM PRODUCTOS P LEFT JOIN SUBCATEGORIAS S ON P.ID_SUBCATEGORIAS = S.ID_SUBCATEGORIAS`);
 		return Response.json(rows);
 	} catch (error) {
 		return Response.json({ error: error.message }, { status: 500 });
@@ -53,8 +55,8 @@ export async function POST(request) {
 		const { codigo, nombre, subcategoria, precio_venta, cantidad } = body;
 		// Insertar producto (ignorar precio de compra)
 		await pool.query(
-			'INSERT INTO PRODUCTOS (CODIGO_PRODUCTO, PRODUCT_NAME, CANTIDAD, PRECIO, STATUS, ID_SUBCATEGORIAS) VALUES (?, ?, ?, ?, ?, ?)',
-			[codigo, nombre, cantidad ?? 0, precio_venta, 'En stock', subcategoria]
+			'INSERT INTO PRODUCTOS (CODIGO_PRODUCTO, PRODUCT_NAME, CANTIDAD, PRECIO, ID_SUBCATEGORIAS) VALUES (?, ?, ?, ?, ?)',
+			[codigo, nombre, cantidad ?? 0, precio_venta, subcategoria]
 		);
 		return Response.json({ success: true });
 	} catch (error) {

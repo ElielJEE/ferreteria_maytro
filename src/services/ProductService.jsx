@@ -85,6 +85,12 @@ export const deleteProduct = async (id) => {
 		if (!res.ok) {
 			throw new Error(data?.error || data?.message || res.statusText || 'Error deleting product');
 		}
+		// Emitir evento para que otras vistas (ej. Summary) se actualicen automáticamente
+		try {
+			window.dispatchEvent(new CustomEvent('stock:updated', { detail: { deletedProductId: id } }));
+		} catch (e) {
+			console.warn('No se pudo emitir evento stock:updated tras eliminar producto', e);
+		}
 		return data;
 	} catch (error) {
 		console.error('deleteProduct error:', error);
