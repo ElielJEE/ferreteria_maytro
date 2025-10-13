@@ -1,92 +1,54 @@
-import { useActive, useIsMobile } from '@/hooks';
-import React from 'react'
+import { useIsMobile } from '@/hooks';
+import React, { useEffect, useState, useCallback } from 'react';
 import DropdownMenu from './DropdownMenu';
 import Input from './Input';
 import { FiSearch } from 'react-icons/fi';
-import { BsBuilding, BsGear } from 'react-icons/bs';
-import { Button } from '../atoms';
+import { BsBuilding } from 'react-icons/bs';
 import Card from './Card';
+import StockService from '@/services/StockService';
 
-export default function Summary() {
-	const data = [
-		{
-			"codigo": "P001",
-			"nombre": "Laptop MSI GF63",
-			"categoria": "Tornilleria",
-			"sucursal": "Central",
-			"stock_actual": 12,
-			"en_bodega": 8,
-			"fisico_total": 20,
-			"danados": 1,
-			"reservados": 2,
-			"min_stock": 5,
-			"max_stock": 30,
-			"estado": "Disponible",
-			"valor": 15000.00
-		},
-		{
-			"codigo": "P002",
-			"nombre": "Mouse Logitech G203",
-			"categoria": "Electricidad",
-			"sucursal": "Sucursal Norte",
-			"stock_actual": 45,
-			"en_bodega": 30,
-			"fisico_total": 75,
-			"danados": 3,
-			"reservados": 5,
-			"min_stock": 20,
-			"max_stock": 100,
-			"estado": "Disponible",
-			"valor": 5250.00
-		},
-		{
-			"codigo": "P003",
-			"nombre": "Teclado Mecánico Redragon K552",
-			"categoria": "Plomeria",
-			"sucursal": "Sucursal Sur",
-			"stock_actual": 5,
-			"en_bodega": 2,
-			"fisico_total": 7,
-			"danados": 0,
-			"reservados": 3,
-			"min_stock": 5,
-			"max_stock": 20,
-			"estado": "Bajo",
-			"valor": 2100.00
-		},
-		{
-			"codigo": "P004",
-			"nombre": "Monitor Samsung 24''",
-			"categoria": "Pinturas",
-			"sucursal": "Central",
-			"stock_actual": 0,
-			"en_bodega": 0,
-			"fisico_total": 0,
-			"danados": 0,
-			"reservados": 0,
-			"min_stock": 2,
-			"max_stock": 15,
-			"estado": "Agotado",
-			"valor": 0.00
-		},
-		{
-			"codigo": "P005",
-			"nombre": "Silla Gamer Cougar Armor",
-			"categoria": "Herramientas Manuales",
-			"sucursal": "Sucursal Norte",
-			"stock_actual": 21,
-			"en_bodega": 5,
-			"fisico_total": 15,
-			"danados": 1,
-			"reservados": 4,
-			"min_stock": 5,
-			"max_stock": 20,
-			"estado": "Exceso",
-			"valor": 9750.00
-		}
-	]
-
+export default function Summary({ sucursalFilter }) {
+	const [data, setData] = useState([]);
 	const isMobile = useIsMobile({ breakpoint: 768 });
+
+	useEffect(() => {
+			const fetchResumen = async () => {
+				try {
+					const result = await StockService.getResumen(sucursalFilter);
+					const rows = (result.resumen || []).map(r => ({ ...r, status: r.STATUS || '' }));
+					setData(rows);
+				} catch (e) {
+					console.error('Error fetching resumen:', e.message || e);
+					setData([]);
+				}
+			};
+		fetchResumen();
+
+		// Re-fetch or apply local update when stock is updated elsewhere
+		const handler = (e) => {
+			try {
+				const detail = e && e.detail;
+				if (detail && detail.result && detail.result.stock) {
+					// apply local update to the row matching product+Sucursal
+					const updated = detail.result.stock;
+					setData(prev => {
+						const idx = prev.findIndex(r => Number(r.ID_PRODUCT) === Number(updated.ID_PRODUCT) && Number(r.ID_SUCURSAL) === Number(updated.ID_SUCURSAL));
+						if (idx === -1) return prev;
+						const copy = [...prev];
+						copy[idx] = { ...copy[idx], ...updated, status: updated.STATUS || copy[idx].status };
+						return copy;
+					});
+				} else {
+					fetchResumen();
+				}
+			} catch (err) {
+				console.error('Error handling stock:updated event', err);
+				fetchResumen();
+			}
+		};
+		window.addEventListener('stock:updated', handler);
+		return () => window.removeEventListener('stock:updated', handler);
+	}, [sucursalFilter]);
 
 	return (
 		<>
@@ -102,16 +64,7 @@ export default function Summary() {
 					type={'search'}
 					iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
 				/>
-				<div className='md:w-1/2 w-full flex gap-2 flex-col md:flex-row'>
-					<DropdownMenu
-						options={['Todas las Categorias', ...data.map(item => item.categoria).filter((value, index, self) => self.indexOf(value) === index)]}
-						defaultValue={'Todas las Categorias'}
-					/>
-					<DropdownMenu
-						options={['Todos los Estados', ...data.map(item => item.estado).filter((value, index, self) => self.indexOf(value) === index)]}
-						defaultValue={'Todos los estados'}
-					/>
-				</div>
+				{/* Puedes agregar filtros dinámicos aquí si lo deseas */}
 			</div>
 			{!isMobile ? (
 				<div className='w-full overflow-x-auto rounded-lg border border-dark/20 mt-2'>
@@ -123,7 +76,7 @@ export default function Summary() {
 								<th className='text-start text-dark/50 font-semibold p-2'>Sucursal</th>
 								<th className='text-center text-dark/50 font-semibold p-2'>Stock Actual</th>
 								<th className='text-center text-dark/50 font-semibold p-2'>En Bodega</th>
-								<th className='text-center text-dark/50 font-semibold p-2'>Fisico Total</th>
+								<th className='text-center text-dark/50 font-semibold p-2'>Físico Total</th>
 								<th className='text-center text-dark/50 font-semibold p-2'>Dañados</th>
 								<th className='text-center text-dark/50 font-semibold p-2'>Reservados</th>
 								<th className='text-center text-dark/50 font-semibold p-2'>Rango Min-Max</th>
@@ -134,30 +87,27 @@ export default function Summary() {
 						<tbody className='w-full'>
 							{data.map((item, index) => (
 								<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
-									<td className='p-2'>{item.codigo}</td>
+									<td className='p-2'>{item.CODIGO_PRODUCTO}</td>
 									<td className='p-2 flex flex-col'>
-										{item.nombre}
-										<span className='text-dark/60 text-sm'>{item.categoria}</span>
+										{item.PRODUCT_NAME}
+										{item.SUBCATEGORY && (
+											<span className='text-sm text-dark/50 mt-1'>{item.SUBCATEGORY}</span>
+										)}
 									</td>
 									<td className='p-2 text-dark/70 max-w-[180px] truncate'>
 										<span className='flex items-center gap-1'>
 											<BsBuilding />
-											{item.sucursal}
+											{item.NOMBRE_SUCURSAL ? item.NOMBRE_SUCURSAL : 'Bodega'}
 										</span>
 									</td>
-									<td className='p-2 text-success bg-success/10 text-center'>{item.stock_actual}</td>
-									<td className='p-2 text-primary bg-primary/10 text-center'>{item.en_bodega}</td>
-									<td className='p-2 text-blue bg-blue/10 text-center'>{item.fisico_total}</td>
-									<td className='p-2 text-danger bg-danger/10 text-center'>{item.danados}</td>
-									<td className='p-2 text-purple bg-purple/10 text-center'>{item.reservados}</td>
-									<td className='p-2 bg-dark/10 max-w-[180px] truncate text-center'>{item.min_stock} - {item.max_stock}</td>
-									<td className='p-2'>
-										<span className={`flex items-center justify-center p-1 rounded-full text-light text-xs
-															${item.estado === 'Disponible' ? 'bg-success' : item.estado === 'Exceso' ? 'bg-blue' : item.estado === 'Bajo' ? 'bg-yellow' : 'bg-danger'}`}>
-											{item.estado}
-										</span>
-									</td>
-									<td className='p-2'>C${item.valor}</td>
+									<td className='p-2 text-success bg-success/10 text-center'>{item.STOCK_SUCURSAL}</td>
+									<td className='p-2 text-primary bg-primary/10 text-center'>{item.STOCK_BODEGA}</td>
+									<td className='p-2 text-blue bg-blue/10 text-center'>{item.FISICO_TOTAL}</td>
+									<td className='p-2 text-danger bg-danger/10 text-center'>{item.DANADOS || ''}</td>
+									<td className='p-2 text-purple bg-purple/10 text-center'>{item.RESERVADOS || ''}</td>
+									<td className='p-2 bg-dark/10 max-w-[180px] truncate text-center'></td>
+									<td className='p-2 text-center'>{item.status || ''}</td>
+									<td className='p-2'></td>
 								</tr>
 							))}
 						</tbody>
@@ -168,35 +118,19 @@ export default function Summary() {
 					{data.map((item, index) => (
 						<Card
 							key={index}
-							productName={item.nombre}
-							category={item.categoria}
-							status={item.estado}
-							id={item.codigo}
-							sucursal={item.sucursal}
+							productName={item.PRODUCT_NAME}
+							category={item.SUBCATEGORY || ''}
+							status={''}
+							id={item.CODIGO_PRODUCTO}
+							sucursal={item.NOMBRE_SUCURSAL}
 						>
 							<div className='flex flex-col'>
 								<span className='text-sm text-dark/70'>Stock Actual</span>
-								<span className='text-lg font-semibold'>{item.stock_actual}</span>
+								<span className='text-lg font-semibold'>{item.STOCK_SUCURSAL}</span>
 							</div>
 							<div className='flex flex-col'>
 								<span className='text-sm text-dark/70'>En Bodega</span>
-								<span className='text-lg font-semibold'>{item.en_bodega}</span>
-							</div>
-							<div className='flex flex-col'>
-								<span className='text-sm text-dark/70'>Fisico Total</span>
-								<span className='text-lg font-semibold'>{item.fisico_total}</span>
-							</div>
-							<div className='flex flex-col'>
-								<span className='text-sm text-dark/70'>Dañados</span>
-								<span className='text-lg font-semibold text-danger'>{item.danados}</span>
-							</div>
-							<div className='flex flex-col'>
-								<span className='text-sm text-dark/70'>Reservados</span>
-								<span className='text-lg font-semibold text-purple'>{item.reservados}</span>
-							</div>
-							<div className='flex flex-col'>
-								<span className='text-sm text-dark/70'>Rango</span>
-								<span className='text-lg font-semibold'>{item.min_stock} - {item.max_stock}</span>
+								<span className='text-lg font-semibold'>{item.STOCK_BODEGA}</span>
 							</div>
 						</Card>
 					))}
