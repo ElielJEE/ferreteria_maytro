@@ -85,12 +85,21 @@ export default function ControlStockOrg() {
 
 	// Cargar sucursales para el dropdown superior al montar
 	useEffect(() => {
-		fetch('/api/sucursales')
-			.then(res => res.json())
-			.then(data => {
-				const list = data.sucursales || [];
-				setTopSucursales(list);
-			});
+		(async () => {
+			try {
+				const res = await fetch('/api/sucursales');
+				if (!res.ok) {
+					console.error('Error fetching top sucursales:', res.status);
+					setTopSucursales([]);
+					return;
+				}
+				const data = await res.json();
+				setTopSucursales(data.sucursales || []);
+			} catch (err) {
+				console.error('Failed to fetch top sucursales:', err);
+				setTopSucursales([]);
+			}
+		})();
 	}, []);
 
 
@@ -115,11 +124,22 @@ export default function ControlStockOrg() {
 
 	// Cargar productos reales al abrir el modal
 	useEffect(() => {
-		if (isActiveModal) {
-			fetch('/api/productos-lista')
-				.then(res => res.json())
-				.then(data => setProductos(data.productos || []));
-		}
+		if (!isActiveModal) return;
+		(async () => {
+			try {
+				const res = await fetch('/api/productos-lista');
+				if (!res.ok) {
+					console.error('Error fetching productos-lista:', res.status);
+					setProductos([]);
+					return;
+				}
+				const data = await res.json();
+				setProductos(data.productos || []);
+			} catch (err) {
+				console.error('Failed to fetch productos-lista:', err);
+				setProductos([]);
+			}
+		})();
 	}, [isActiveModal]);
 
 	// Estado para sucursales reales
@@ -127,11 +147,22 @@ export default function ControlStockOrg() {
 
 	// Cargar sucursales reales al abrir el modal
 	useEffect(() => {
-		if (isActiveModal) {
-			fetch('/api/sucursales')
-				.then(res => res.json())
-				.then(data => setSucursales(data.sucursales || []));
-		}
+		if (!isActiveModal) return;
+		(async () => {
+			try {
+				const res = await fetch('/api/sucursales');
+				if (!res.ok) {
+					console.error('Error fetching sucursales (modal):', res.status);
+					setSucursales([]);
+					return;
+				}
+				const data = await res.json();
+				setSucursales(data.sucursales || []);
+			} catch (err) {
+				console.error('Failed to fetch sucursales (modal):', err);
+				setSucursales([]);
+			}
+		})();
 	}, [isActiveModal]);
 
 	// Reset form when modal opens/closes
