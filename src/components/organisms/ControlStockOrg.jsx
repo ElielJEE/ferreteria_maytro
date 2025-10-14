@@ -10,6 +10,87 @@ import { useActive, useIsMobile } from '@/hooks'
 
 export default function ControlStockOrg() {
 	const [tipoMovimiento, setTipoMovimiento] = useState("");
+	const [formErrors, setFormErrors] = useState({});
+	console.log(formErrors);
+
+	const validateForm = (form, tipoMovimiento) => {
+		const newErrors = {};
+
+		// Campos siempre requeridos
+		const required = ['sucursal', 'producto', 'tipoMovimiento'];
+		required.forEach((field) => {
+			const value = form[field];
+			if (value === null || value === undefined || String(value).trim() === '') {
+				newErrors[field] = 'Este campo es requerido';
+			}
+		});
+
+		if (['Marcar como Dañado', 'Entrada (Aumentar Stock)', 'Salida (Reducir Stock)'].includes(tipoMovimiento)) {
+			if (!form.cantidad || Number(form.cantidad) <= 0) {
+				newErrors.cantidad = 'Ingresa una cantidad válida';
+			}
+		}
+
+		if (tipoMovimiento === "Marcar como Dañado") {
+			if (!form.tipoDano) newErrors.tipoDano = 'Selecciona un tipo de daño';
+			if (!form.estadoDano) newErrors.estadoDano = 'Selecciona un estado';
+			if (!form.motivo) newErrors.motivo = 'Ingresa una descripción del daño';
+		}
+
+		if (tipoMovimiento === "Marcar como Reservado") {
+			if (!form.cliente) newErrors.cliente = 'Selecciona o ingresa un cliente';
+			if (!form.telefono) newErrors.telefono = 'Ingresa un teléfono';
+		}
+
+		// etc para otros tipos de movimiento...
+
+		setFormErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+
+		const form = {
+			sucursal: selectedSucursal,
+			producto: selectedProducto,
+			tipoMovimiento,
+			cantidad: cantidadMovimiento,
+			motivo: motivoMovimiento,
+			referencia: referenciaMovimiento,
+			tipoDano,
+			estadoDano,
+			cliente,
+			telefono,
+		};
+
+		const isValid = validateForm(form, tipoMovimiento);
+		if (!isValid) return;
+
+		const payload = {
+			tipo: tipoMovimiento,
+			producto: selectedProducto,
+			sucursal: selectedSucursal,
+			cantidad: Number(cantidadMovimiento),
+			motivo: motivoMovimiento,
+			referencia: referenciaMovimiento,
+			descripcion: motivoMovimiento,
+			tipo_dano: tipoDano,
+			estado_dano: estadoDano,
+		};
+
+		const res = await StockService.registrarMovimiento(payload);
+
+		if (!res.success) {
+			setErrors({ general: res.message });
+			return;
+		}
+
+		setIsActiveModal(false);
+		window.dispatchEvent(new CustomEvent('stock:updated', {
+			detail: { tipo: tipoMovimiento, producto: selectedProducto, sucursal: selectedSucursal, cantidad: Number(cantidadMovimiento), result: res }
+		}));
+	};
 
 	const movimientos = [
 		"Entrada (Aumentar Stock)",
@@ -105,9 +186,9 @@ export default function ControlStockOrg() {
 
 
 	const data = [
-			{ producto: "Martillo de Carpintero 16oz", sucursal: "Sucursal Sur" },
-			{ producto: "Destornillador Phillips #2", sucursal: "Sucursal Centro" },
-			{ producto: "Cable Eléctrico 12 AWG", sucursal: "Sucursal Centro" },
+		{ producto: "Martillo de Carpintero 16oz", sucursal: "Sucursal Sur" },
+		{ producto: "Destornillador Phillips #2", sucursal: "Sucursal Centro" },
+		{ producto: "Cable Eléctrico 12 AWG", sucursal: "Sucursal Centro" },
 	];
 
 	// Estado para productos reales
@@ -216,7 +297,7 @@ export default function ControlStockOrg() {
 					</div>
 					<div className='lg:w-1/3 md:w-1/2'>
 						<DropdownMenu
-							options={[ { label: 'Todas', value: 'Todas' }, ...topSucursales ]}
+							options={[{ label: 'Todas', value: 'Todas' }, ...topSucursales]}
 							defaultValue={topSucursal === 'Todas' ? 'Vista general (Todas las sucursales)' : topSucursal}
 							onChange={(opt) => setTopSucursal(opt.value === 'Todas' ? 'Todas' : opt.label)}
 						/>
@@ -276,48 +357,14 @@ export default function ControlStockOrg() {
 					modalTitle={"Ajustar Stock de Producto"}
 					modalDescription={"Registra un movimiento de inventario"}
 				>
-					<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={async (e) => {
-						e.preventDefault();
-						try {
-							if (!selectedSucursal) throw new Error('Selecciona una sucursal');
-							if (!selectedProducto) throw new Error('Selecciona un producto');
-							if (!tipoMovimiento) throw new Error('Selecciona un tipo de movimiento');
-
-							// Validaciones específicas para Dañado
-							if (tipoMovimiento === 'Marcar como Dañado') {
-								if (!cantidadMovimiento || Number(cantidadMovimiento) <= 0) throw new Error('Ingresa una cantidad válida para Dañados');
-								// descripcion ya viene de motivoMovimiento
-							} else if ((tipoMovimiento === 'Entrada (Aumentar Stock)' || tipoMovimiento === 'Salida (Reducir Stock)')) {
-								if (!cantidadMovimiento || Number(cantidadMovimiento) <= 0) throw new Error('Ingresa una cantidad válida');
-							}
-
-							const payload = {
-								tipo: tipoMovimiento,
-								producto: selectedProducto,
-								sucursal: selectedSucursal,
-								cantidad: Number(cantidadMovimiento),
-								motivo: motivoMovimiento,
-								referencia: referenciaMovimiento,
-								descripcion: motivoMovimiento,
-								tipo_dano: tipoDano,
-								estado_dano: estadoDano,
-							};
-
-							const res = await StockService.registrarMovimiento(payload);
-							// cerrar modal y notificar a componentes que escuchen para re-fetch
-							setIsActiveModal(false);
-							window.dispatchEvent(new CustomEvent('stock:updated', { detail: { tipo: tipoMovimiento, producto: selectedProducto, sucursal: selectedSucursal, cantidad: Number(cantidadMovimiento), result: res } }));
-						} catch (err) {
-							console.error(err);
-							alert(err.message || 'Error al registrar movimiento');
-						}
-					}}>
+					<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={handleSubmit}>
 						{/* 🔹 Sucursal */}
 						<DropdownMenu
 							label={"Sucursal"}
 							options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
 							defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
 							onChange={(opt) => setSelectedSucursal(opt)}
+							error={formErrors.sucursal}
 						/>
 
 						{/* 🔹 Producto */}
@@ -326,6 +373,7 @@ export default function ControlStockOrg() {
 							options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
 							defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
 							onChange={(opt) => setSelectedProducto(opt)}
+							error={formErrors.producto}
 						/>
 
 						{/* 🔹 Tipo de Movimiento */}
@@ -334,23 +382,34 @@ export default function ControlStockOrg() {
 							options={movimientos}
 							defaultValue={"Selecciona un tipo"}
 							onChange={(value) => setTipoMovimiento(value)}
+							error={formErrors.tipoMovimiento}
 						/>
 
 						{/* 🔹 Campos dinámicos */}
 						{tipoMovimiento === "Marcar como Dañado" && (
 							<>
-								<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" value={cantidadMovimiento} onChange={(e) => setCantidadMovimiento(e.target.value)} />
+								<Input
+									label="Cantidad"
+									type="number"
+									placeholder="0"
+									inputClass="no icon"
+									value={cantidadMovimiento}
+									onChange={(e) => setCantidadMovimiento(e.target.value)}
+									error={formErrors.cantidad}
+								/>
 								<DropdownMenu
 									label="Tipo de Daño"
 									options={["Vencido", "Deteriorado", "Defectuoso"]}
 									defaultValue="Selecciona un tipo de daño"
 									onChange={(opt) => setTipoDano(typeof opt === 'object' ? opt.label : opt)}
+									error={formErrors.tipoDano}
 								/>
 								<DropdownMenu
 									label="Estado"
 									options={["Recuperable", "Perdida Total"]}
 									defaultValue="Selecciona estado"
 									onChange={(opt) => setEstadoDano(typeof opt === 'object' ? opt.label : opt)}
+									error={formErrors.estadoDano}
 								/>
 								<Input
 									label="Descripción"
@@ -360,13 +419,20 @@ export default function ControlStockOrg() {
 									isLastElement={true}
 									value={motivoMovimiento}
 									onChange={(e) => setMotivoMovimiento(e.target.value)}
+									error={formErrors.motivo}
 								/>
 							</>
 						)}
 
 						{tipoMovimiento === "Marcar como Reservado" && (
 							<>
-								<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" />
+								<Input
+									label="Cantidad"
+									type="number"
+									placeholder="0"
+									inputClass="no icon"
+									error={formErrors.cantidad}
+								/>
 								<div className="relative">
 									<Input
 										label="Cliente"
@@ -374,6 +440,7 @@ export default function ControlStockOrg() {
 										value={cliente}
 										onChange={handleClienteChange}
 										inputClass="no icon"
+										error={formErrors.cliente}
 									/>
 									{clientesFiltrados.length > 0 && cliente !== "" && (
 										<ul className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10">
@@ -404,8 +471,14 @@ export default function ControlStockOrg() {
 									value={telefono}
 									onChange={(e) => setTelefono(e.target.value)}
 									inputClass="no icon"
+									error={formErrors.telefono}
 								/>
-								<Input label="Fecha de Entrega" type="date" inputClass="no icon" />
+								<Input
+									label="Fecha de Entrega"
+									type="date"
+									inputClass="no icon"
+									error={formErrors.fechaEntrega}
+								/>
 								<Input
 									label="Notas"
 									placeholder="Agrega una nota..."
@@ -418,11 +491,27 @@ export default function ControlStockOrg() {
 						{(tipoMovimiento === "Entrada (Aumentar Stock)" ||
 							tipoMovimiento === "Salida (Reducir Stock)") && (
 								<>
-									<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" value={cantidadMovimiento} onChange={(e) => setCantidadMovimiento(e.target.value)} />
-									<Input label="Motivo" placeholder="Describe el motivo..." inputClass="no icon" isTextarea={true} value={motivoMovimiento} onChange={(e) => setMotivoMovimiento(e.target.value)} />
+									<Input
+										label="Cantidad"
+										type="number"
+										placeholder="0"
+										inputClass="no icon"
+										value={cantidadMovimiento}
+										onChange={(e) => setCantidadMovimiento(e.target.value)}
+										error={formErrors.cantidad}
+									/>
+									<Input
+										label="Motivo"
+										placeholder="Describe el motivo..."
+										inputClass="no icon"
+										isTextarea={true}
+										value={motivoMovimiento}
+										onChange={(e) => setMotivoMovimiento(e.target.value)}
+									/>
 									<Input
 										label="Referencia (opcional)"
 										placeholder="Ej: ORD-001, VEN-1234"
+
 										inputClass="no icon"
 										value={referenciaMovimiento}
 										onChange={(e) => setReferenciaMovimiento(e.target.value)}
@@ -432,7 +521,13 @@ export default function ControlStockOrg() {
 
 						{tipoMovimiento === "Transferencia" && (
 							<>
-								<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" />
+								<Input
+									label="Cantidad"
+									type="number"
+									placeholder="0"
+									inputClass="no icon"
+									error={formErrors.cantidad}
+								/>
 								<Input
 									label="Referencia (opcional)"
 									placeholder="Ej: ORD-001, VEN-1234"
@@ -443,7 +538,13 @@ export default function ControlStockOrg() {
 									options={[...new Set(data.map((d) => d.sucursal))]}
 									defaultValue="Selecciona destino"
 								/>
-								<Input label="Motivo" placeholder="Describe el motivo..." inputClass="no icon" isTextarea={true} isLastElement={true} />
+								<Input
+									label="Motivo"
+									placeholder="Describe el motivo..."
+									inputClass="no icon"
+									isTextarea={true}
+									isLastElement={true}
+								/>
 							</>
 						)}
 						<div className='col-span-2 flex gap-2 mt-2'>

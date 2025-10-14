@@ -23,49 +23,113 @@ const StockService = {
     return { resumen: [] };
   },
   async getMovimientos(sucursal) {
-    const res = await fetch(`${API_URL}?tab=Movimientos&sucursal=${encodeURIComponent(sucursal)}`);
-    if (!res.ok) throw new Error('Error al obtener movimientos');
-    return res.json();
-  },
-  async getAlertas(sucursal) {
-    const res = await fetch(`${API_URL}?tab=Alertas&sucursal=${encodeURIComponent(sucursal)}`);
-    if (!res.ok) throw new Error('Error al obtener alertas');
-    return res.json();
-  },
-  async getDanados(sucursal) {
-    const res = await fetch(`${API_URL}?tab=Dañados&sucursal=${encodeURIComponent(sucursal)}`);
-    if (!res.ok) throw new Error('Error al obtener dañados');
-    return res.json();
-  },
-  async getReservados(sucursal) {
-    const res = await fetch(`${API_URL}?tab=Reservados&sucursal=${encodeURIComponent(sucursal)}`);
-    if (!res.ok) throw new Error('Error al obtener reservados');
-    return res.json();
-  },
-  async registrarMovimiento(data) {
-    // If frontend sends ids instead of names, forward them as producto_id/sucursal_id
-    const payload = { ...data };
-    if (data.producto && typeof data.producto === 'object' && data.producto.value) {
-      payload.producto_id = data.producto.value;
-      payload.producto = undefined;
+    try {
+      const res = await fetch(`${API_URL}?tab=Movimientos&sucursal=${encodeURIComponent(sucursal)}`);
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudieron obtener los movimientos';
+        return { success: false, message, movimientos: [] };
+      }
+
+      // Normaliza la respuesta: puede ser un array directo o dentro de json.movimientos
+      if (Array.isArray(json)) return { success: true, movimientos: json };
+      if (json && Array.isArray(json.movimientos)) return { success: true, movimientos: json.movimientos };
+
+      return { success: true, movimientos: [] }; // fallback seguro
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión', movimientos: [] };
     }
-    if (data.sucursal && typeof data.sucursal === 'object' && data.sucursal.value) {
+  },
+
+  async getAlertas(sucursal) {
+    try {
+      const res = await fetch(`${API_URL}?tab=Alertas&sucursal=${encodeURIComponent(sucursal)}`);
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudieron obtener las alertas';
+        return { success: false, message, alertas: [] };
+      }
+
+      if (Array.isArray(json)) return { success: true, alertas: json };
+      if (json && Array.isArray(json.alertas)) return { success: true, alertas: json.alertas };
+
+      return { success: true, alertas: [] };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión', alertas: [] };
+    }
+  },
+
+  async getDanados(sucursal) {
+    try {
+      const res = await fetch(`${API_URL}?tab=Dañados&sucursal=${encodeURIComponent(sucursal)}`);
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudieron obtener los productos dañados';
+        return { success: false, message, danados: [] };
+      }
+
+      if (Array.isArray(json)) return { success: true, danados: json };
+      if (json && Array.isArray(json.danados)) return { success: true, danados: json.danados };
+
+      return { success: true, danados: [] };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión', danados: [] };
+    }
+  },
+
+  async getReservados(sucursal) {
+    try {
+      const res = await fetch(`${API_URL}?tab=Reservados&sucursal=${encodeURIComponent(sucursal)}`);
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudieron obtener los productos reservados';
+        return { success: false, message, reservados: [] };
+      }
+
+      if (Array.isArray(json)) return { success: true, reservados: json };
+      if (json && Array.isArray(json.reservados)) return { success: true, reservados: json.reservados };
+
+      return { success: true, reservados: [] };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión', reservados: [] };
+    }
+  },
+
+  async registrarMovimiento(data) {
+    const payload = { ...data };
+
+    if (data.producto?.value) {
+      payload.producto_id = data.producto.value;
+      delete payload.producto;
+    }
+    if (data.sucursal?.value) {
       payload.sucursal_id = data.sucursal.value;
-      payload.sucursal = undefined;
+      delete payload.sucursal;
     }
 
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      const message = json && (json.error || json.message) ? (json.error || json.message) : 'Error al registrar movimiento';
-      throw new Error(message);
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'Error al registrar movimiento';
+        return { success: false, message };
+      }
+
+      return { success: true, data: json };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión' };
     }
-    return json;
-  },
+  }
 };
 
 export default StockService;
