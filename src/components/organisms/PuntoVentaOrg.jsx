@@ -130,7 +130,7 @@ export default function PuntoVentaOrg() {
 					}
 				</div>
 			</section>
-			<section className='w-full flex flex-col gap-4'>
+			<section className='w-full flex flex-col gap-4 max-h-[617px] overflow-y-auto'>
 				<div className='w-full border border-dark/20 rounded-lg p-4 flex flex-col gap-4'>
 					<div className='flex items-center gap-2'>
 						<FiUser className='h-5 w-5 text-dark' />
