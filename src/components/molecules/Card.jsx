@@ -2,7 +2,7 @@ import React from 'react'
 import { Button } from '../atoms'
 import { FiDelete, FiEdit, FiTrash } from 'react-icons/fi'
 
-export default function Card({ productName, status, sucursal, id, category, children, func, funcSecundary, other, bgColor, price }) {
+export default function Card({ productName, status, sucursal, id, category, children, func, funcSecundary, other, bgColor, price, stock, UnitMeasure }) {
 	const ColorVariants = {
 		success: 'bg-success',
 		primary: 'bg-primary',
@@ -18,22 +18,30 @@ export default function Card({ productName, status, sucursal, id, category, chil
 			<div className='w-full flex flex-col gap-2'>
 				<div className='w-full flex justify-between items-center'>
 					<h2 className='text-lg font-semibold'>{productName}</h2>
-					{status &&
-						<span className={`text-sm font-medium text-light px-2 py-1 rounded-full 
+					<div className='flex flex-col'>
+						{status &&
+							<span className={`text-sm font-medium text-light px-2 py-1 rounded-full 
 							${status === 'Disponible' || status === 'Recuperable'
-								? 'bg-success'
-								: status === 'Exceso'
-									? 'bg-blue'
-									: status === 'Bajo'
-										? 'bg-yellow'
-										: 'bg-danger'
-							}`}>
-							{status}
-						</span>
-					}
-					{price &&
-						<span className='text-primary font-semibold'>C${price}</span>
-					}
+									? 'bg-success'
+									: status === 'Exceso'
+										? 'bg-blue'
+										: status === 'Bajo'
+											? 'bg-yellow'
+											: 'bg-danger'
+								}`}>
+								{status}
+							</span>
+						}
+						{price &&
+							<span className='text-primary font-semibold'>C${price}</span>
+						}
+						{UnitMeasure &&
+							<span className='text-dark/70 font-semibold'>{UnitMeasure}</span>
+						}
+						{stock &&
+							<span className='text-dark/70 font-semibold'>Stock: {stock}</span>
+						}
+					</div>
 				</div>
 				<div className='w-full flex flex-col justify-start items-start gap-1'>
 					<span className='text-sm text-dark/70 font-semibold'>{id}</span>
