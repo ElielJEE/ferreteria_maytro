@@ -66,6 +66,8 @@ export async function GET(request) {
   }
 }
 
+import { extractId } from '@/app/api/_utils/normalize';
+
 export async function POST(request) {
   const body = await request.json();
   const { name, parent } = body;
@@ -73,10 +75,11 @@ export async function POST(request) {
     return Response.json({ error: 'Nombre requerido' }, { status: 400 });
   }
   try {
-    if (parent && parent !== 'Ninguna') {
+    const parentId = extractId(parent);
+    if (parentId && parentId !== 'Ninguna') {
       // Crear subcategoría
       const subId = Math.random().toString(36).substr(2, 10).toUpperCase().slice(0, 10);
-      await pool.query('INSERT INTO SUBCATEGORIAS (ID_SUBCATEGORIAS, NOMBRE_SUBCATEGORIA, ID_CATEGORIAS) VALUES (?, ?, ?)', [subId, name, parent]);
+      await pool.query('INSERT INTO SUBCATEGORIAS (ID_SUBCATEGORIAS, NOMBRE_SUBCATEGORIA, ID_CATEGORIAS) VALUES (?, ?, ?)', [subId, name, parentId]);
       return Response.json({ message: 'Subcategoría agregada correctamente' }, { status: 201 });
     } else {
       // Crear categoría principal

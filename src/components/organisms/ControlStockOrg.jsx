@@ -110,6 +110,8 @@ export default function ControlStockOrg() {
 	const [cantidadMovimiento, setCantidadMovimiento] = useState(0);
 	const [motivoMovimiento, setMotivoMovimiento] = useState("");
 	const [referenciaMovimiento, setReferenciaMovimiento] = useState("");
+	const [tipoDano, setTipoDano] = useState("");
+	const [estadoDano, setEstadoDano] = useState("");
 
 	// Cargar productos reales al abrir el modal
 	useEffect(() => {
@@ -141,6 +143,8 @@ export default function ControlStockOrg() {
 			setMotivoMovimiento("");
 			setReferenciaMovimiento("");
 			setTipoMovimiento("");
+			setTipoDano("");
+			setEstadoDano("");
 		}
 	}, [isActiveModal]);
 
@@ -247,7 +251,14 @@ export default function ControlStockOrg() {
 							if (!selectedSucursal) throw new Error('Selecciona una sucursal');
 							if (!selectedProducto) throw new Error('Selecciona un producto');
 							if (!tipoMovimiento) throw new Error('Selecciona un tipo de movimiento');
-							if ((tipoMovimiento === 'Entrada (Aumentar Stock)' || tipoMovimiento === 'Salida (Reducir Stock)') && (!cantidadMovimiento || Number(cantidadMovimiento) <= 0)) throw new Error('Ingresa una cantidad válida');
+
+							// Validaciones específicas para Dañado
+							if (tipoMovimiento === 'Marcar como Dañado') {
+								if (!cantidadMovimiento || Number(cantidadMovimiento) <= 0) throw new Error('Ingresa una cantidad válida para Dañados');
+								// descripcion ya viene de motivoMovimiento
+							} else if ((tipoMovimiento === 'Entrada (Aumentar Stock)' || tipoMovimiento === 'Salida (Reducir Stock)')) {
+								if (!cantidadMovimiento || Number(cantidadMovimiento) <= 0) throw new Error('Ingresa una cantidad válida');
+							}
 
 							const payload = {
 								tipo: tipoMovimiento,
@@ -257,6 +268,8 @@ export default function ControlStockOrg() {
 								motivo: motivoMovimiento,
 								referencia: referenciaMovimiento,
 								descripcion: motivoMovimiento,
+								tipo_dano: tipoDano,
+								estado_dano: estadoDano,
 							};
 
 							const res = await StockService.registrarMovimiento(payload);
@@ -295,16 +308,18 @@ export default function ControlStockOrg() {
 						{/* 🔹 Campos dinámicos */}
 						{tipoMovimiento === "Marcar como Dañado" && (
 							<>
-								<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" />
+								<Input label="Cantidad" type="number" placeholder="0" inputClass="no icon" value={cantidadMovimiento} onChange={(e) => setCantidadMovimiento(e.target.value)} />
 								<DropdownMenu
 									label="Tipo de Daño"
 									options={["Vencido", "Deteriorado", "Defectuoso"]}
 									defaultValue="Selecciona un tipo de daño"
+									onChange={(opt) => setTipoDano(typeof opt === 'object' ? opt.label : opt)}
 								/>
 								<DropdownMenu
 									label="Estado"
 									options={["Recuperable", "Perdida Total"]}
 									defaultValue="Selecciona estado"
+									onChange={(opt) => setEstadoDano(typeof opt === 'object' ? opt.label : opt)}
 								/>
 								<Input
 									label="Descripción"
@@ -312,6 +327,8 @@ export default function ControlStockOrg() {
 									isTextarea={true}
 									inputClass="no icon"
 									isLastElement={true}
+									value={motivoMovimiento}
+									onChange={(e) => setMotivoMovimiento(e.target.value)}
 								/>
 							</>
 						)}

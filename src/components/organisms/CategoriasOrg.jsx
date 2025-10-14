@@ -174,66 +174,70 @@ export default function CategoriasOrg() {
           </div>
           <div className='w-full border border-dark/20 rounded-lg overflow-x-auto'>
             {categories.length > 0 &&
-              filteredCategories.slice(0, visibleItems).map((category, index) => (
-                <div key={index}>
-                  <div
-                    className='w-full flex border-b border-dark/20 p-4 items-center justify-between gap-1 cursor-pointer'
-                    onClick={() => toggleActiveItem(index)}
-                  >
-                    <div className='flex items-center gap-2'>
-                      <FiArrowRight className={`h-4 w-4 text-dark/50 ${isActiveItem === index ? 'rotate-90' : ''}`} />
-                      <div
-                        className='w-3 h-3 rounded-full'
-                        style={{ backgroundColor: categoryColors[category.name.length] }}
-                      ></div>
-                      <h2 className='font-semibold'>{category.name}</h2>
-                    </div>
-                    <div className='flex flex-col md:flex-row items-center gap-2'>
-                      <span className='text-dark/50 text-sm'>{(index + 1) * 2} Productos</span>
-                      <div className='flex'>
-                        <Button
-                          className={"none"}
-                          icon={<FiEdit className='h-4 w-4' />}
-                          func={() => toggleModalType('edit', category, 'categoria')}
-                        />
-                        <Button
-                          className={"none"}
-                          icon={<FiTrash className='h-4 w-4' />}
-                          func={() => toggleModalType('delete', category, 'categoria')}
-                        />
+              filteredCategories.slice(0, visibleItems).map((category, index) => {
+                const origIdx = categories.findIndex(c => c.id === category.id);
+                const bgColor = categoryColors[origIdx] ?? categoryColors[index] ?? 'transparent';
+                return (
+                  <div key={category.id ?? index}>
+                    <div
+                      className='w-full flex border-b border-dark/20 p-4 items-center justify-between gap-1 cursor-pointer'
+                      onClick={() => toggleActiveItem(index)}
+                    >
+                      <div className='flex items-center gap-2'>
+                        <FiArrowRight className={`h-4 w-4 text-dark/50 ${isActiveItem === index ? 'rotate-90' : ''}`} />
+                        <div
+                          className='w-3 h-3 rounded-full'
+                          style={{ backgroundColor: bgColor }}
+                        ></div>
+                        <h2 className='font-semibold'>{category.name}</h2>
+                      </div>
+                      <div className='flex flex-col md:flex-row items-center gap-2'>
+                        <span className='text-dark/50 text-sm'>{(index + 1) * 2} Productos</span>
+                        <div className='flex'>
+                          <Button
+                            className={"none"}
+                            icon={<FiEdit className='h-4 w-4' />}
+                            func={() => toggleModalType('edit', category, 'categoria')}
+                          />
+                          <Button
+                            className={"none"}
+                            icon={<FiTrash className='h-4 w-4' />}
+                            func={() => toggleModalType('delete', category, 'categoria')}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {isActiveItem === index && category.subcategories && (
-                    category.subcategories.map((subcat, subIndex) => (
-                      <div
-                        key={subIndex}
-                        className='w-full flex border-b border-dark/20 py-4 px-6 md:px-15 items-center justify-between gap-1'
-                      >
-                        <div className='flex items-center gap-2'>
-                          <div className='w-3 h-3 rounded-full bg-dark/30'></div>
-                          <h2 className='font-semibold'>{subcat.name}</h2>
-                        </div>
-                        <div className='flex flex-col md:flex-row items-center gap-2'>
-                          <span className='text-dark/50 text-sm'>{(subIndex + 1) * 2} Productos</span>
-                          <div className='flex'>
-                            <Button
-                              className={"none"}
-                              icon={<FiEdit className='h-4 w-4' />}
-                              func={() => toggleModalType('edit', subcat, 'subcategoria', category.id)}
-                            />
-                            <Button
-                              className={"none"}
-                              icon={<FiTrash className='h-4 w-4' />}
-                              func={() => toggleModalType('delete', subcat, 'subcategoria')}
-                            />
+                    {isActiveItem === index && category.subcategories && (
+                      category.subcategories.map((subcat, subIndex) => (
+                        <div
+                          key={subcat.id ?? subIndex}
+                          className='w-full flex border-b border-dark/20 py-4 px-6 md:px-15 items-center justify-between gap-1'
+                        >
+                          <div className='flex items-center gap-2'>
+                            <div className='w-3 h-3 rounded-full bg-dark/30'></div>
+                            <h2 className='font-semibold'>{subcat.name}</h2>
+                          </div>
+                          <div className='flex flex-col md:flex-row items-center gap-2'>
+                            <span className='text-dark/50 text-sm'>{(subIndex + 1) * 2} Productos</span>
+                            <div className='flex'>
+                              <Button
+                                className={"none"}
+                                icon={<FiEdit className='h-4 w-4' />}
+                                func={() => toggleModalType('edit', subcat, 'subcategoria', category.id)}
+                              />
+                              <Button
+                                className={"none"}
+                                icon={<FiTrash className='h-4 w-4' />}
+                                func={() => toggleModalType('delete', subcat, 'subcategoria')}
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              ))
+                      ))
+                    )}
+                  </div>
+                );
+              })
             }
           </div>
           <div className='w-full flex justify-center items-center'>
