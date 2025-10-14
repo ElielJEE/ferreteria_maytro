@@ -31,6 +31,7 @@ export default function Damaged() {
 			"cantidad": 5,
 			"tipo_de_dano": "Deteriorado",
 			"fecha": "2024-01-25",
+			"reportado_por": "Carlos López",
 			"perdida": 4.25,
 			"estado": "Pérdida Total",
 			"descripcion": "Tornillos oxidados por humedad."
@@ -43,6 +44,7 @@ export default function Damaged() {
 			"cantidad": 5,
 			"tipo_de_dano": "Defectuoso",
 			"fecha": "2024-01-24",
+			"reportado_por": "María García",
 			"perdida": 42.50,
 			"estado": "Recuperable",
 			"descripcion": "Cable con aislamiento dañado."
@@ -55,6 +57,7 @@ export default function Damaged() {
 			"cantidad": 5,
 			"tipo_de_dano": "Defectuoso",
 			"fecha": "2024-01-24",
+			"reportado_por": "María García",
 			"perdida": 42.50,
 			"estado": "Recuperable",
 			"descripcion": "Cable con aislamiento dañado. Cable con aislamiento dañado. Cable con aislamiento dañado. Cable con aislamiento dañado."
@@ -67,6 +70,7 @@ export default function Damaged() {
 			"cantidad": 5,
 			"tipo_de_dano": "Defectuoso",
 			"fecha": "2024-01-24",
+			"reportado_por": "María García",
 			"perdida": 42.50,
 			"estado": "Recuperable",
 			"descripcion": "Cable con aislamiento dañado."
@@ -79,6 +83,7 @@ export default function Damaged() {
 			"cantidad": 5,
 			"tipo_de_dano": "Defectuoso",
 			"fecha": "2024-01-24",
+			"reportado_por": "María García",
 			"perdida": 42.50,
 			"estado": "Recuperable",
 			"descripcion": "Cable con aislamiento dañado."
@@ -91,6 +96,7 @@ export default function Damaged() {
 			"cantidad": 4,
 			"tipo_de_dano": "Vencido",
 			"fecha": "2024-01-23",
+			"reportado_por": "Ana Rodríguez",
 			"perdida": 500.00,
 			"estado": "Pérdida Total",
 			"descripcion": "Pintura vencida, solidificada."
@@ -139,7 +145,7 @@ export default function Damaged() {
 									<th className='text-center text-dark/50 font-semibold p-2'>Cantidad</th>
 									<th className='text-start text-dark/50 font-semibold p-2'>Tipo de daño</th>
 									<th className='text-start text-dark/50 font-semibold p-2'>Fecha</th>
-
+									<th className='text-start text-dark/50 font-semibold p-2'>Reportado por</th>
 									<th className='text-start text-dark/50 font-semibold p-2'>Perdida</th>
 									<th className='text-start text-dark/50 font-semibold p-2'>Estado</th>
 									<th className='text-start text-dark/50 font-semibold p-2'>Descripcion</th>
@@ -166,7 +172,12 @@ export default function Damaged() {
 												</div>
 											</td>
 											<td className="p-2">{item.fecha}</td>
-
+											<td className='p-2'>
+												<div className='flex items-center gap-1 truncate'>
+													<FiUser />
+													{item.reportado_por}
+												</div>
+											</td>
 											<td className='p-2 text-danger'>{item.perdida}</td>
 											<td className='p-2'>
 												<div className={`px-2 text-center rounded-full ${cfgEstado.bgColor ?? 'bg-dark/10'}`}>
@@ -208,7 +219,10 @@ export default function Damaged() {
 										<span className='text-sm text-dark/70'>Fecha</span>
 										<span className='text-lg font-semibold'>{item.fecha}</span>
 									</div>
-
+									<div className='flex flex-col'>
+										<span className='text-sm text-dark/70'>Reportado por</span>
+										<span className='text-lg font-semibold'>{item.reportado_por}</span>
+									</div>
 									<div className='flex flex-col col-span-2'>
 										<span className='text-sm text-dark/70'>Descripcion</span>
 										<span className='text-lg font-semibold'>{item.descripcion}</span>

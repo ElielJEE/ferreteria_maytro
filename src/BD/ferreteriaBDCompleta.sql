@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS MOVIMIENTOS_INVENTARIO (
   sucursal_id VARCHAR(10) NULL,
   usuario_id INT NULL,
   -- incluir 'danado' para representar movimientos por daño desde frontend
-  tipo_movimiento ENUM('entrada','salida','danado','ajuste','transferencia','ajuste_danado','reservado') NOT NULL,
+  tipo_movimiento ENUM('entrada','salida','danado','transferencia','reservado') NOT NULL,
   cantidad INT NOT NULL,
   motivo VARCHAR(255),
   fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

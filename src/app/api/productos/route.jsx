@@ -16,10 +16,44 @@ export async function DELETE(request) {
 	try {
 		const { searchParams } = new URL(request.url);
 		const id = searchParams.get('id');
-		// Eliminar stock en sucursales asociado (defensivo) y luego el producto
-		await pool.query('DELETE FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ?', [id]);
-		await pool.query('DELETE FROM PRODUCTOS WHERE ID_PRODUCT = ?', [id]);
-		return Response.json({ success: true });
+		if (!id) return Response.json({ error: 'id requerido' }, { status: 400 });
+		const conn = await pool.getConnection();
+		try {
+			await conn.beginTransaction();
+
+			// Helper: elimina en la tabla si alguna de las columnas candidatas existe
+			const deleteFromIfColumn = async (table, candidates) => {
+				const [cols] = await conn.query(
+					`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+					[table]
+				);
+				if (!cols || !cols.length) return; // tabla no existe o no accesible
+				const available = new Set(cols.map(r => String(r.COLUMN_NAME).toUpperCase()));
+				for (const c of candidates) {
+					if (available.has(c.toUpperCase())) {
+						await conn.query(`DELETE FROM ${table} WHERE ${c} = ?`, [id]);
+						break;
+					}
+				}
+			};
+
+			// Tablas relacionadas a borrar (orden: hijos -> padre)
+			await deleteFromIfColumn('MOVIMIENTOS_INVENTARIO', ['producto_id', 'ID_PRODUCT']);
+			await deleteFromIfColumn('STOCK_DANADOS', ['ID_PRODUCT', 'producto_id']);
+			await deleteFromIfColumn('NIVELACION', ['ID_PRODUCT', 'producto_id']);
+			await deleteFromIfColumn('STOCK_SUCURSAL', ['ID_PRODUCT', 'producto_id']);
+
+			// Finalmente borrar el producto
+			await conn.query('DELETE FROM PRODUCTOS WHERE ID_PRODUCT = ?', [id]);
+
+			await conn.commit();
+			conn.release();
+			return Response.json({ success: true });
+		} catch (err) {
+			try { await conn.rollback(); } catch (e) {}
+			try { conn.release(); } catch (e) {}
+			return Response.json({ error: err.message }, { status: 500 });
+		}
 	} catch (error) {
 		return Response.json({ error: error.message }, { status: 500 });
 	}
