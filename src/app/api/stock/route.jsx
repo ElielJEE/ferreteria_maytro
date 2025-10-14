@@ -204,8 +204,6 @@ export async function POST(req) {
     if (!allowed || !allowed.length) return null;
     if (!requested) return null;
     if (allowed.includes(requested)) return requested;
-    // heurística: si pedimos 'danado' pero no existe, preferir 'ajuste_danado' si está
-    if (requested === 'danado' && allowed.includes('ajuste_danado')) return 'ajuste_danado';
     // si pedimos 'reservado' y no existe, quizá 'reserva' no está en enum; fallback null
     // como último recurso, devolver el primer valor permitido (pero llamador puede elegir fallback más específico)
     return null;
@@ -493,8 +491,21 @@ export async function POST(req) {
           console.debug('Attempting to insert MOVIMIENTOS_INVENTARIO (danado) with values:', { tipo, storedTipo });
           // Validar storedTipo contra ENUM real
           const allowed = await getAllowedTipoMovimiento(conn);
-          // Intentar usar storedTipo; si no está permitido, mapear a ajuste_danado o ajuste si existen, o usar primer allowed
-          let tipoParaInsert = chooseClosestAllowed(allowed, storedTipo) || chooseClosestAllowed(allowed, 'ajuste_danado') || chooseClosestAllowed(allowed, 'ajuste') || (allowed[0] ?? storedTipo ?? 'ajuste');
+          // Si el movimiento recibido corresponde a "dañado" (p. ej. 'Marcar como Dañado')
+          // forzamos 'danado' si existe en el ENUM. Esto evita mapear automáticamente a 'ajuste' o 'ajuste_danado'.
+          const isDamageType = /(da[nñ]ad|da[nñ]ado|dañado|danado|dañad|marcar como dañ|marcar como danad|marcar como danado)/i.test(tipo || '');
+          let tipoParaInsert;
+          if (isDamageType || storedTipo === 'danado') {
+            if (allowed.includes('danado')) {
+              tipoParaInsert = 'danado';
+            } else {
+              // Si no existe 'danado' en el ENUM, conservar la heurística pero preferir 'ajuste'
+              tipoParaInsert = chooseClosestAllowed(allowed, 'ajuste') || (allowed[0] ?? storedTipo ?? 'ajuste');
+            }
+          } else {
+            // comportamiento por defecto para otros tipos
+            tipoParaInsert = chooseClosestAllowed(allowed, storedTipo) || chooseClosestAllowed(allowed, 'danado') || chooseClosestAllowed(allowed, 'ajuste') || (allowed[0] ?? storedTipo ?? 'ajuste');
+          }
           if (storedTipo && allowed.length && !allowed.includes(storedTipo)) {
             console.warn('tipo_movimiento solicitado no está en ENUM (danado), usando fallback. allowed=', allowed, 'requested=', storedTipo, 'chosen=', tipoParaInsert);
           }

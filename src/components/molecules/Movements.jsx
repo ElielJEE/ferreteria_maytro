@@ -8,73 +8,36 @@ import { BsBuilding } from 'react-icons/bs'
 import { TbSwitchHorizontal } from "react-icons/tb";
 import { GoGear } from "react-icons/go";
 
-export default function Movements() {
-	const data = [
-		{
-			"fecha": "2024-01-25",
-			"hora": "09:30",
-			"tipo": "Entrada",
-			"sucursal": "Sucursal Centro",
-			"producto": {
-				"nombre": "Martillo de Carpintero 16oz",
-				"codigo": "HER001"
-			},
-			"cantidad": 50,
-			"stock_anterior": 25,
-			"stock_nuevo": 75,
-			"motivo": "Compra a proveedor",
-			"usuario": "Juan Pérez",
-			"referencia": "ORD-001"
-		},
-		{
-			"fecha": "2024-01-25",
-			"hora": "11:15",
-			"tipo": "Salida",
-			"sucursal": "Sucursal Centro",
-			"producto": {
-				"nombre": "Destornillador Phillips #2",
-				"codigo": "HER002"
-			},
-			"cantidad": 5,
-			"stock_anterior": 50,
-			"stock_nuevo": 45,
-			"motivo": "Venta al cliente",
-			"usuario": "María García",
-			"referencia": "VEN-1234"
-		},
-		{
-			"fecha": "2024-01-25",
-			"hora": "14:20",
-			"tipo": "Dañado",
-			"sucursal": "Sucursal Norte",
-			"producto": {
-				"nombre": "Tornillos Autorroscantes 1/2\"",
-				"codigo": "TOR001"
-			},
-			"cantidad": 2,
-			"stock_anterior": 10,
-			"stock_nuevo": 8,
-			"motivo": "Productos dañados por humedad",
-			"usuario": "Carlos López",
-			"referencia": null
-		},
-		{
-			"fecha": "2024-01-25",
-			"hora": "16:30",
-			"tipo": "Reserva",
-			"sucursal": "Sucursal Sur",
-			"producto": {
-				"nombre": "Martillo de Carpintero 16oz",
-				"codigo": "HER001"
-			},
-			"cantidad": 3,
-			"stock_anterior": 20,
-			"stock_nuevo": 17,
-			"motivo": "Reserva para cliente VIP",
-			"usuario": "Ana Rodríguez",
-			"referencia": null
+export default function Movements({ sucursalFilter }) {
+	const [data, setData] = React.useState([]);
+	const [loading, setLoading] = React.useState(false);
+	const [search, setSearch] = React.useState('');
+	const [tipoFiltro, setTipoFiltro] = React.useState('Todos los tipos de movimientos');
+
+	const fetchMovimientos = React.useCallback(async (sucursal) => {
+		try {
+			setLoading(true);
+			const StockService = (await import('@/services/StockService')).default;
+			const res = await StockService.getMovimientos(sucursal || 'Todas');
+			const movimientos = res && res.movimientos ? res.movimientos : [];
+			setData(movimientos);
+		} catch (err) {
+			console.error('Error fetching movimientos:', err);
+			setData([]);
+		} finally {
+			setLoading(false);
 		}
-	]
+	}, []);
+
+	React.useEffect(() => {
+		fetchMovimientos(sucursalFilter || 'Todas');
+	}, [fetchMovimientos, sucursalFilter]);
+
+	React.useEffect(() => {
+		const handler = () => fetchMovimientos(sucursalFilter || 'Todas');
+		window.addEventListener('stock:updated', handler);
+		return () => window.removeEventListener('stock:updated', handler);
+	}, [fetchMovimientos, sucursalFilter]);
 
 	const tiposConfig = [
 		{ type: 'Entrada', Icon: <FiArrowUpCircle className='text-success h-4 w-5' />, bgColor: 'bg-success', textColor: 'text-success' },
@@ -98,11 +61,14 @@ export default function Movements() {
 					placeholder={'Buscar producto...'}
 					type={'search'}
 					iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
+					value={search}
+					onChange={(e) => setSearch(e.target.value)}
 				/>
 				<div className='md:w-1/2 w-full flex gap-2 flex-col md:flex-row'>
 					<DropdownMenu
 						options={['Todos los tipos de movimientos', ...data.map(item => item.tipo).filter((value, index, self) => self.indexOf(value) === index)]}
-						defaultValue={'Todos los tipos de movimientos'}
+						defaultValue={tipoFiltro}
+						onChange={(v) => setTipoFiltro(typeof v === 'string' ? v : v)}
 					/>
 				</div>
 			</div>
@@ -124,7 +90,18 @@ export default function Movements() {
 							</tr>
 						</thead>
 						<tbody className='w-full'>
-							{data.map((item, index) => {
+							{(loading ? [] : data)
+								.filter(item => {
+									// search by product name or code
+									if (!search) return true;
+									const q = search.toLowerCase();
+									return (item.producto?.nombre || '').toLowerCase().includes(q) || (item.producto?.codigo || '').toLowerCase().includes(q);
+								})
+								.filter(item => {
+									if (!tipoFiltro || tipoFiltro === 'Todos los tipos de movimientos') return true;
+									return item.tipo === tipoFiltro;
+								})
+								.map((item, index) => {
 								const cfg = tiposConfig.find(t => t.type === item.tipo) || {};
 								return (
 									<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>

@@ -263,7 +263,7 @@ export default function ControlStockOrg() {
 				</section>
 				<section className='w-full mt-4 border-dark/20 border rounded-lg p-4 flex flex-col'>
 					{activeTab === 'Resumen' && <Summary setIsActiveModal={setIsActiveModal} sucursalFilter={topSucursal} />}
-					{activeTab === 'Movimientos' && <Movements />}
+					{activeTab === 'Movimientos' && <Movements sucursalFilter={topSucursal} />}
 					{activeTab === 'Alertas' && <Alerts />}
 					{activeTab === 'Dañados' && <Damaged />}
 					{activeTab === 'Reservados' && <Reserved />}
