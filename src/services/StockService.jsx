@@ -12,7 +12,15 @@ const StockService = {
       const message = json && (json.error || json.message) ? (json.error || json.message) : 'Error al obtener resumen de stock';
       throw new Error(message);
     }
-    return json;
+    // Normalizar: la API puede devolver { resumen: [...] } o directamente un array
+    if (Array.isArray(json)) {
+      return { resumen: json };
+    }
+    if (json && Array.isArray(json.resumen)) {
+      return json;
+    }
+    // Fallback seguro
+    return { resumen: [] };
   },
   async getMovimientos(sucursal) {
     const res = await fetch(`${API_URL}?tab=Movimientos&sucursal=${encodeURIComponent(sucursal)}`);

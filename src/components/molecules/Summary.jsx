@@ -24,28 +24,8 @@ export default function Summary({ sucursalFilter }) {
 			};
 		fetchResumen();
 
-		// Re-fetch or apply local update when stock is updated elsewhere
-		const handler = (e) => {
-			try {
-				const detail = e && e.detail;
-				if (detail && detail.result && detail.result.stock) {
-					// apply local update to the row matching product+Sucursal
-					const updated = detail.result.stock;
-					setData(prev => {
-						const idx = prev.findIndex(r => Number(r.ID_PRODUCT) === Number(updated.ID_PRODUCT) && Number(r.ID_SUCURSAL) === Number(updated.ID_SUCURSAL));
-						if (idx === -1) return prev;
-						const copy = [...prev];
-						copy[idx] = { ...copy[idx], ...updated, status: updated.STATUS || copy[idx].status };
-						return copy;
-					});
-				} else {
-					fetchResumen();
-				}
-			} catch (err) {
-				console.error('Error handling stock:updated event', err);
-				fetchResumen();
-			}
-		};
+		// Re-fetch when stock is updated elsewhere
+		const handler = () => fetchResumen();
 		window.addEventListener('stock:updated', handler);
 		return () => window.removeEventListener('stock:updated', handler);
 	}, [sucursalFilter]);
@@ -103,8 +83,8 @@ export default function Summary({ sucursalFilter }) {
 									<td className='p-2 text-success bg-success/10 text-center'>{item.STOCK_SUCURSAL}</td>
 									<td className='p-2 text-primary bg-primary/10 text-center'>{item.STOCK_BODEGA}</td>
 									<td className='p-2 text-blue bg-blue/10 text-center'>{item.FISICO_TOTAL}</td>
-									<td className='p-2 text-danger bg-danger/10 text-center'>{item.DANADOS || ''}</td>
-									<td className='p-2 text-purple bg-purple/10 text-center'>{item.RESERVADOS || ''}</td>
+									<td className='p-2 text-danger bg-danger/10 text-center'>{item.DANADOS !== undefined && item.DANADOS !== null ? item.DANADOS : ''}</td>
+									<td className='p-2 text-purple bg-purple/10 text-center'>{item.RESERVADOS !== undefined && item.RESERVADOS !== null ? item.RESERVADOS : ''}</td>
 									<td className='p-2 bg-dark/10 max-w-[180px] truncate text-center'></td>
 									<td className='p-2 text-center'>{item.status || ''}</td>
 									<td className='p-2'></td>
