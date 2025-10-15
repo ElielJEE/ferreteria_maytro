@@ -4,23 +4,21 @@ const API_URL = '/api/stock';
 
 const StockService = {
   async getResumen(sucursal) {
-    let url = `${API_URL}?tab=Resumen`;
-    if (sucursal && sucursal !== 'Todas') url += `&sucursal=${encodeURIComponent(sucursal)}`;
-    const res = await fetch(url);
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      const message = json && (json.error || json.message) ? (json.error || json.message) : 'Error al obtener resumen de stock';
-      throw new Error(message);
+    try {
+      let url = `${API_URL}?tab=Resumen`;
+      if (sucursal && sucursal !== 'Todas') url += `&sucursal=${encodeURIComponent(sucursal)}`;
+      const res = await fetch(url);
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'Error al obtener resumen de stock';
+        return { success: false, message, resumen: [] };
+      }
+      if (Array.isArray(json)) return { success: true, resumen: json };
+      if (json && Array.isArray(json.resumen)) return { success: true, resumen: json.resumen };
+      return { success: true, resumen: [] };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión', resumen: [] };
     }
-    // Normalizar: la API puede devolver { resumen: [...] } o directamente un array
-    if (Array.isArray(json)) {
-      return { resumen: json };
-    }
-    if (json && Array.isArray(json.resumen)) {
-      return json;
-    }
-    // Fallback seguro
-    return { resumen: [] };
   },
   async getMovimientos(sucursal) {
     try {

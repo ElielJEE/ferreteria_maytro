@@ -40,7 +40,7 @@ export async function DELETE(request) {
 			// Tablas relacionadas a borrar (orden: hijos -> padre)
 			await deleteFromIfColumn('MOVIMIENTOS_INVENTARIO', ['producto_id', 'ID_PRODUCT']);
 			await deleteFromIfColumn('STOCK_DANADOS', ['ID_PRODUCT', 'producto_id']);
-			await deleteFromIfColumn('NIVELACION', ['ID_PRODUCT', 'producto_id']);
+			// Requerimiento: no tocar tabla NIVELACION
 			await deleteFromIfColumn('STOCK_SUCURSAL', ['ID_PRODUCT', 'producto_id']);
 
 			// Finalmente borrar el producto
