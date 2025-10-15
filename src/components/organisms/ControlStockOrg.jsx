@@ -80,12 +80,12 @@ export default function ControlStockOrg() {
 			estado_dano: estadoDano,
 		};
 
-				if (tipoMovimiento === 'Marcar como Reservado') {
-					payload.cliente = cliente;
-					payload.telefono = telefono;
-					payload.fecha_entrega = fechaEntrega || null;
-					payload.notas = notas || null;
-				}
+		if (tipoMovimiento === 'Marcar como Reservado') {
+			payload.cliente = cliente;
+			payload.telefono = telefono;
+			payload.fecha_entrega = fechaEntrega || null;
+			payload.notas = notas || null;
+		}
 
 		const res = await StockService.registrarMovimiento(payload);
 
@@ -193,7 +193,7 @@ export default function ControlStockOrg() {
 
 	// Top cards: calcular con datos reales del resumen
 	useEffect(() => {
-	const zeros = { en_bodega: 0, en_stock: 0, fisico_total: 0, danados: 0, reservados: 0, criticos: 0, agotados: 0, valor_total: 'C$ 0' };
+		const zeros = { en_bodega: 0, en_stock: 0, fisico_total: 0, danados: 0, reservados: 0, criticos: 0, agotados: 0, valor_total: 'C$ 0' };
 		const normNum = (v) => (v == null || v === '' ? 0 : Number(v));
 		const calcCards = (rows) => {
 			// en_stock/danados/reservados se pueden sumar a nivel de fila (ya vienen por sucursal)
@@ -351,6 +351,7 @@ export default function ControlStockOrg() {
 	const handleClienteChange = (e) => {
 		const value = e.target.value;
 		setCliente(value);
+		setFormErrors(prev => ({ ...prev, cliente: '' }));
 
 		// Filtrar coincidencias
 		const resultados = clientes.filter(c =>
@@ -441,7 +442,10 @@ export default function ControlStockOrg() {
 							label={"Sucursal"}
 							options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
 							defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
-							onChange={(opt) => setSelectedSucursal(opt)}
+							onChange={(opt) => {
+								setSelectedSucursal(opt);
+								if (opt) setFormErrors(prev => ({ ...prev, sucursal: '' }));
+							}}
 							error={formErrors.sucursal}
 						/>
 
@@ -450,7 +454,10 @@ export default function ControlStockOrg() {
 							label={"Producto"}
 							options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
 							defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
-							onChange={(opt) => setSelectedProducto(opt)}
+							onChange={(opt) => {
+								setSelectedProducto(opt);
+								if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
+							}}
 							error={formErrors.producto}
 						/>
 
@@ -459,7 +466,10 @@ export default function ControlStockOrg() {
 							label={"Tipo de Movimiento"}
 							options={movimientos}
 							defaultValue={"Selecciona un tipo"}
-							onChange={(value) => setTipoMovimiento(value)}
+							onChange={(value) => {
+								setTipoMovimiento(value);
+								if (value) setFormErrors(prev => ({ ...prev, tipoMovimiento: '' }));
+							}}
 							error={formErrors.tipoMovimiento}
 						/>
 
@@ -472,23 +482,37 @@ export default function ControlStockOrg() {
 									placeholder="0"
 									inputClass="no icon"
 									value={cantidadMovimiento}
-									onChange={(e) => setCantidadMovimiento(e.target.value)}
+									onChange={(e) => {
+										setCantidadMovimiento(e.target.value);
+										setFormErrors(prev => ({ ...prev, cantidad: '' }));
+									}}
 									error={formErrors.cantidad}
 								/>
+
 								<DropdownMenu
 									label="Tipo de Daño"
 									options={["Vencido", "Deteriorado", "Defectuoso"]}
 									defaultValue="Selecciona un tipo de daño"
-									onChange={(opt) => setTipoDano(typeof opt === 'object' ? opt.label : opt)}
+									onChange={(opt) => {
+										const value = typeof opt === 'object' ? opt.label : opt;
+										setTipoDano(value);
+										setFormErrors(prev => ({ ...prev, tipoDano: '' }));
+									}}
 									error={formErrors.tipoDano}
 								/>
+
 								<DropdownMenu
 									label="Estado"
 									options={["Recuperable", "Perdida Total"]}
 									defaultValue="Selecciona estado"
-									onChange={(opt) => setEstadoDano(typeof opt === 'object' ? opt.label : opt)}
+									onChange={(opt) => {
+										const value = typeof opt === 'object' ? opt.label : opt;
+										setEstadoDano(value);
+										setFormErrors(prev => ({ ...prev, estadoDano: '' }));
+									}}
 									error={formErrors.estadoDano}
 								/>
+
 								<Input
 									label="Descripción"
 									placeholder="Describe el daño..."
@@ -496,7 +520,10 @@ export default function ControlStockOrg() {
 									inputClass="no icon"
 									isLastElement={true}
 									value={motivoMovimiento}
-									onChange={(e) => setMotivoMovimiento(e.target.value)}
+									onChange={(e) => {
+										setMotivoMovimiento(e.target.value);
+										setFormErrors(prev => ({ ...prev, motivo: '' }));
+									}}
 									error={formErrors.motivo}
 								/>
 							</>
@@ -510,7 +537,10 @@ export default function ControlStockOrg() {
 									placeholder="0"
 									inputClass="no icon"
 									value={cantidadMovimiento}
-									onChange={(e) => setCantidadMovimiento(e.target.value)}
+									onChange={(e) => {
+										setCantidadMovimiento(e.target.value);
+										setFormErrors(prev => ({ ...prev, cantidad: '' }));
+									}}
 									error={formErrors.cantidad}
 								/>
 								<div className="relative">
@@ -549,18 +579,26 @@ export default function ControlStockOrg() {
 									label="Teléfono"
 									placeholder="Número del cliente"
 									value={telefono}
-									onChange={(e) => setTelefono(e.target.value)}
+									onChange={(e) => {
+										setTelefono(e.target.value);
+										setFormErrors(prev => ({ ...prev, telefono: '' }));
+									}}
 									inputClass="no icon"
 									error={formErrors.telefono}
 								/>
+
 								<Input
 									label="Fecha de Entrega"
 									type="date"
 									inputClass="no icon"
 									value={fechaEntrega}
-									onChange={(e) => setFechaEntrega(e.target.value)}
+									onChange={(e) => {
+										setFechaEntrega(e.target.value);
+										setFormErrors(prev => ({ ...prev, fechaEntrega: '' }));
+									}}
 									error={formErrors.fechaEntrega}
 								/>
+
 								<Input
 									label="Notas"
 									placeholder="Agrega una nota..."
@@ -581,7 +619,10 @@ export default function ControlStockOrg() {
 										placeholder="0"
 										inputClass="no icon"
 										value={cantidadMovimiento}
-										onChange={(e) => setCantidadMovimiento(e.target.value)}
+										onChange={(e) => {
+											setCantidadMovimiento(e.target.value);
+											setFormErrors(prev => ({ ...prev, cantidad: '' }));
+										}}
 										error={formErrors.cantidad}
 									/>
 									<Input
@@ -610,6 +651,10 @@ export default function ControlStockOrg() {
 									type="number"
 									placeholder="0"
 									inputClass="no icon"
+									onChange={(e) => {
+										setCantidadMovimiento(e.target.value);
+										setFormErrors(prev => ({ ...prev, cantidad: '' }));
+									}}
 									error={formErrors.cantidad}
 								/>
 								<Input
