@@ -1,19 +1,17 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { FiAlertTriangle, FiDollarSign, FiTrendingDown, FiUser, FiXCircle } from 'react-icons/fi'
 import { InfoCard } from '../atoms'
-import { BsBoxSeam, BsBuilding } from 'react-icons/bs';
+import { BsBuilding } from 'react-icons/bs';
 import { useIsMobile } from '@/hooks';
 import Card from './Card';
+import StockService from '@/services/StockService';
 
 export default function Damaged() {
 	const isMobile = useIsMobile({ breakpoint: 768 });
 
-	const cardData = {
-		"danados": 5,
-		"recuperables": 50,
-		"perdida_total": 1,
-		"valor_perdido": 150,
-	}
+	const [loading, setLoading] = useState(false);
+	const [cardData, setCardData] = useState({ danados: 0, recuperables: 0, perdida_total: 0, valor_perdido: 0 });
+	const [rows, setRows] = useState([]);
 
 	const cardsConfig = [
 		{ key: "danados", title: "Dañados", icon: FiXCircle, color: "danger" },
@@ -22,86 +20,7 @@ export default function Damaged() {
 		{ key: "valor_perdido", title: "Valor perdido", icon: FiDollarSign, color: "danger" },
 	];
 
-	const data = [
-		{
-			"codigo": "TOR001",
-			"producto": "Tornillos Autroscantes 1/2\"",
-			"sucursal": "Sucursal Norte",
-			"ubicacion": "B-2-1",
-			"cantidad": 5,
-			"tipo_de_dano": "Deteriorado",
-			"fecha": "2024-01-25",
-			"reportado_por": "Carlos López",
-			"perdida": 4.25,
-			"estado": "Pérdida Total",
-			"descripcion": "Tornillos oxidados por humedad."
-		},
-		{
-			"codigo": "ELE021",
-			"producto": "Cable Eléctrico 12 AWG",
-			"sucursal": "Sucursal Centro",
-			"ubicacion": "D-1-4",
-			"cantidad": 5,
-			"tipo_de_dano": "Defectuoso",
-			"fecha": "2024-01-24",
-			"reportado_por": "María García",
-			"perdida": 42.50,
-			"estado": "Recuperable",
-			"descripcion": "Cable con aislamiento dañado."
-		},
-		{
-			"codigo": "ELE021",
-			"producto": "Cable Eléctrico 12 AWG",
-			"sucursal": "Sucursal Centro",
-			"ubicacion": "D-1-4",
-			"cantidad": 5,
-			"tipo_de_dano": "Defectuoso",
-			"fecha": "2024-01-24",
-			"reportado_por": "María García",
-			"perdida": 42.50,
-			"estado": "Recuperable",
-			"descripcion": "Cable con aislamiento dañado. Cable con aislamiento dañado. Cable con aislamiento dañado. Cable con aislamiento dañado."
-		},
-		{
-			"codigo": "ELE021",
-			"producto": "Cable Eléctrico 12 AWG",
-			"sucursal": "Sucursal Centro",
-			"ubicacion": "D-1-4",
-			"cantidad": 5,
-			"tipo_de_dano": "Defectuoso",
-			"fecha": "2024-01-24",
-			"reportado_por": "María García",
-			"perdida": 42.50,
-			"estado": "Recuperable",
-			"descripcion": "Cable con aislamiento dañado."
-		},
-		{
-			"codigo": "ELE021",
-			"producto": "Cable Eléctrico 12 AWG",
-			"sucursal": "Sucursal Centro",
-			"ubicacion": "D-1-4",
-			"cantidad": 5,
-			"tipo_de_dano": "Defectuoso",
-			"fecha": "2024-01-24",
-			"reportado_por": "María García",
-			"perdida": 42.50,
-			"estado": "Recuperable",
-			"descripcion": "Cable con aislamiento dañado."
-		},
-		{
-			"codigo": "PIN021",
-			"producto": "Pintura Vinílica Blanca 4L",
-			"sucursal": "Sucursal Sur",
-			"ubicacion": "C-3-2",
-			"cantidad": 4,
-			"tipo_de_dano": "Vencido",
-			"fecha": "2024-01-23",
-			"reportado_por": "Ana Rodríguez",
-			"perdida": 500.00,
-			"estado": "Pérdida Total",
-			"descripcion": "Pintura vencida, solidificada."
-		}
-	]
+	// rows state will hold the list of damaged records returned by the API
 
 	const tiposConfig = [
 		{ type: 'Deteriorado', bgColor: 'bg-danger', color: 'danger', textColor: 'text-danger' },
@@ -110,6 +29,41 @@ export default function Damaged() {
 		{ type: 'Recuperable', bgColor: 'bg-success' },
 		{ type: 'Pérdida Total', bgColor: 'bg-danger' },
 	]
+
+	useEffect(() => {
+		const fetchDamaged = async () => {
+			try {
+				setLoading(true);
+				const res = await StockService.getDanados('Todas');
+				if (res && res.success) {
+					const danados = res.danados || [];
+					setRows(danados);
+					// Normalizar estados para cálculo de tarjetas
+					const norm = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+					const toNum = (v) => (v == null || v === '' ? 0 : Number(v));
+					const totalUnidades = danados.reduce((acc, r) => acc + toNum(r.cantidad), 0);
+					const recuperables = danados.reduce((acc, r) => acc + (norm(r.estado) === 'recuperable' ? toNum(r.cantidad) : 0), 0);
+					const perdidasTotales = danados.reduce((acc, r) => acc + (norm(r.estado) === 'perdida total' ? toNum(r.cantidad) : 0), 0);
+					const valorPerdido = danados.reduce((acc, r) => acc + toNum(r.perdida), 0);
+					setCardData({ danados: totalUnidades, recuperables, perdida_total: perdidasTotales, valor_perdido: valorPerdido });
+				} else {
+					setRows([]);
+					setCardData({ danados: 0, recuperables: 0, perdida_total: 0, valor_perdido: 0 });
+				}
+			} catch (err) {
+				console.error('Error cargando dañados:', err);
+				setRows([]);
+				setCardData({ danados: 0, recuperables: 0, perdida_total: 0, valor_perdido: 0 });
+			} finally {
+				setLoading(false);
+			}
+		};
+		fetchDamaged();
+
+		const handler = () => fetchDamaged();
+		window.addEventListener('stock:updated', handler);
+		return () => window.removeEventListener('stock:updated', handler);
+	}, []);
 
 	return (
 		<div>
@@ -152,9 +106,14 @@ export default function Damaged() {
 								</tr>
 							</thead>
 							<tbody className='w-full'>
-								{data.map((item, index) => {
-									const cfgDano = tiposConfig.find(t => t.type === item.tipo_de_dano) || {};
-									const cfgEstado = tiposConfig.find(t => t.type === item.estado) || {};
+								{rows.map((item, index) => {
+									const findCfg = (arr, value) => {
+										const norm = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+										const nv = norm(value);
+										return arr.find(t => norm(t.type) === nv) || {};
+									};
+									const cfgDano = findCfg(tiposConfig, item.tipo_dano);
+									const cfgEstado = findCfg(tiposConfig, item.estado);
 									return (
 										<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
 											<td className='p-2'>{item.codigo}</td>
@@ -168,7 +127,7 @@ export default function Damaged() {
 											<td className={`p-2 text-center ${cfgDano.textColor} ${cfgDano.bgColor}/10`}>{item.cantidad}</td>
 											<td className='p-2'>
 												<div className={`px-2 text-center rounded-full ${cfgDano.bgColor ?? 'bg-dark/10'}`}>
-													<span className='text-sm text-light'>{item.tipo_de_dano}</span>
+													<span className='text-sm text-light'>{item.tipo_dano}</span>
 												</div>
 											</td>
 											<td className="p-2">{item.fecha}</td>
@@ -195,15 +154,20 @@ export default function Damaged() {
 					</div>
 				) : (
 					<div className='flex flex-col mt-2 gap-2'>
-						{data.map((item, index) => {
-							const cfg = tiposConfig.find(t => t.type === item.tipo_de_dano) || {};
+								{rows.map((item, index) => {
+								const findCfg = (arr, value) => {
+									const norm = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+									const nv = norm(value);
+									return arr.find(t => norm(t.type) === nv) || {};
+								};
+								const cfg = findCfg(tiposConfig, item.tipo_dano);
 							return (
 								<Card
 									key={index}
 									productName={item.producto}
 									id={item.codigo}
 									sucursal={item.sucursal}
-									other={item.tipo_de_dano}
+										other={item.tipo_dano}
 									status={item.estado}
 									bgColor={cfg.color}
 								>

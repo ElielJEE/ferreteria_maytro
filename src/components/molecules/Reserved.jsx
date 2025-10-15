@@ -1,19 +1,48 @@
 import { useIsMobile } from '@/hooks';
-import React from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { FiBox, FiCheckCircle, FiClock, FiShoppingCart, FiUser } from 'react-icons/fi';
 import { InfoCard } from '../atoms';
 import { BsBuilding, BsTelephone } from 'react-icons/bs';
 import Card from './Card';
 
-export default function Reserved() {
+export default function Reserved({ sucursalFilter = 'Todas' }) {
 	const isMobile = useIsMobile({ breakpoint: 768 });
 
-	const cardData = {
-		"reservados": 5,
-		"pendientes": 3,
-		"parciales": 1,
-		"entregados": 1,
-	}
+		const [loading, setLoading] = useState(false);
+		const [error, setError] = useState('');
+		const [rows, setRows] = useState([]);
+
+			const fetchData = async (ignoreFlag = { v: false }) => {
+				try {
+					setLoading(true); setError('');
+					const url = `/api/stock?tab=Reservados&sucursal=${encodeURIComponent(sucursalFilter || 'Todas')}`;
+					const res = await fetch(url);
+					const json = await res.json().catch(() => null);
+					if (!res.ok) throw new Error(json?.error || json?.message || 'No se pudieron obtener reservados');
+					const list = Array.isArray(json) ? json : (json?.reservados || []);
+						if (!ignoreFlag.v) setRows(list);
+				} catch (e) {
+						if (!ignoreFlag.v) setError(e.message || 'Error al cargar reservados');
+				} finally {
+						if (!ignoreFlag.v) setLoading(false);
+				}
+			};
+
+			useEffect(() => {
+				const ignore = { v: false };
+				fetchData(ignore);
+				const handler = () => fetchData(ignore);
+				window.addEventListener('stock:updated', handler);
+				return () => { ignore.v = true; window.removeEventListener('stock:updated', handler); };
+		}, [sucursalFilter]);
+
+		const cardData = useMemo(() => {
+			const total = rows.length;
+			const pendientes = rows.filter(r => (r.estado || '').toLowerCase() === 'pendiente').length;
+			const parciales = rows.filter(r => (r.estado || '').toLowerCase() === 'parcial').length;
+			const entregados = rows.filter(r => ['entregado','completada','completado'].includes((r.estado || '').toLowerCase())).length;
+			return { reservados: total, pendientes, parciales, entregados };
+		}, [rows]);
 
 	const cardsConfig = [
 		{ key: "reservados", title: "Reservados", icon: FiShoppingCart, color: "purple" },
@@ -22,56 +51,19 @@ export default function Reserved() {
 		{ key: "entregados", title: "Entregados", icon: FiCheckCircle, color: "success" },
 	];
 
-	const data = [
-		{
-			"codigo": "HER801",
-			"producto": "Martillo de Carpintero 16oz",
-			"sucursal": "Sucursal Sur",
-			"cantidad": 3,
-			"cliente": {
-				"nombre": "Roberto Silva",
-				"id": "cust001"
-			},
-			"telefono": "555-1001",
-			"fecha_reserva": "2024-01-25",
-			"fecha_entrega": "2024-01-28",
-			"estado": "Pendiente",
-			"reservado_por": "Ana Rodríguez",
-			"notas": "Cliente VIP, entrega prioritaria"
-		},
-		{
-			"codigo": "HER802",
-			"producto": "Destornillador Phillips #2",
-			"sucursal": "Sucursal Centro",
-			"cantidad": 2,
-			"cliente": {
-				"nombre": "Luis Martínez",
-				"id": "cust002"
-			},
-			"telefono": "555-1002",
-			"fecha_reserva": "2024-01-24",
-			"fecha_entrega": "2024-01-26",
-			"estado": "Pendiente",
-			"reservado_por": "Juan Pérez",
-			"notas": "Reserva para proyecto eléctrico"
-		},
-		{
-			"codigo": "ELE801",
-			"producto": "Cable Eléctrico 12 AWG",
-			"sucursal": "Sucursal Centro",
-			"cantidad": 3,
-			"cliente": {
-				"nombre": "Carmen López",
-				"id": "cust003"
-			},
-			"telefono": "555-1003",
-			"fecha_reserva": "2024-01-23",
-			"fecha_entrega": "No definida",
-			"estado": "Parcial",
-			"reservado_por": "María García",
-			"notas": "Entrega parcial realizada"
-		}
-	]
+    const data = rows.map(r => ({
+      codigo: r.codigo || '',
+      producto: r.producto || '',
+      sucursal: r.sucursal || '',
+      cantidad: Number(r.cantidad || 0),
+      cliente: r.cliente || { nombre: '', id: '' },
+      telefono: r.telefono || '',
+      fecha_reserva: r.fecha_reserva || '',
+      fecha_entrega: r.fecha_entrega || '',
+      estado: r.estado || 'Pendiente',
+      reservado_por: r.reservado_por || '',
+      notas: r.notas || ''
+    }));
 
 	const tiposConfig = [
 		{ type: 'Pendiente', bgColor: 'bg-yellow', color: 'yellow', textColor: 'text-yellow' },
@@ -84,10 +76,17 @@ export default function Reserved() {
 			<div className='w-full flex flex-col mb-4'>
 				<h2 className='md:text-2xl font-semibold flex items-center gap-2'>
 					<FiShoppingCart className='text-purple' />
-					Productos Dañados
+					Productos Reservados
 				</h2>
-				<span className='text-sm md:text-medium text-dark/50'>Productos dañados en todas las sucursales</span>
+				<span className='text-sm md:text-medium text-dark/50'>Productos reservados {sucursalFilter && sucursalFilter !== 'Todas' ? `en ${sucursalFilter}` : 'en todas las sucursales'}</span>
 			</div>
+
+            {error && (
+                <div className='text-danger text-sm mb-2'>{error}</div>
+            )}
+            {loading && (
+                <div className='text-dark/60 text-sm mb-2'>Cargando…</div>
+            )}
 			<section className='grid grid-cols-2 lg:grid-cols-4 gap-4 w-full'>
 				{
 					cardsConfig.map((cfg, index) => (
@@ -136,7 +135,9 @@ export default function Reserved() {
 											<td className={`p-2 text-center ${cfg.textColor} ${cfg.bgColor}/10`}>{item.cantidad}</td>
 											<td className='p-2 flex flex-col'>
 												<span className='md:truncate lg:whitespace-normal'>{item.cliente.nombre}</span>
-												<span className='text-dark/60 text-sm'>{item.cliente.id}</span>
+												{item?.cliente?.id && isNaN(Number(item.cliente.id)) && (
+													<span className='text-dark/60 text-sm'>{item.cliente.id}</span>
+												)}
 											</td>
 											<td className='p-2'>
 												<div className='flex items-center gap-1'>

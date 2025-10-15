@@ -13,14 +13,14 @@ export default function Summary({ sucursalFilter }) {
 
 	useEffect(() => {
 			const fetchResumen = async () => {
-				try {
-					const result = await StockService.getResumen(sucursalFilter);
-					const rows = (result.resumen || []).map(r => ({ ...r, status: r.STATUS || '' }));
-					setData(rows);
-				} catch (e) {
-					console.error('Error fetching resumen:', e.message || e);
+				const result = await StockService.getResumen(sucursalFilter);
+				if (!result.success) {
+					console.error('Error fetching resumen:', result.message);
 					setData([]);
+					return;
 				}
+				const rows = (result.resumen || []).map(r => ({ ...r, status: r.STATUS || '' }));
+				setData(rows);
 			};
 		fetchResumen();
 

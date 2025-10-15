@@ -38,6 +38,7 @@ export default function ControlStockOrg() {
 		}
 
 		if (tipoMovimiento === "Marcar como Reservado") {
+			if (!form.cantidad || Number(form.cantidad) <= 0) newErrors.cantidad = 'Ingresa una cantidad válida';
 			if (!form.cliente) newErrors.cliente = 'Selecciona o ingresa un cliente';
 			if (!form.telefono) newErrors.telefono = 'Ingresa un teléfono';
 		}
@@ -79,10 +80,17 @@ export default function ControlStockOrg() {
 			estado_dano: estadoDano,
 		};
 
+				if (tipoMovimiento === 'Marcar como Reservado') {
+					payload.cliente = cliente;
+					payload.telefono = telefono;
+					payload.fecha_entrega = fechaEntrega || null;
+					payload.notas = notas || null;
+				}
+
 		const res = await StockService.registrarMovimiento(payload);
 
 		if (!res.success) {
-			setErrors({ general: res.message });
+			setFormErrors({ general: res.message });
 			return;
 		}
 
@@ -100,16 +108,16 @@ export default function ControlStockOrg() {
 		"Transferencia",
 	];
 
-	const cardData = {
-		"en_bodega": 1250,
-		"en_stock": 12,
-		"fisico_total": 1250,
-		"danados": 5,
-		"reservados": 50,
-		"criticos": 1,
-		"agotados": 150,
-		"valor_total": 1250.00
-	}
+	const [cardData, setCardData] = useState({
+		en_bodega: 0,
+		en_stock: 0,
+		fisico_total: 0,
+		danados: 0,
+		reservados: 0,
+		criticos: 0,     // Requerido: dejar en 0 por ahora
+		agotados: 0,     // Requerido: dejar en 0 por ahora
+		valor_total: 0,  // Sin base de cálculo aún; dejamos 0 por ahora
+	});
 
 	const cardsConfig = [
 		{ key: "en_bodega", title: "En Bodega Disponible", icon: BsBoxSeam, color: "primary" },
@@ -183,6 +191,68 @@ export default function ControlStockOrg() {
 		})();
 	}, []);
 
+	// Top cards: calcular con datos reales del resumen
+	useEffect(() => {
+	const zeros = { en_bodega: 0, en_stock: 0, fisico_total: 0, danados: 0, reservados: 0, criticos: 0, agotados: 0, valor_total: 'C$ 0' };
+		const normNum = (v) => (v == null || v === '' ? 0 : Number(v));
+		const calcCards = (rows) => {
+			// en_stock/danados/reservados se pueden sumar a nivel de fila (ya vienen por sucursal)
+			const en_stock = rows.reduce((sum, r) => sum + normNum(r.STOCK_SUCURSAL), 0);
+			const danados = rows.reduce((sum, r) => sum + normNum(r.DANADOS), 0);
+			const reservados = rows.reduce((sum, r) => sum + normNum(r.RESERVADOS), 0);
+			// Para en_bodega y fisico_total, evitar duplicar por sucursal: sumar por producto único
+			const byProduct = new Map();
+			rows.forEach(r => {
+				const key = r.ID_PRODUCT ?? r.id_product ?? `${r.CODIGO_PRODUCTO}-${r.PRODUCT_NAME}`;
+				if (!byProduct.has(key)) {
+					byProduct.set(key, { STOCK_BODEGA: normNum(r.STOCK_BODEGA), FISICO_TOTAL: normNum(r.FISICO_TOTAL) });
+				}
+			});
+			let en_bodega = 0; let fisico_total = 0;
+			byProduct.forEach(v => { en_bodega += v.STOCK_BODEGA; fisico_total += v.FISICO_TOTAL; });
+			return { en_bodega, en_stock, fisico_total, danados, reservados, criticos: 0, agotados: 0, valor_total: 0 };
+		};
+
+		const load = async () => {
+			const res = await StockService.getResumen(topSucursal);
+			if (!res.success) {
+				console.error('Resumen cards error:', res.message);
+				setCardData(zeros);
+				return;
+			}
+			const rows = res.resumen || [];
+			const base = calcCards(rows);
+			// Calcular valor total de inventario (igual que en Productos) y restar perdidas de dañados
+			try {
+				const [prodResp, danadosResp] = await Promise.all([
+					fetch('/api/productos'),
+					StockService.getDanados('Todas')
+				]);
+				let productos = [];
+				if (prodResp && prodResp.ok) {
+					productos = await prodResp.json().catch(() => []);
+				}
+				const toNum = (v) => (v == null || v === '' ? 0 : Number(v));
+				const inventarioBase = Array.isArray(productos)
+					? productos.reduce((acc, p) => acc + (toNum(p.CANTIDAD) * toNum(p.PRECIO)), 0)
+					: 0;
+				const perdidas = (danadosResp && danadosResp.success && Array.isArray(danadosResp.danados))
+					? danadosResp.danados.reduce((acc, r) => acc + toNum(r.perdida), 0)
+					: 0;
+				const valorTotal = Math.max(inventarioBase - perdidas, 0);
+				setCardData({ ...base, valor_total: `C$ ${valorTotal.toLocaleString()}` });
+			} catch (e) {
+				console.warn('No se pudo calcular valor total inventario:', e?.message || e);
+				setCardData({ ...base, valor_total: 'C$ 0' });
+			}
+		};
+
+		load();
+		const handler = () => load();
+		window.addEventListener('stock:updated', handler);
+		return () => window.removeEventListener('stock:updated', handler);
+	}, [topSucursal]);
+
 
 
 	const data = [
@@ -202,6 +272,9 @@ export default function ControlStockOrg() {
 	const [referenciaMovimiento, setReferenciaMovimiento] = useState("");
 	const [tipoDano, setTipoDano] = useState("");
 	const [estadoDano, setEstadoDano] = useState("");
+	// Campos adicionales para Reservados
+	const [fechaEntrega, setFechaEntrega] = useState("");
+	const [notas, setNotas] = useState("");
 
 	// Cargar productos reales al abrir el modal
 	useEffect(() => {
@@ -257,6 +330,11 @@ export default function ControlStockOrg() {
 			setTipoMovimiento("");
 			setTipoDano("");
 			setEstadoDano("");
+			setCliente("");
+			setTelefono("");
+			setFechaEntrega("");
+			setNotas("");
+			setFormErrors({});
 		}
 	}, [isActiveModal]);
 
@@ -347,7 +425,7 @@ export default function ControlStockOrg() {
 					{activeTab === 'Movimientos' && <Movements sucursalFilter={topSucursal} />}
 					{activeTab === 'Alertas' && <Alerts />}
 					{activeTab === 'Dañados' && <Damaged />}
-					{activeTab === 'Reservados' && <Reserved />}
+					{activeTab === 'Reservados' && <Reserved sucursalFilter={topSucursal} />}
 				</section>
 			</div>
 			{isActiveModal && (
@@ -431,6 +509,8 @@ export default function ControlStockOrg() {
 									type="number"
 									placeholder="0"
 									inputClass="no icon"
+									value={cantidadMovimiento}
+									onChange={(e) => setCantidadMovimiento(e.target.value)}
 									error={formErrors.cantidad}
 								/>
 								<div className="relative">
@@ -477,6 +557,8 @@ export default function ControlStockOrg() {
 									label="Fecha de Entrega"
 									type="date"
 									inputClass="no icon"
+									value={fechaEntrega}
+									onChange={(e) => setFechaEntrega(e.target.value)}
 									error={formErrors.fechaEntrega}
 								/>
 								<Input
@@ -484,6 +566,8 @@ export default function ControlStockOrg() {
 									placeholder="Agrega una nota..."
 									isTextarea={true}
 									inputClass="no icon"
+									value={notas}
+									onChange={(e) => setNotas(e.target.value)}
 								/>
 							</>
 						)}
@@ -552,7 +636,7 @@ export default function ControlStockOrg() {
 								className={"danger"}
 								text={"Cancelar"}
 								type="button"
-								func={null}
+								func={() => setIsActiveModal(false)}
 							/>
 							<Button
 								className={"success"}
