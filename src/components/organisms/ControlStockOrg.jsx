@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, InfoCard, ModalContainer } from '../atoms'
-import { FiAlertTriangle, FiBox, FiDollarSign, FiEye, FiFile, FiGlobe, FiSearch, FiShoppingCart, FiTrendingUp, FiX, FiXCircle } from 'react-icons/fi'
+import { FiAlertTriangle, FiBox, FiDollarSign, FiEye, FiFile, FiGlobe, FiMaximize, FiMinus, FiPlus, FiSearch, FiShoppingCart, FiTrendingUp, FiX, FiXCircle } from 'react-icons/fi'
 import { BsBoxSeam, BsBuilding, BsGear } from 'react-icons/bs'
 import { Alerts, Card, Damaged, DropdownMenu, Input, Movements, Reserved, Summary } from '../molecules'
 import StockService from '@/services/StockService';
@@ -365,6 +365,23 @@ export default function ControlStockOrg() {
 		else setTelefono(""); // Si no existe, se limpia
 	};
 
+	const [mode, setMode] = useState("stock");
+
+	const toggleModalType = (action) => {
+		if (action === 'stock') {
+			setMode("stock");
+			setIsActiveModal(true);
+		}
+
+		if (action === 'range') {
+			setMode("range");
+			setIsActiveModal(true);
+		}
+	}
+
+	const handleSubmitRange = () => {
+		setIsActiveModal(false);
+	}
 
 	return (
 		<>
@@ -412,12 +429,19 @@ export default function ControlStockOrg() {
 					</div>
 				</section>
 				<section className='flex mt-4 w-full justify-end'>
-					<div className='flex xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%] w-full md:justify-end'>
+					<div className='gap-2 flex xl:w-[50%] lg:w-[60%] md:w-[70%] sm:w-[80%] w-full md:justify-end'>
 						<Button
 							className={"primary"}
 							text={"Ajustar Stock"}
 							icon={<BsGear className='h-4 w-4' />}
-							func={() => setIsActiveModal(true)}
+							func={() => toggleModalType('stock')}
+						/>
+						<Button
+							className={"transparent"}
+							text={"Ajustar Rangos"}
+							icon={<FiMinus className='h-4 w-4' />}
+							iconRight={<FiPlus className='h-4 w-4' />}
+							func={() => toggleModalType('range')}
 						/>
 					</div>
 				</section>
@@ -432,264 +456,325 @@ export default function ControlStockOrg() {
 			{isActiveModal && (
 				<ModalContainer
 					setIsActiveModal={setIsActiveModal}
-					txtButton={"Registrar Movimiento"}
-					modalTitle={"Ajustar Stock de Producto"}
-					modalDescription={"Registra un movimiento de inventario"}
+					txtButton={mode === "stock"
+						? "Registrar Movimiento"
+						: "Guardar Cambios"
+					}
+					modalTitle={mode === "stock"
+						? "Ajustar Stock de Producto"
+						: "Ajustar Rangos de Stock"
+					}
+					modalDescription={mode === "stock"
+						? "Registra un movimiento de inventario"
+						: "Ajusta los rangos mínimos y máximos de stock para productos"
+					}
 				>
-					<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={handleSubmit}>
-						{/* 🔹 Sucursal */}
-						<DropdownMenu
-							label={"Sucursal"}
-							options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
-							defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
-							onChange={(opt) => {
-								setSelectedSucursal(opt);
-								if (opt) setFormErrors(prev => ({ ...prev, sucursal: '' }));
-							}}
-							error={formErrors.sucursal}
-						/>
-
-						{/* 🔹 Producto */}
-						<DropdownMenu
-							label={"Producto"}
-							options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
-							defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
-							onChange={(opt) => {
-								setSelectedProducto(opt);
-								if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
-							}}
-							error={formErrors.producto}
-						/>
-
-						{/* 🔹 Tipo de Movimiento */}
-						<DropdownMenu
-							label={"Tipo de Movimiento"}
-							options={movimientos}
-							defaultValue={"Selecciona un tipo"}
-							onChange={(value) => {
-								setTipoMovimiento(value);
-								if (value) setFormErrors(prev => ({ ...prev, tipoMovimiento: '' }));
-							}}
-							error={formErrors.tipoMovimiento}
-						/>
-
-						{/* 🔹 Campos dinámicos */}
-						{tipoMovimiento === "Marcar como Dañado" && (
-							<>
-								<Input
-									label="Cantidad"
-									type="number"
-									placeholder="0"
-									inputClass="no icon"
-									value={cantidadMovimiento}
-									onChange={(e) => {
-										setCantidadMovimiento(e.target.value);
-										setFormErrors(prev => ({ ...prev, cantidad: '' }));
-									}}
-									error={formErrors.cantidad}
-								/>
-
+					{
+						mode === "stock" ? (
+							<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={handleSubmit}>
+								{/* 🔹 Sucursal */}
 								<DropdownMenu
-									label="Tipo de Daño"
-									options={["Vencido", "Deteriorado", "Defectuoso"]}
-									defaultValue="Selecciona un tipo de daño"
+									label={"Sucursal"}
+									options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
+									defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
 									onChange={(opt) => {
-										const value = typeof opt === 'object' ? opt.label : opt;
-										setTipoDano(value);
-										setFormErrors(prev => ({ ...prev, tipoDano: '' }));
+										setSelectedSucursal(opt);
+										if (opt) setFormErrors(prev => ({ ...prev, sucursal: '' }));
 									}}
-									error={formErrors.tipoDano}
+									error={formErrors.sucursal}
 								/>
 
+								{/* 🔹 Producto */}
 								<DropdownMenu
-									label="Estado"
-									options={["Recuperable", "Perdida Total"]}
-									defaultValue="Selecciona estado"
+									label={"Producto"}
+									options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
+									defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
 									onChange={(opt) => {
-										const value = typeof opt === 'object' ? opt.label : opt;
-										setEstadoDano(value);
-										setFormErrors(prev => ({ ...prev, estadoDano: '' }));
+										setSelectedProducto(opt);
+										if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
 									}}
-									error={formErrors.estadoDano}
+									error={formErrors.producto}
 								/>
 
-								<Input
-									label="Descripción"
-									placeholder="Describe el daño..."
-									isTextarea={true}
-									inputClass="no icon"
-									isLastElement={true}
-									value={motivoMovimiento}
-									onChange={(e) => {
-										setMotivoMovimiento(e.target.value);
-										setFormErrors(prev => ({ ...prev, motivo: '' }));
+								{/* 🔹 Tipo de Movimiento */}
+								<DropdownMenu
+									label={"Tipo de Movimiento"}
+									options={movimientos}
+									defaultValue={"Selecciona un tipo"}
+									onChange={(value) => {
+										setTipoMovimiento(value);
+										if (value) setFormErrors(prev => ({ ...prev, tipoMovimiento: '' }));
 									}}
-									error={formErrors.motivo}
+									error={formErrors.tipoMovimiento}
 								/>
-							</>
-						)}
 
-						{tipoMovimiento === "Marcar como Reservado" && (
-							<>
-								<Input
-									label="Cantidad"
-									type="number"
-									placeholder="0"
-									inputClass="no icon"
-									value={cantidadMovimiento}
-									onChange={(e) => {
-										setCantidadMovimiento(e.target.value);
-										setFormErrors(prev => ({ ...prev, cantidad: '' }));
-									}}
-									error={formErrors.cantidad}
-								/>
-								<div className="relative">
-									<Input
-										label="Cliente"
-										placeholder="Nombre del cliente"
-										value={cliente}
-										onChange={handleClienteChange}
-										inputClass="no icon"
-										error={formErrors.cliente}
-									/>
-									{clientesFiltrados.length > 0 && cliente !== "" && (
-										<ul className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10">
-											{clientesFiltrados.map((c) => (
-												<li
-													key={c.id}
-													onClick={() => {
-														setCliente(c.nombre);
-														setTelefono(c.telefono);
-														setClientesFiltrados([]);
-													}}
-													className="px-2 py-1 cursor-pointer hover:bg-primary hover:text-white"
-												>
-													{c.nombre}
-												</li>
-											))}
-										</ul>
+								{/* 🔹 Campos dinámicos */}
+								{tipoMovimiento === "Marcar como Dañado" && (
+									<>
+										<Input
+											label="Cantidad"
+											type="number"
+											placeholder="0"
+											inputClass="no icon"
+											value={cantidadMovimiento}
+											onChange={(e) => {
+												setCantidadMovimiento(e.target.value);
+												setFormErrors(prev => ({ ...prev, cantidad: '' }));
+											}}
+											error={formErrors.cantidad}
+										/>
+
+										<DropdownMenu
+											label="Tipo de Daño"
+											options={["Vencido", "Deteriorado", "Defectuoso"]}
+											defaultValue="Selecciona un tipo de daño"
+											onChange={(opt) => {
+												const value = typeof opt === 'object' ? opt.label : opt;
+												setTipoDano(value);
+												setFormErrors(prev => ({ ...prev, tipoDano: '' }));
+											}}
+											error={formErrors.tipoDano}
+										/>
+
+										<DropdownMenu
+											label="Estado"
+											options={["Recuperable", "Perdida Total"]}
+											defaultValue="Selecciona estado"
+											onChange={(opt) => {
+												const value = typeof opt === 'object' ? opt.label : opt;
+												setEstadoDano(value);
+												setFormErrors(prev => ({ ...prev, estadoDano: '' }));
+											}}
+											error={formErrors.estadoDano}
+										/>
+
+										<Input
+											label="Descripción"
+											placeholder="Describe el daño..."
+											isTextarea={true}
+											inputClass="no icon"
+											isLastElement={true}
+											value={motivoMovimiento}
+											onChange={(e) => {
+												setMotivoMovimiento(e.target.value);
+												setFormErrors(prev => ({ ...prev, motivo: '' }));
+											}}
+											error={formErrors.motivo}
+										/>
+									</>
+								)}
+
+								{tipoMovimiento === "Marcar como Reservado" && (
+									<>
+										<Input
+											label="Cantidad"
+											type="number"
+											placeholder="0"
+											inputClass="no icon"
+											value={cantidadMovimiento}
+											onChange={(e) => {
+												setCantidadMovimiento(e.target.value);
+												setFormErrors(prev => ({ ...prev, cantidad: '' }));
+											}}
+											error={formErrors.cantidad}
+										/>
+										<div className="relative">
+											<Input
+												label="Cliente"
+												placeholder="Nombre del cliente"
+												value={cliente}
+												onChange={handleClienteChange}
+												inputClass="no icon"
+												error={formErrors.cliente}
+											/>
+											{clientesFiltrados.length > 0 && cliente !== "" && (
+												<ul className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10">
+													{clientesFiltrados.map((c) => (
+														<li
+															key={c.id}
+															onClick={() => {
+																setCliente(c.nombre);
+																setTelefono(c.telefono);
+																setClientesFiltrados([]);
+															}}
+															className="px-2 py-1 cursor-pointer hover:bg-primary hover:text-white"
+														>
+															{c.nombre}
+														</li>
+													))}
+												</ul>
+											)}
+											<span>
+												⚠️ ATENCIÓN: Esta advertencia debe eliminarse cuando se implemente la lógica final.
+												El input "Cliente" debe permitir buscar un cliente existente y autocompletar el campo "Teléfono".
+												Si el cliente no existe, se registrará como nuevo junto con su número de teléfono.
+											</span>
+										</div>
+										<Input
+											label="Teléfono"
+											placeholder="Número del cliente"
+											value={telefono}
+											onChange={(e) => {
+												setTelefono(e.target.value);
+												setFormErrors(prev => ({ ...prev, telefono: '' }));
+											}}
+											inputClass="no icon"
+											error={formErrors.telefono}
+										/>
+
+										<Input
+											label="Fecha de Entrega"
+											type="date"
+											inputClass="no icon"
+											value={fechaEntrega}
+											onChange={(e) => {
+												setFechaEntrega(e.target.value);
+												setFormErrors(prev => ({ ...prev, fechaEntrega: '' }));
+											}}
+											error={formErrors.fechaEntrega}
+										/>
+
+										<Input
+											label="Notas"
+											placeholder="Agrega una nota..."
+											isTextarea={true}
+											inputClass="no icon"
+											value={notas}
+											onChange={(e) => setNotas(e.target.value)}
+										/>
+									</>
+								)}
+
+								{(tipoMovimiento === "Entrada (Aumentar Stock)" ||
+									tipoMovimiento === "Salida (Reducir Stock)") && (
+										<>
+											<Input
+												label="Cantidad"
+												type="number"
+												placeholder="0"
+												inputClass="no icon"
+												value={cantidadMovimiento}
+												onChange={(e) => {
+													setCantidadMovimiento(e.target.value);
+													setFormErrors(prev => ({ ...prev, cantidad: '' }));
+												}}
+												error={formErrors.cantidad}
+											/>
+											<Input
+												label="Motivo"
+												placeholder="Describe el motivo..."
+												inputClass="no icon"
+												isTextarea={true}
+												value={motivoMovimiento}
+												onChange={(e) => setMotivoMovimiento(e.target.value)}
+											/>
+											<Input
+												label="Referencia (opcional)"
+												placeholder="Ej: ORD-001, VEN-1234"
+
+												inputClass="no icon"
+												value={referenciaMovimiento}
+												onChange={(e) => setReferenciaMovimiento(e.target.value)}
+											/>
+										</>
 									)}
-									<span>
-										⚠️ ATENCIÓN: Esta advertencia debe eliminarse cuando se implemente la lógica final.
-										El input "Cliente" debe permitir buscar un cliente existente y autocompletar el campo "Teléfono".
-										Si el cliente no existe, se registrará como nuevo junto con su número de teléfono.
-									</span>
+
+								{tipoMovimiento === "Transferencia" && (
+									<>
+										<Input
+											label="Cantidad"
+											type="number"
+											placeholder="0"
+											inputClass="no icon"
+											onChange={(e) => {
+												setCantidadMovimiento(e.target.value);
+												setFormErrors(prev => ({ ...prev, cantidad: '' }));
+											}}
+											error={formErrors.cantidad}
+										/>
+										<Input
+											label="Referencia (opcional)"
+											placeholder="Ej: ORD-001, VEN-1234"
+											inputClass="no icon"
+										/>
+										<DropdownMenu
+											label="Sucursal destino"
+											options={[...new Set(data.map((d) => d.sucursal))]}
+											defaultValue="Selecciona destino"
+										/>
+										<Input
+											label="Motivo"
+											placeholder="Describe el motivo..."
+											inputClass="no icon"
+											isTextarea={true}
+											isLastElement={true}
+										/>
+									</>
+								)}
+								<div className='col-span-2 flex gap-2 mt-2'>
+									<Button
+										className={"danger"}
+										text={"Cancelar"}
+										type="button"
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										className={"success"}
+										text={"Ajustar Stock"}
+										type="submit"
+									/>
 								</div>
-								<Input
-									label="Teléfono"
-									placeholder="Número del cliente"
-									value={telefono}
-									onChange={(e) => {
-										setTelefono(e.target.value);
-										setFormErrors(prev => ({ ...prev, telefono: '' }));
+							</form>
+						) : (
+							<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={handleSubmitRange}>
+								<DropdownMenu
+									label={"Sucursal"}
+									options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
+									defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
+									onChange={(opt) => {
+										setSelectedSucursal(opt);
+										if (opt) setFormErrors(prev => ({ ...prev, sucursal: '' }));
 									}}
-									inputClass="no icon"
-									error={formErrors.telefono}
+									error={formErrors.sucursal}
 								/>
-
-								<Input
-									label="Fecha de Entrega"
-									type="date"
-									inputClass="no icon"
-									value={fechaEntrega}
-									onChange={(e) => {
-										setFechaEntrega(e.target.value);
-										setFormErrors(prev => ({ ...prev, fechaEntrega: '' }));
+								<DropdownMenu
+									label={"Producto"}
+									options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
+									defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
+									onChange={(opt) => {
+										setSelectedProducto(opt);
+										if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
 									}}
-									error={formErrors.fechaEntrega}
+									error={formErrors.producto}
 								/>
-
 								<Input
-									label="Notas"
-									placeholder="Agrega una nota..."
-									isTextarea={true}
-									inputClass="no icon"
-									value={notas}
-									onChange={(e) => setNotas(e.target.value)}
-								/>
-							</>
-						)}
-
-						{(tipoMovimiento === "Entrada (Aumentar Stock)" ||
-							tipoMovimiento === "Salida (Reducir Stock)") && (
-								<>
-									<Input
-										label="Cantidad"
-										type="number"
-										placeholder="0"
-										inputClass="no icon"
-										value={cantidadMovimiento}
-										onChange={(e) => {
-											setCantidadMovimiento(e.target.value);
-											setFormErrors(prev => ({ ...prev, cantidad: '' }));
-										}}
-										error={formErrors.cantidad}
-									/>
-									<Input
-										label="Motivo"
-										placeholder="Describe el motivo..."
-										inputClass="no icon"
-										isTextarea={true}
-										value={motivoMovimiento}
-										onChange={(e) => setMotivoMovimiento(e.target.value)}
-									/>
-									<Input
-										label="Referencia (opcional)"
-										placeholder="Ej: ORD-001, VEN-1234"
-
-										inputClass="no icon"
-										value={referenciaMovimiento}
-										onChange={(e) => setReferenciaMovimiento(e.target.value)}
-									/>
-								</>
-							)}
-
-						{tipoMovimiento === "Transferencia" && (
-							<>
-								<Input
-									label="Cantidad"
+									label="Rango Mínimo de Stock"
 									type="number"
 									placeholder="0"
 									inputClass="no icon"
-									onChange={(e) => {
-										setCantidadMovimiento(e.target.value);
-										setFormErrors(prev => ({ ...prev, cantidad: '' }));
-									}}
-									error={formErrors.cantidad}
 								/>
 								<Input
-									label="Referencia (opcional)"
-									placeholder="Ej: ORD-001, VEN-1234"
+									label="Rango Máximo de Stock"
+									type="number"
+									placeholder="0"
 									inputClass="no icon"
 								/>
-								<DropdownMenu
-									label="Sucursal destino"
-									options={[...new Set(data.map((d) => d.sucursal))]}
-									defaultValue="Selecciona destino"
-								/>
-								<Input
-									label="Motivo"
-									placeholder="Describe el motivo..."
-									inputClass="no icon"
-									isTextarea={true}
-									isLastElement={true}
-								/>
-							</>
-						)}
-						<div className='col-span-2 flex gap-2 mt-2'>
-							<Button
-								className={"danger"}
-								text={"Cancelar"}
-								type="button"
-								func={() => setIsActiveModal(false)}
-							/>
-							<Button
-								className={"success"}
-								text={"Ajustar Stock"}
-								type="submit"
-							/>
-						</div>
-					</form>
+								<div className='col-span-2 flex gap-2 mt-2'>
+									<Button
+										className={"danger"}
+										text={"Cancelar"}
+										type="button"
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										className={"success"}
+										text={"Guardar Rangos"}
+										type="submit"
+									/>
+								</div>
+							</form>
+						)
+					}
 				</ModalContainer>
 			)}
 		</>
