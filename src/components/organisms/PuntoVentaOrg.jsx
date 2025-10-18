@@ -151,6 +151,15 @@ export default function PuntoVentaOrg() {
 
 	const handleSubmitVenta = () => {
 		setIsActiveModal(true);
+		// Aquí iría la lógica para procesar la venta, como enviar los datos al servidor
+		console.log("Venta procesada con los siguientes datos:");
+		console.log("Productos:", productList);
+		console.log("Subtotal:", subtotal);
+		console.log("Descuento:", descuento);
+		console.log("Total:", total);
+		console.log("Monto recibido en Córdobas:", montoCordobas);
+		console.log("Monto recibido en Dólares:", montoDolares);
+		console.log("Cambio a devolver:", cambio);
 	};
 
 	const handleModalClose = () => {
