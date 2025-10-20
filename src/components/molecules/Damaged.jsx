@@ -6,7 +6,7 @@ import { useIsMobile } from '@/hooks';
 import Card from './Card';
 import StockService from '@/services/StockService';
 
-export default function Damaged() {
+export default function Damaged({ sucursalFilter = 'Todas' }) {
 	const isMobile = useIsMobile({ breakpoint: 768 });
 
 	const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export default function Damaged() {
 		const fetchDamaged = async () => {
 			try {
 				setLoading(true);
-				const res = await StockService.getDanados('Todas');
+				const res = await StockService.getDanados(sucursalFilter || 'Todas');
 				if (res && res.success) {
 					const danados = res.danados || [];
 					setRows(danados);
@@ -63,7 +63,7 @@ export default function Damaged() {
 		const handler = () => fetchDamaged();
 		window.addEventListener('stock:updated', handler);
 		return () => window.removeEventListener('stock:updated', handler);
-	}, []);
+	}, [sucursalFilter]);
 
 	return (
 		<div>
@@ -72,7 +72,7 @@ export default function Damaged() {
 					<FiXCircle className='text-danger' />
 					Productos Dañados
 				</h2>
-				<span className='text-sm md:text-medium text-dark/50'>Productos dañados en todas las sucursales</span>
+				<span className='text-sm md:text-medium text-dark/50'>Productos dañados {sucursalFilter && sucursalFilter !== 'Todas' ? `en ${sucursalFilter}` : 'en todas las sucursales'}</span>
 			</div>
 			<section className='grid grid-cols-2 lg:grid-cols-4 gap-4 w-full'>
 				{
