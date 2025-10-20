@@ -1,3 +1,4 @@
+"use client"
 import React from 'react'
 import { Button, InfoCard } from '@/components/atoms'
 import { FiDollarSign } from "react-icons/fi";
