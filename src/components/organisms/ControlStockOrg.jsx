@@ -6,6 +6,7 @@ import { FiAlertTriangle, FiBox, FiDollarSign, FiEye, FiFile, FiGlobe, FiMaximiz
 import { BsBoxSeam, BsBuilding, BsGear } from 'react-icons/bs'
 import { Alerts, Card, Damaged, DropdownMenu, Input, Movements, Reserved, Summary } from '../molecules'
 import StockService from '@/services/StockService';
+import { NivelacionService } from '@/services';
 import { useActive, useIsMobile } from '@/hooks'
 
 export default function ControlStockOrg() {
@@ -167,12 +168,33 @@ export default function ControlStockOrg() {
 	];
 
 	const { setIsActiveModal, isActiveModal } = useActive();
+	const [currentUser, setCurrentUser] = useState(null);
+	const [isAdmin, setIsAdmin] = useState(false);
 
 	// Top dropdown: selected sucursal for filtering resumen
 	const [topSucursales, setTopSucursales] = useState([]);
 	const [topSucursal, setTopSucursal] = useState('Todas');
 
-	// Cargar sucursales para el dropdown superior al montar
+	// Cargar usuario actual y fijar sucursal por defecto
+	useEffect(() => {
+		(async () => {
+			try {
+				const res = await fetch('/api/me', { credentials: 'include' });
+				if (!res.ok) return;
+				const data = await res.json();
+				const user = data?.user || null;
+				setCurrentUser(user);
+				// Admin: no pertenece a sucursal (ID_SUCURSAL null)
+				const admin = !user?.ID_SUCURSAL;
+				setIsAdmin(admin);
+				if (!admin && user?.SUCURSAL_NOMBRE) {
+					setTopSucursal(user.SUCURSAL_NOMBRE);
+				}
+			} catch { }
+		})();
+	}, []);
+
+	// Cargar sucursales para el dropdown superior
 	useEffect(() => {
 		(async () => {
 			try {
@@ -183,13 +205,15 @@ export default function ControlStockOrg() {
 					return;
 				}
 				const data = await res.json();
-				setTopSucursales(data.sucursales || []);
+				const all = data.sucursales || [];
+				if (isAdmin) setTopSucursales(all);
+				else setTopSucursales(all.filter(s => s.label === (currentUser?.SUCURSAL_NOMBRE || '')));
 			} catch (err) {
 				console.error('Failed to fetch top sucursales:', err);
 				setTopSucursales([]);
 			}
 		})();
-	}, []);
+	}, [isAdmin, currentUser]);
 
 	// Top cards: calcular con datos reales del resumen
 	useEffect(() => {
@@ -299,6 +323,13 @@ export default function ControlStockOrg() {
 	// Estado para sucursales reales
 	const [sucursales, setSucursales] = useState([]);
 
+	// Modo del modal (stock | range)
+	const [mode, setMode] = useState("stock");
+
+	// Estado para rangos (nivelación)
+	const [minimo, setMinimo] = useState('');
+	const [maximo, setMaximo] = useState('');
+
 	// Cargar sucursales reales al abrir el modal
 	useEffect(() => {
 		if (!isActiveModal) return;
@@ -311,13 +342,24 @@ export default function ControlStockOrg() {
 					return;
 				}
 				const data = await res.json();
-				setSucursales(data.sucursales || []);
+				const all = data.sucursales || [];
+				if (isAdmin) setSucursales(all);
+				else setSucursales(all.filter(s => s.label === (currentUser?.SUCURSAL_NOMBRE || '')));
 			} catch (err) {
 				console.error('Failed to fetch sucursales (modal):', err);
 				setSucursales([]);
 			}
 		})();
-	}, [isActiveModal]);
+	}, [isActiveModal, isAdmin, currentUser]);
+
+	// Auto-seleccionar sucursal del usuario en el modal si no es admin
+	useEffect(() => {
+		if (!isActiveModal) return;
+		if (isAdmin) return;
+		if (!selectedSucursal && Array.isArray(sucursales) && sucursales.length === 1) {
+			setSelectedSucursal(sucursales[0]);
+		}
+	}, [isActiveModal, isAdmin, sucursales, selectedSucursal]);
 
 	// Reset form when modal opens/closes
 	useEffect(() => {
@@ -334,9 +376,28 @@ export default function ControlStockOrg() {
 			setTelefono("");
 			setFechaEntrega("");
 			setNotas("");
+			setMinimo('');
+			setMaximo('');
 			setFormErrors({});
 		}
 	}, [isActiveModal]);
+
+	// Precargar nivelación cuando se elijan sucursal y producto en modo "range"
+	useEffect(() => {
+		if (!isActiveModal || mode !== 'range') return;
+		if (!selectedSucursal || !selectedProducto) return;
+		(async () => {
+			const { success, nivelacion } = await NivelacionService.getNivelacion(selectedSucursal.value, selectedProducto.value);
+			if (success && Array.isArray(nivelacion) && nivelacion.length) {
+				const item = nivelacion[0];
+				setMinimo(item?.MINIMO ?? '');
+				setMaximo(item?.MAXIMO ?? '');
+			} else {
+				setMinimo('');
+				setMaximo('');
+			}
+		})();
+	}, [isActiveModal, mode, selectedSucursal, selectedProducto]);
 
 	const clientes = [
 		{ id: 1, nombre: "Juan Pérez", telefono: "8888-8888" },
@@ -365,8 +426,6 @@ export default function ControlStockOrg() {
 		else setTelefono(""); // Si no existe, se limpia
 	};
 
-	const [mode, setMode] = useState("stock");
-
 	const toggleModalType = (action) => {
 		if (action === 'stock') {
 			setMode("stock");
@@ -379,8 +438,29 @@ export default function ControlStockOrg() {
 		}
 	}
 
-	const handleSubmitRange = () => {
+	const handleSubmitRange = async (e) => {
+		e?.preventDefault?.();
+		const errors = {};
+		if (!selectedSucursal) errors.sucursal = 'Este campo es requerido';
+		if (!selectedProducto) errors.producto = 'Este campo es requerido';
+		if (minimo === '' || isNaN(Number(minimo)) || Number(minimo) < 0) errors.minimo = 'Ingresa un mínimo válido';
+		if (maximo === '' || isNaN(Number(maximo)) || Number(maximo) < 0) errors.maximo = 'Ingresa un máximo válido';
+		if (Object.keys(errors).length) { setFormErrors(prev => ({ ...prev, ...errors })); return; }
+
+		const res = await NivelacionService.saveNivelacion({
+			sucursal: selectedSucursal.value,
+			productoId: selectedProducto.value,
+			minimo: String(minimo),
+			maximo: String(maximo),
+		});
+		if (!res.success) {
+			setFormErrors(prev => ({ ...prev, general: res.message || 'No se pudo guardar' }));
+			return;
+		}
 		setIsActiveModal(false);
+		try {
+			window.dispatchEvent(new CustomEvent('stock:updated', { detail: { tipo: 'Nivelacion', producto: selectedProducto, sucursal: selectedSucursal } }));
+		} catch {}
 	}
 
 	return (
@@ -391,13 +471,19 @@ export default function ControlStockOrg() {
 						<FiGlobe className='h-4 w-4 md:h-5 md:w-5 text-blue' />
 						<h3 className='md:text-lg font-semibold'>Sucursal: </h3>
 					</div>
-					<div className='lg:w-1/3 md:w-1/2'>
-						<DropdownMenu
-							options={[{ label: 'Todas', value: 'Todas' }, ...topSucursales]}
-							defaultValue={topSucursal === 'Todas' ? 'Vista general (Todas las sucursales)' : topSucursal}
-							onChange={(opt) => setTopSucursal(opt.value === 'Todas' ? 'Todas' : opt.label)}
-						/>
-					</div>
+                    <div className='lg:w-1/3 md:w-1/2'>
+						{isAdmin ? (
+							<DropdownMenu
+								options={[{ label: 'Todas', value: 'Todas' }, ...topSucursales]}
+								defaultValue={topSucursal === 'Todas' ? 'Vista general (Todas las sucursales)' : topSucursal}
+								onChange={(opt) => setTopSucursal(opt.value === 'Todas' ? 'Todas' : opt.label)}
+							/>
+						) : (
+							<div className='flex items-center h-10 px-3 border border-dark/20 rounded-lg bg-light'>
+								<span>{topSucursal || currentUser?.SUCURSAL_NOMBRE || 'Sucursal'}</span>
+							</div>
+						)}
+                    </div>
 				</section>
 				<section className='w-full flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide lg:grid lg:grid-cols-4'>
 					{
@@ -448,8 +534,8 @@ export default function ControlStockOrg() {
 				<section className='w-full mt-4 border-dark/20 border rounded-lg p-4 flex flex-col'>
 					{activeTab === 'Resumen' && <Summary setIsActiveModal={setIsActiveModal} sucursalFilter={topSucursal} />}
 					{activeTab === 'Movimientos' && <Movements sucursalFilter={topSucursal} />}
-					{activeTab === 'Alertas' && <Alerts />}
-					{activeTab === 'Dañados' && <Damaged />}
+					{activeTab === 'Alertas' && <Alerts sucursalFilter={topSucursal} />}
+					{activeTab === 'Dañados' && <Damaged sucursalFilter={topSucursal} />}
 					{activeTab === 'Reservados' && <Reserved sucursalFilter={topSucursal} />}
 				</section>
 			</div>
@@ -752,12 +838,18 @@ export default function ControlStockOrg() {
 									type="number"
 									placeholder="0"
 									inputClass="no icon"
+									value={minimo}
+									onChange={(e) => { setMinimo(e.target.value); setFormErrors(prev => ({ ...prev, minimo: '' })); }}
+									error={formErrors.minimo}
 								/>
 								<Input
 									label="Rango Máximo de Stock"
 									type="number"
 									placeholder="0"
 									inputClass="no icon"
+									value={maximo}
+									onChange={(e) => { setMaximo(e.target.value); setFormErrors(prev => ({ ...prev, maximo: '' })); }}
+									error={formErrors.maximo}
 								/>
 								<div className='col-span-2 flex gap-2 mt-2'>
 									<Button

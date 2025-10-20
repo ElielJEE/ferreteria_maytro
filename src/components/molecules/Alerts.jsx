@@ -1,81 +1,37 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { FiAlertCircle, FiAlertTriangle, FiTrendingUp, FiXCircle } from 'react-icons/fi'
 import { AlertCard } from '.'
 import { Button } from '../atoms';
+export default function Alerts({ sucursalFilter }) {
+	const [data, setData] = useState([]);
 
-export default function Alerts() {
-	const data = [
-		{
-			id: 1,
-			status: "bajo",
-			productName: "Tornillos Autorroscantes 1/2\"",
-			sucursal: "Sucursal Norte",
-			stock: 8,
-			min: 50,
-			store: 5,
-			reserved: 0,
-			damaged: 0,
-			totalPhisical: 15,
-			action: "Reabastecer",
-		},
-		{
-			id: 4,
-			status: "bajo",
-			productName: "Tornillos Autorroscantes 1/2\"",
-			sucursal: "Sucursal Norte",
-			stock: 8,
-			min: 50,
-			store: 5,
-			reserved: 0,
-			damaged: 0,
-			totalPhisical: 15,
-			action: "Reabastecer",
-		},
-		{
-			id: 2,
-			status: "agotado",
-			productName: "Cable Eléctrico 12 AWG",
-			sucursal: "Sucursal Centro",
-			stock: 0,
-			min: 50,
-			store: 5,
-			reserved: 3,
-			damaged: 5,
-			totalPhisical: 8,
-			action: "Urgente",
-		},
-		{
-			id: 5,
-			status: "agotado",
-			productName: "Cable Eléctrico 12 AWG",
-			sucursal: "Sucursal Centro",
-			stock: 0,
-			min: 50,
-			store: 5,
-			reserved: 3,
-			damaged: 5,
-			totalPhisical: 8,
-			action: "Urgente",
-		},
-		{
-			id: 3,
-			status: "exceso",
-			productName: "Tubo PVC 4\" x 6m",
-			sucursal: "Sucursal Norte",
-			stock: 48,
-			max: 30,
-			action: "Promocionar",
-		},
-		{
-			id: 6,
-			status: "exceso",
-			productName: "Tubo PVC 4\" x 6m",
-			sucursal: "Sucursal Norte",
-			stock: 48,
-			max: 30,
-			action: "Promocionar",
-		},
-	];
+	useEffect(() => {
+		const fetchAlertas = async () => {
+			try {
+				let url = '/api/stock?tab=Alertas';
+				if (sucursalFilter && sucursalFilter !== 'Todas') {
+					url += `&sucursal=${encodeURIComponent(sucursalFilter)}`;
+				}
+				const res = await fetch(url);
+				const json = await res.json().catch(() => null);
+				if (!res.ok) {
+					console.error('Error al obtener alertas:', json?.error || json?.message || res.statusText);
+					setData([]);
+					return;
+				}
+				const arr = Array.isArray(json?.alertas) ? json.alertas : [];
+				setData(arr);
+			} catch (e) {
+				console.error('Fallo al cargar alertas:', e);
+				setData([]);
+			}
+		};
+		fetchAlertas();
+
+		const handler = () => fetchAlertas();
+		window.addEventListener('stock:updated', handler);
+		return () => window.removeEventListener('stock:updated', handler);
+	}, [sucursalFilter]);
 
 	return (
 		<div className='flex flex-col gap-4'>
@@ -85,7 +41,7 @@ export default function Alerts() {
 					Alertas de Stock
 				</h2>
 				<p className="text-sm md:text-medium text-dark/50">
-					Alertas consolidadas de todas las sucursales
+					Alertas consolidadas {sucursalFilter && sucursalFilter !== 'Todas' ? `para ${sucursalFilter}` : 'de todas las sucursales'}
 				</p>
 			</div>
 

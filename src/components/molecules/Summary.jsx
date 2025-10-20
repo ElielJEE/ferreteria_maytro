@@ -11,6 +11,44 @@ export default function Summary({ sucursalFilter }) {
 	const [data, setData] = useState([]);
 	const isMobile = useIsMobile({ breakpoint: 768 });
 
+	const computeEstado = (item) => {
+		const toNum = (v) => {
+			if (v === null || v === undefined || v === '') return null;
+			const n = Number(v);
+			return Number.isFinite(n) ? n : null;
+		};
+		const stock = Number(item?.STOCK_SUCURSAL || 0);
+		const min = toNum(item?.MINIMO);
+		const max = toNum(item?.MAXIMO);
+
+		if (stock === 0) return 'Agotado';
+		if (min != null && stock < min) return 'Bajo';
+		if (max != null && stock > max) return 'Exceso';
+		// Si tenemos ambos rangos, considerar disponible cuando está dentro o en los bordes
+		if (min != null && max != null && stock >= min && stock <= max) return 'Disponible';
+		// Si solo hay max
+		if (min == null && max != null) return stock <= max ? 'Disponible' : 'Exceso';
+		// Si solo hay min
+		if (min != null && max == null) return stock >= min ? 'Disponible' : 'Bajo';
+		// Sin rangos definidos
+		return stock > 0 ? 'Disponible' : 'Agotado';
+	};
+
+	const getEstadoClass = (estado) => {
+		switch ((estado || '').toLowerCase()) {
+			case 'disponible':
+				return 'bg-success/10 text-success border border-success/20';
+			case 'bajo':
+				return 'bg-danger/10 text-danger border border-danger/20';
+			case 'agotado':
+				return 'bg-danger/20 text-danger border border-danger/30';
+			case 'exceso':
+				return 'bg-yellow/10 text-yellow border border-yellow/20';
+			default:
+				return 'bg-dark/10 text-dark/60 border border-dark/20';
+		}
+	};
+
 	useEffect(() => {
 			const fetchResumen = async () => {
 				const result = await StockService.getResumen(sucursalFilter);
@@ -85,9 +123,25 @@ export default function Summary({ sucursalFilter }) {
 									<td className='p-2 text-blue bg-blue/10 text-center'>{item.FISICO_TOTAL}</td>
 									<td className='p-2 text-danger bg-danger/10 text-center'>{item.DANADOS !== undefined && item.DANADOS !== null ? item.DANADOS : ''}</td>
 									<td className='p-2 text-purple bg-purple/10 text-center'>{item.RESERVADOS !== undefined && item.RESERVADOS !== null ? item.RESERVADOS : ''}</td>
-									<td className='p-2 bg-dark/10 max-w-[180px] truncate text-center'></td>
-									<td className='p-2 text-center'>{item.status || ''}</td>
-									<td className='p-2'></td>
+									<td className='p-2 bg-dark/10 max-w-[180px] truncate text-center'>
+										{(item.MINIMO || item.MAXIMO) ? `${item.MINIMO || 0} - ${item.MAXIMO || 0}` : ''}
+									</td>
+									<td className='p-2 text-center'>
+										{(() => {
+											const estado = computeEstado(item);
+											return (
+												<span className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${getEstadoClass(estado)}`}>
+													{estado}
+												</span>
+											);
+										})()}
+									</td>
+									<td className='p-2'>
+										{(() => {
+											const val = Number(item.VALOR_TOTAL || 0);
+											return val ? val.toLocaleString('es-NI', { style: 'currency', currency: 'NIO', minimumFractionDigits: 2 }) : '';
+										})()}
+									</td>
 								</tr>
 							))}
 						</tbody>

@@ -135,6 +135,7 @@ async function getResumen({ sucursal }) {
       p.ID_PRODUCT,
       p.CODIGO_PRODUCTO,
       p.PRODUCT_NAME,
+      p.PRECIO AS PRECIO_UNIT,
       p.ID_SUBCATEGORIAS,
       sc.NOMBRE_SUBCATEGORIA AS SUBCATEGORY,
       s.ID_SUCURSAL,
@@ -142,6 +143,9 @@ async function getResumen({ sucursal }) {
       IFNULL(st.CANTIDAD, 0) AS STOCK_SUCURSAL,
       p.CANTIDAD AS STOCK_BODEGA,
       ${statusSelect},
+      IFNULL(nv.CANTIDAD, '') AS MINIMO,
+      IFNULL(nv.CANTIDAD_MAX, '') AS MAXIMO,
+      (IFNULL(st.CANTIDAD, 0) * IFNULL(p.PRECIO, 0)) AS VALOR_TOTAL,
       (
         SELECT IFNULL(SUM(sd.CANTIDAD), 0) FROM STOCK_DANADOS sd
         WHERE sd.ID_PRODUCT = p.ID_PRODUCT AND sd.ID_SUCURSAL = s.ID_SUCURSAL
@@ -151,12 +155,12 @@ async function getResumen({ sucursal }) {
         WHERE mi.producto_id = p.ID_PRODUCT AND mi.sucursal_id = s.ID_SUCURSAL AND mi.tipo_movimiento = 'reservado'
       ) AS RESERVADOS,
       '' AS CRITICOS,
-      '' AS AGOTADOS,
-      '' AS VALOR_TOTAL
+      '' AS AGOTADOS
     FROM PRODUCTOS p
     CROSS JOIN SUCURSAL s
     LEFT JOIN STOCK_SUCURSAL st ON st.ID_PRODUCT = p.ID_PRODUCT AND st.ID_SUCURSAL = s.ID_SUCURSAL
     LEFT JOIN SUBCATEGORIAS sc ON sc.ID_SUBCATEGORIAS = p.ID_SUBCATEGORIAS
+    LEFT JOIN NIVELACION nv ON nv.ID_PRODUCT = p.ID_PRODUCT AND nv.ID_SUCURSAL = s.ID_SUCURSAL
     ${where}
   `, params);
   return rows.map(r => ({
@@ -207,6 +211,82 @@ async function getDanados({ sucursal }) {
     perdida_total: Number(aggRows[0].perdida_total || 0)
   } : { registros: 0, cantidad_total: 0, perdida_total: 0 };
   return { rows, summary };
+}
+
+// Compute alert rows per producto x sucursal based on stock vs min/max
+async function getAlertas({ sucursal }) {
+  // Precompute global maps used for FISICO_TOTAL like in getResumen
+  const [totales] = await pool.query(`
+    SELECT ID_PRODUCT, SUM(CANTIDAD) AS TOTAL_SUCURSALES
+    FROM STOCK_SUCURSAL GROUP BY ID_PRODUCT
+  `);
+  const totalMap = Object.fromEntries((totales || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_SUCURSALES || 0)]));
+
+  let danadosMap = {};
+  try {
+    const [totDanados] = await pool.query(`SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_DANADOS FROM STOCK_DANADOS GROUP BY ID_PRODUCT`);
+    danadosMap = Object.fromEntries((totDanados || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_DANADOS || 0)]));
+  } catch { danadosMap = {}; }
+
+  let reservasMap = {};
+  try {
+    const [totReservas] = await pool.query(`SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_RESERVADOS FROM RESERVAS GROUP BY ID_PRODUCT`);
+    reservasMap = Object.fromEntries((totReservas || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_RESERVADOS || 0)]));
+  } catch { reservasMap = {}; }
+
+  const where = (sucursal && sucursal !== 'Todas') ? 'WHERE s.NOMBRE_SUCURSAL = ?' : '';
+  const params = (sucursal && sucursal !== 'Todas') ? [sucursal] : [];
+  const [rows] = await pool.query(`
+    SELECT 
+      p.ID_PRODUCT,
+      p.PRODUCT_NAME,
+      p.CANTIDAD AS STOCK_BODEGA,
+      s.ID_SUCURSAL,
+      s.NOMBRE_SUCURSAL,
+      IFNULL(st.CANTIDAD, 0) AS STOCK_SUCURSAL,
+      nv.CANTIDAD      AS MINIMO,
+      nv.CANTIDAD_MAX  AS MAXIMO,
+      (SELECT IFNULL(SUM(mi.cantidad), 0) FROM MOVIMIENTOS_INVENTARIO mi
+         WHERE mi.producto_id = p.ID_PRODUCT AND mi.sucursal_id = s.ID_SUCURSAL AND mi.tipo_movimiento = 'reservado') AS RESERVADOS,
+      (SELECT IFNULL(SUM(sd.CANTIDAD), 0) FROM STOCK_DANADOS sd
+         WHERE sd.ID_PRODUCT = p.ID_PRODUCT AND sd.ID_SUCURSAL = s.ID_SUCURSAL) AS DANADOS
+    FROM PRODUCTOS p
+    CROSS JOIN SUCURSAL s
+    LEFT JOIN STOCK_SUCURSAL st ON st.ID_PRODUCT = p.ID_PRODUCT AND st.ID_SUCURSAL = s.ID_SUCURSAL
+    LEFT JOIN NIVELACION nv ON nv.ID_PRODUCT = p.ID_PRODUCT AND nv.ID_SUCURSAL = s.ID_SUCURSAL
+    ${where}
+  `, params);
+
+  const alerts = [];
+  for (const r of rows) {
+    const stock = Number(r.STOCK_SUCURSAL || 0);
+    const min = r.MINIMO == null || r.MINIMO === '' ? null : Number(r.MINIMO);
+    const max = r.MAXIMO == null || r.MAXIMO === '' ? null : Number(r.MAXIMO);
+    let status = null;
+    if (stock === 0) status = 'agotado';
+    else if (min != null && stock < min) status = 'bajo';
+    else if (max != null && stock > max) status = 'exceso';
+    else continue; // no alerta
+
+    alerts.push({
+      id: `${r.ID_PRODUCT}-${r.ID_SUCURSAL}`,
+      status,
+      productName: r.PRODUCT_NAME,
+      sucursal: r.NOMBRE_SUCURSAL,
+      stock,
+      min: min == null ? undefined : min,
+      max: max == null ? undefined : max,
+      store: Number(r.STOCK_BODEGA || 0),
+      reserved: Number(r.RESERVADOS || 0),
+      damaged: Number(r.DANADOS || 0),
+      totalPhisical:
+        Number(r.STOCK_BODEGA || 0) +
+        Number(totalMap[r.ID_PRODUCT] || 0) +
+        Number(danadosMap[r.ID_PRODUCT] || 0) +
+        Number(reservasMap[r.ID_PRODUCT] || 0)
+    });
+  }
+  return alerts;
 }
 
 async function getReservados({ sucursal }) {
@@ -574,14 +654,7 @@ export async function GET(req) {
       return Response.json({ resumen: rows });
     }
     if (tab === 'Alertas') {
-      // Ejemplo: productos críticos o agotados
-      const [rows] = await pool.query(
-        `SELECT p.ID_PRODUCT, p.PRODUCT_NAME, st.CANTIDAD, s.NOMBRE_SUCURSAL
-         FROM STOCK_SUCURSAL st
-         JOIN PRODUCTOS p ON p.ID_PRODUCT = st.ID_PRODUCT
-         JOIN SUCURSAL s ON s.ID_SUCURSAL = st.ID_SUCURSAL
-         WHERE st.CANTIDAD <= 5`
-      );
+      const rows = await getAlertas({ sucursal });
       return Response.json({ alertas: rows });
     }
     if (tab === 'Dañados') {
