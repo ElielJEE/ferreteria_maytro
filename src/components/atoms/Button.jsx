@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function Button({ func, text, type, className, icon, iconRight }) {
+export default function Button({ func, text, type, className, icon, iconRight, disabled = false }) {
 	const ColorVariants = {
 		primary: 'bg-primary hover:bg-primary/80 text-light shadow-lg hover:shadow-xl py-2.5 px-4 w-full',
 		success: 'bg-success hover:bg-success/80 text-light shadow-lg hover:shadow-xl py-2.5 px-4 w-full',
@@ -16,7 +16,12 @@ export default function Button({ func, text, type, className, icon, iconRight })
 	}
 
 	return (
-		<button className={`btn ${ColorVariants[className]} sm:text-sm text-xs`} onClick={func} type={type}>
+		<button
+			className={`btn ${ColorVariants[className]} sm:text-sm text-xs${disabled ? ' opacity-50 cursor-not-allowed' : ''}`}
+			onClick={(e) => { if (!disabled && typeof func === 'function') func(e); }}
+			type={type}
+			disabled={disabled}
+		>
 			{icon} {text} {iconRight}
 		</button>
 	)

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, Input } from '../molecules'
 import { FiCheck, FiDollarSign, FiFile, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX } from 'react-icons/fi'
-import { ProductService } from '@/services';
+import { ProductService, SalesService, StockService, AuthService } from '@/services';
 import { useActive, useFilter } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin } from 'react-icons/bs';
@@ -18,19 +18,39 @@ export default function PuntoVentaOrg() {
 	const [montoDolares, setMontoDolares] = useState("");
 	const [cambio, setCambio] = useState(0);
 	const [error, setError] = useState(null);
+	const [currentUser, setCurrentUser] = useState(null);
+	const [clienteNombre, setClienteNombre] = useState('');
+	const [clienteTelefono, setClienteTelefono] = useState('');
+	const [processing, setProcessing] = useState(false);
 
 	useEffect(() => {
 		const fetchAll = async () => {
 			try {
-				const [productsData, subcats] = await Promise.all([
-					ProductService.getProducts(),
-					ProductService.getSubcategories()
-				]);
-				setProducts(productsData);
+				// Obtener sucursal del usuario
+				const user = await AuthService.getCurrentUser();
+				setCurrentUser(user);
+				const sucNombre = user?.SUCURSAL_NOMBRE || 'Todas';
+				// Traer resumen de stock (si admin sin sucursal => 'Todas')
+				const { success, resumen } = await StockService.getResumen(sucNombre);
+				const rows = success ? (resumen || []) : [];
+				// Normalizar al shape esperado por POS/Card
+				const normalized = rows.map(r => ({
+					ID_PRODUCT: r.ID_PRODUCT,
+					CODIGO_PRODUCTO: r.CODIGO_PRODUCTO,
+					PRODUCT_NAME: r.PRODUCT_NAME,
+					PRECIO: Number(r.PRECIO_UNIT || r.PRECIO || 0),
+					CANTIDAD: Number(r.STOCK_SUCURSAL || 0),
+					ID_SUBCATEGORIAS: r.ID_SUBCATEGORIAS,
+					NOMBRE_SUBCATEGORIA: r.SUBCATEGORY,
+					NOMBRE_SUCURSAL: r.NOMBRE_SUCURSAL,
+				}));
+				setProducts(normalized);
+				// Subcategorías (derivadas de los datos)
+				const subcats = Array.from(new Set(normalized.map(n => n.NOMBRE_SUBCATEGORIA).filter(Boolean)))
+					.map((name, idx) => ({ ID_SUBCATEGORIAS: `sub-${idx}`, NOMBRE_SUBCATEGORIA: name }));
 				setSubcategories(subcats);
-				console.log(productsData, subcats);
 			} catch (error) {
-				console.error(error)
+				console.error('Error cargando catálogo:', error)
 			}
 		}
 		fetchAll();
@@ -49,6 +69,11 @@ export default function PuntoVentaOrg() {
 	});
 
 	const addToProductList = (product) => {
+		// No permitir agregar si no hay stock en sucursal
+		if (!product || Number(product.CANTIDAD || 0) <= 0) {
+			setError('Producto sin stock en la sucursal');
+			return;
+		}
 		setProductList((prevList) => {
 			const existingProduct = prevList.find(
 				(item) => item.ID_PRODUCT === product.ID_PRODUCT
@@ -119,6 +144,12 @@ export default function PuntoVentaOrg() {
 	const handleConfirmarVenta = (e) => {
 		e.preventDefault();
 
+		// Validar sucursal: no se puede vender sin sucursal asignada
+		if (!currentUser?.ID_SUCURSAL) {
+			setError('No tiene una sucursal asignada para procesar ventas.');
+			return;
+		}
+
 		const totalRecibido = parseFloat(montoCordobas || 0) + (parseFloat(montoDolares || 0) * 36.55);
 
 		if (totalRecibido < total) {
@@ -149,17 +180,45 @@ export default function PuntoVentaOrg() {
 		setCambio(cambioCalculado);
 	}, [montoCordobas, montoDolares, total]);
 
-	const handleSubmitVenta = () => {
-		setIsActiveModal(true);
-		// Aquí iría la lógica para procesar la venta, como enviar los datos al servidor
-		console.log("Venta procesada con los siguientes datos:");
-		console.log("Productos:", productList);
-		console.log("Subtotal:", subtotal);
-		console.log("Descuento:", descuento);
-		console.log("Total:", total);
-		console.log("Monto recibido en Córdobas:", montoCordobas);
-		console.log("Monto recibido en Dólares:", montoDolares);
-		console.log("Cambio a devolver:", cambio);
+	const handleSubmitVenta = async () => {
+		try {
+			setProcessing(true);
+			// Construir payload separado de la UI/form
+			const items = productList.map(p => ({
+				ID_PRODUCT: p.ID_PRODUCT,
+				CODIGO_PRODUCTO: p.CODIGO_PRODUCTO,
+				PRODUCT_NAME: p.PRODUCT_NAME,
+				PRECIO: Number(p.PRECIO || 0),
+				quantity: Number(p.quantity || 0),
+			}));
+			const payload = {
+				items,
+				subtotal: Number(subtotal.toFixed(2)),
+				descuento: Number(descuento || 0),
+				total: Number(total.toFixed(2)),
+				pago: {
+					cordobas: Number(montoCordobas || 0),
+					dolares: Number(montoDolares || 0),
+					tasaCambio: 36.55,
+				},
+				cliente: {
+					nombre: clienteNombre,
+					telefono: clienteTelefono,
+				},
+				sucursal_id: currentUser?.ID_SUCURSAL || null
+			};
+
+			const res = await SalesService.createSale(payload);
+			// Mostrar modal de resultado con cambio
+			setMode('confirmar venta');
+			setIsActiveModal(true);
+			setCambio(res?.cambio ?? cambio);
+		} catch (e) {
+			console.error('Error procesando venta:', e);
+			setError(e?.message || 'Error al procesar la venta');
+		} finally {
+			setProcessing(false);
+		}
 	};
 
 	const handleModalClose = () => {
@@ -207,6 +266,8 @@ export default function PuntoVentaOrg() {
 									productName={item.PRODUCT_NAME}
 									id={"Codigo: " + item.CODIGO_PRODUCTO}
 									category={item.NOMBRE_SUBCATEGORIA}
+									sucursal={item.NOMBRE_SUCURSAL}
+									status={Number(item.CANTIDAD || 0) <= 0 ? 'Agotado' : undefined}
 									bgColor={'secondary'}
 									price={item.PRECIO}
 									stock={item.CANTIDAD}
@@ -217,6 +278,7 @@ export default function PuntoVentaOrg() {
 											text={'Agregar'}
 											icon={<FiPlus className='h-4 w-4' />}
 											func={(e) => addToProductList(item)}
+											disabled={Number(item.CANTIDAD || 0) <= 0}
 										/>
 									</div>
 								</Card>
@@ -235,11 +297,15 @@ export default function PuntoVentaOrg() {
 								label={"Nombre"}
 								placeholder={"Ingrese nombre del cliente"}
 								inputClass={"no icon"}
+								value={clienteNombre}
+								onChange={(e) => setClienteNombre(e.target.value)}
 							/>
 							<Input
 								label={"Telefono"}
 								placeholder={"Ingrese numero de telefono del cliente"}
 								inputClass={"no icon"}
+								value={clienteTelefono}
+								onChange={(e) => setClienteTelefono(e.target.value)}
 							/>
 						</div>
 					</div>
@@ -389,9 +455,9 @@ export default function PuntoVentaOrg() {
 									/>
 									<Button
 										className={'success'}
-										text={'Confirmar Venta'}
+										text={processing ? 'Procesando…' : 'Confirmar Venta'}
 										icon={<FiCheck className='h-5 w-5' />}
-										func={handleConfirmarVenta}
+										func={processing ? undefined : handleConfirmarVenta}
 									/>
 								</div>
 							</form>
