@@ -9,6 +9,7 @@ import { FiTrash, FiTrash2 } from 'react-icons/fi'
 export default function SaleEdit({ sale, onClose, onSaved }) {
   const [cliente, setCliente] = useState(sale?.cliente_nombre || sale?.cliente || '')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [items, setItems] = useState(() => {
     if (!Array.isArray(sale?.items)) return []
     return sale.items.map(it => ({
@@ -75,13 +76,18 @@ export default function SaleEdit({ sale, onClose, onSaved }) {
   const save = async () => {
     try {
       setLoading(true)
-      const payload = { ...sale, cliente_nombre: cliente, items }
+      const total = items.reduce((sum, it) => sum + Number(it.subtotal || 0), 0)
+      const payload = {
+        ...sale,
+        cliente_nombre: cliente,
+        items,
+        total
+      }
+
       if (SalesService && typeof SalesService.updateSale === 'function') {
         await SalesService.updateSale(payload)
-      } else {
-        // fallback: call API
-        await fetch(`/api/ventas/${sale.id || sale.codigo}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       }
+
       onSaved && onSaved()
       onClose && onClose()
     } catch (err) {
@@ -90,6 +96,8 @@ export default function SaleEdit({ sale, onClose, onSaved }) {
       setLoading(false)
     }
   }
+
+
 
   return (
     <div className='py-4'>
