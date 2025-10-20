@@ -61,3 +61,47 @@ export const getSaleDetail = async (id) => {
     return { success: false, message: err.message, factura: null };
   }
 };
+
+export const updateSale = async (payload) => {
+  try {
+    const id = payload?.id || payload?.codigo || payload?.facturaId || '';
+    const url = id ? `${API_URL}?id=${encodeURIComponent(id)}` : API_URL;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'include',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = data && (data.error || data.message) ? (data.error || data.message) : 'Error al actualizar la venta';
+      console.log(message);
+      return { success: false, message };
+    }
+    return { success: true, ...data };
+  } catch (err) {
+    console.error('updateSale error:', err);
+    throw err;
+  }
+}
+
+export const deleteSale = async (id) => {
+  try {
+    if (!id) return { success: false, message: 'ID de venta requerido' };
+    const url = `${API_URL}?id=${encodeURIComponent(id)}`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = data && (data.error || data.message) ? (data.error || data.message) : 'Error al eliminar la venta';
+      return { success: false, message };
+    }
+    return { success: true, ...data };
+  } catch (err) {
+    console.error('deleteSale error:', err);
+    throw err;
+  }
+}
