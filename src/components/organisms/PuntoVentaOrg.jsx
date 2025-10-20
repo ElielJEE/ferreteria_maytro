@@ -54,7 +54,7 @@ export default function PuntoVentaOrg() {
 			}
 		}
 		fetchAll();
-	}, []);
+	}, [processing]);
 
 	const filteredProducts = useFilter({
 		data: products.map(p => ({
@@ -267,7 +267,7 @@ export default function PuntoVentaOrg() {
 									id={"Codigo: " + item.CODIGO_PRODUCTO}
 									category={item.NOMBRE_SUBCATEGORIA}
 									sucursal={item.NOMBRE_SUCURSAL}
-									status={Number(item.CANTIDAD || 0) <= 0 ? 'Agotado' : undefined}
+									status={Number(item.CANTIDAD || 0) <= 0 && 'Agotado'}
 									bgColor={'secondary'}
 									price={item.PRECIO}
 									stock={item.CANTIDAD}

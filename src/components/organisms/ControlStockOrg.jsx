@@ -8,6 +8,7 @@ import { Alerts, Card, Damaged, DropdownMenu, Input, Movements, Reserved, Summar
 import StockService from '@/services/StockService';
 import { NivelacionService } from '@/services';
 import { useActive, useIsMobile } from '@/hooks'
+import { errors } from 'jose'
 
 export default function ControlStockOrg() {
 	const [tipoMovimiento, setTipoMovimiento] = useState("");
@@ -460,7 +461,7 @@ export default function ControlStockOrg() {
 		setIsActiveModal(false);
 		try {
 			window.dispatchEvent(new CustomEvent('stock:updated', { detail: { tipo: 'Nivelacion', producto: selectedProducto, sucursal: selectedSucursal } }));
-		} catch {}
+		} catch { }
 	}
 
 	return (
@@ -471,7 +472,7 @@ export default function ControlStockOrg() {
 						<FiGlobe className='h-4 w-4 md:h-5 md:w-5 text-blue' />
 						<h3 className='md:text-lg font-semibold'>Sucursal: </h3>
 					</div>
-                    <div className='lg:w-1/3 md:w-1/2'>
+					<div className='lg:w-1/3 md:w-1/2'>
 						{isAdmin ? (
 							<DropdownMenu
 								options={[{ label: 'Todas', value: 'Todas' }, ...topSucursales]}
@@ -483,7 +484,7 @@ export default function ControlStockOrg() {
 								<span>{topSucursal || currentUser?.SUCURSAL_NOMBRE || 'Sucursal'}</span>
 							</div>
 						)}
-                    </div>
+					</div>
 				</section>
 				<section className='w-full flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide lg:grid lg:grid-cols-4'>
 					{
@@ -797,6 +798,7 @@ export default function ControlStockOrg() {
 										/>
 									</>
 								)}
+								{formErrors.general && <span className='text-danger text-center'>{formErrors.general}</span>}
 								<div className='col-span-2 flex gap-2 mt-2'>
 									<Button
 										className={"danger"}
