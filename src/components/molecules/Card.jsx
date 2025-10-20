@@ -38,11 +38,9 @@ export default function Card({ productName, status, sucursal, id, category, chil
 						{UnitMeasure &&
 							<span className='text-dark/70 font-semibold'>{UnitMeasure}</span>
 						}
-						{(stock !== undefined && stock !== null) && (
-							<span className={`${Number(stock) <= 0 ? 'text-dark/40' : 'text-dark/70'} font-semibold`}>
-								Stock: {stock}
-							</span>
-						)}
+						{stock &&
+							<span className='text-dark/70 font-semibold'>Stock: {stock}</span>
+						}
 					</div>
 				</div>
 				<div className='w-full flex flex-col justify-start items-start gap-1'>
