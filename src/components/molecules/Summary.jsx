@@ -34,32 +34,25 @@ export default function Summary({ sucursalFilter }) {
 		return stock > 0 ? 'Disponible' : 'Agotado';
 	};
 
-	const getEstadoClass = (estado) => {
-		switch ((estado || '').toLowerCase()) {
-			case 'disponible':
-				return 'bg-success/10 text-success border border-success/20';
-			case 'bajo':
-				return 'bg-danger/10 text-danger border border-danger/20';
-			case 'agotado':
-				return 'bg-danger/20 text-danger border border-danger/30';
-			case 'exceso':
-				return 'bg-yellow/10 text-yellow border border-yellow/20';
-			default:
-				return 'bg-dark/10 text-dark/60 border border-dark/20';
-		}
+	const estadoStyles = {
+		disponible: 'bg-success',
+		bajo: 'bg-danger',
+		agotado: 'bg-danger',
+		exceso: 'bg-yellow',
+		default: 'bg-dark',
 	};
 
 	useEffect(() => {
-			const fetchResumen = async () => {
-				const result = await StockService.getResumen(sucursalFilter);
-				if (!result.success) {
-					console.error('Error fetching resumen:', result.message);
-					setData([]);
-					return;
-				}
-				const rows = (result.resumen || []).map(r => ({ ...r, status: r.STATUS || '' }));
-				setData(rows);
-			};
+		const fetchResumen = async () => {
+			const result = await StockService.getResumen(sucursalFilter);
+			if (!result.success) {
+				console.error('Error fetching resumen:', result.message);
+				setData([]);
+				return;
+			}
+			const rows = (result.resumen || []).map(r => ({ ...r, status: r.STATUS || '' }));
+			setData(rows);
+		};
 		fetchResumen();
 
 		// Re-fetch when stock is updated elsewhere
@@ -130,7 +123,7 @@ export default function Summary({ sucursalFilter }) {
 										{(() => {
 											const estado = computeEstado(item);
 											return (
-												<span className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${getEstadoClass(estado)}`}>
+												<span className={`flex items-center justify-center p-1 rounded-full text-light text-xs ${estadoStyles[estado.toLowerCase()]}`}>
 													{estado}
 												</span>
 											);
@@ -153,10 +146,10 @@ export default function Summary({ sucursalFilter }) {
 						<Card
 							key={index}
 							productName={item.PRODUCT_NAME}
-							category={item.SUBCATEGORY || ''}
-							status={''}
+							category={item.SUBCATEGORY}
+							status={item.STATUS}
 							id={item.CODIGO_PRODUCTO}
-							sucursal={item.NOMBRE_SUCURSAL}
+							sucursal={item.NOMBRE_SUCURSAL ? item.NOMBRE_SUCURSAL : 'Bodega'}
 						>
 							<div className='flex flex-col'>
 								<span className='text-sm text-dark/70'>Stock Actual</span>
@@ -165,6 +158,22 @@ export default function Summary({ sucursalFilter }) {
 							<div className='flex flex-col'>
 								<span className='text-sm text-dark/70'>En Bodega</span>
 								<span className='text-lg font-semibold'>{item.STOCK_BODEGA}</span>
+							</div>
+							<div className='flex flex-col'>
+								<span className='text-sm text-dark/70'>Fisico Total</span>
+								<span className='text-lg font-semibold'>{item.FISICO_TOTAL}</span>
+							</div>
+							<div className='flex flex-col'>
+								<span className='text-sm text-dark/70'>Dañados</span>
+								<span className='text-lg font-semibold text-danger'>{item.DANADOS}</span>
+							</div>
+							<div className='flex flex-col'>
+								<span className='text-sm text-dark/70'>Reservados</span>
+								<span className='text-lg font-semibold text-purple'>{item.RESERVADOS}</span>
+							</div>
+							<div className='flex flex-col'>
+								<span className='text-sm text-dark/70'>Rango</span>
+								<span className='text-lg font-semibold'>{item.MINIMO} - {item.MAXIMO}</span>
 							</div>
 						</Card>
 					))}

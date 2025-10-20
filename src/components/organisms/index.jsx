@@ -4,3 +4,6 @@ export { default as ProductsOrg } from './ProductsOrg';
 export { default as CategoriasOrg } from './CategoriasOrg';
 export { default as ControlStockOrg } from './ControlStockOrg';
 export { default as PuntoVentaOrg } from './PuntoVentaOrg';
+export { default as QuotationsOrg } from './QuotationsOrg';
+export { default as ReturnsOrg } from './ReturnsOrg';
+export { default as SalesBackgroundOrg } from './SalesBackgroundOrg';
