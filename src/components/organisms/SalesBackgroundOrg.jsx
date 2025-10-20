@@ -89,6 +89,9 @@ export default function SalesBackgroundOrg() {
 			setIsActiveModal(true)
 
 		} else if (type === 'editar') {
+			const { success, factura } = await SalesService.getSaleDetail(item.id);
+			setSelectedSale(success ? factura : null);
+			setIsActiveModal(true)
 
 		} else if (type === 'eliminar') {
 
