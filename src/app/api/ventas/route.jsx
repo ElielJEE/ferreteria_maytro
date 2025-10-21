@@ -67,9 +67,9 @@ export async function POST(req) {
       if (qty > cantidadEnSucursal) throw new Error('Stock insuficiente para el producto ' + idProd);
     }
 
-  const subtotalOk = Number.isFinite(Number(subtotal)) ? Number(subtotal) : computedSubtotal;
-  const descuentoOk = Number(descuento || 0);
-  const totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk);
+    const subtotalOk = Number.isFinite(Number(subtotal)) ? Number(subtotal) : computedSubtotal;
+    const descuentoOk = Number(descuento || 0);
+    const totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk);
 
     // Create invoice (FACTURA and FACTURA_DETALLES)
     const clienteId = await getOrCreateCliente(conn, cliente?.nombre, cliente?.telefono);
@@ -121,7 +121,7 @@ export async function POST(req) {
            VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`,
           [idProd, sucursalId, usuarioId || null, qty, 'Venta', facturaId, stockAnterior, stockNuevo]
         );
-      } catch {}
+      } catch { }
     }
 
     // Registrar pago (si existe tabla FACTURA_PAGOS)
@@ -141,10 +141,10 @@ export async function POST(req) {
 
     return Response.json({ ok: true, facturaId, total: totalOk, cambio });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
+    try { await conn.rollback(); } catch { }
     return Response.json({ error: e.message || 'Error al procesar la venta' }, { status: 400 });
   } finally {
-    try { conn.release(); } catch {}
+    try { conn.release(); } catch { }
   }
 }
 
@@ -189,24 +189,26 @@ export async function GET(req) {
           WHERE fd.ID_FACTURA = ?
         `, [id]);
 
-        return Response.json({ factura: {
-          id: f.ID_FACTURA,
-          fecha: f.FECHA,
-          subtotal: Number(f.SUBTOTAL || 0),
-          descuento: Number(f.DESCUENTO || 0),
-          total: Number(f.TOTAL || 0),
-          cliente,
-          sucursal,
-          usuario,
-          items: (itemsRows || []).map(it => ({
-            producto_id: it.ID_PRODUCT,
-            producto_nombre: it.producto_nombre,
-            producto_codigo: it.producto_codigo,
-            cantidad: Number(it.cantidad || 0),
-            precio_unit: Number(it.precio_unit || 0),
-            subtotal: Number(it.subtotal || 0)
-          }))
-        }});
+        return Response.json({
+          factura: {
+            id: f.ID_FACTURA,
+            fecha: f.FECHA,
+            subtotal: Number(f.SUBTOTAL || 0),
+            descuento: Number(f.DESCUENTO || 0),
+            total: Number(f.TOTAL || 0),
+            cliente,
+            sucursal,
+            usuario,
+            items: (itemsRows || []).map(it => ({
+              producto_id: it.ID_PRODUCT,
+              producto_nombre: it.producto_nombre,
+              producto_codigo: it.producto_codigo,
+              cantidad: Number(it.cantidad || 0),
+              precio_unit: Number(it.precio_unit || 0),
+              subtotal: Number(it.subtotal || 0)
+            }))
+          }
+        });
       } catch (e) {
         return Response.json({ error: e.message || 'Error al obtener detalle' }, { status: 500 });
       }
@@ -283,7 +285,7 @@ export async function PUT(req) {
            VALUES (?, ?, ?, 'entrada', ?, ?, ?, NULL, NULL)`,
           [prodId, sucursalId, defaultUsuarioId, prevQty, 'Reversión por edición de venta', id]
         );
-      } catch {}
+      } catch { }
     }
 
     // Remove old detalles
@@ -300,11 +302,21 @@ export async function PUT(req) {
         return Response.json({ error: 'Item inválido en nuevos items' }, { status: 400 });
       }
       // check stock
-      const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [prodId, sucursalId]);
+      const [stockRows] = await conn.query(
+        `SELECT 
+     ss.CANTIDAD, 
+     s.NOMBRE_SUCURSAL
+   FROM STOCK_SUCURSAL ss
+   INNER JOIN SUCURSAL s ON ss.ID_SUCURSAL = s.ID_SUCURSAL
+   WHERE ss.ID_PRODUCT = ? AND ss.ID_SUCURSAL = ? 
+   FOR UPDATE`,
+        [prodId, sucursalId]
+      );
       const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
+      const nombreSucursal = stockRows.length ? stockRows[0].NOMBRE_SUCURSAL : 'Sucursal desconocida';
       if (qty > cantidadEnSucursal) {
         await conn.rollback();
-        return Response.json({ error: `Stock insuficiente para producto ${prodId}` }, { status: 400 });
+        return Response.json({ error: `Stock insuficiente para producto ${nombreSucursal}` }, { status: 400 });
       }
       computedSubtotal += precio * qty;
     }
@@ -336,7 +348,7 @@ export async function PUT(req) {
            VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`,
           [prodId, sucursalId, defaultUsuarioId, qty, 'Edición venta', id, stockAnterior, stockNuevo]
         );
-      } catch {}
+      } catch { }
     }
 
     // Update factura (subtotal, descuento, total, cliente)
@@ -346,11 +358,11 @@ export async function PUT(req) {
     await conn.commit();
     return Response.json({ ok: true, facturaId: id, total: totalOk });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
+    try { await conn.rollback(); } catch { }
     const message = e && e.message ? e.message : 'Error al editar la venta';
     return Response.json({ error: message }, { status: 400 });
   } finally {
-    try { conn.release(); } catch {}
+    try { conn.release(); } catch { }
   }
 }
 
@@ -388,21 +400,21 @@ export async function DELETE(req) {
            VALUES (?, ?, NULL, 'entrada', ?, ?, ?, NULL, NULL)`,
           [prodId, sucursalId, qty, 'Reversión por eliminación de venta', id]
         );
-      } catch {}
+      } catch { }
     }
 
     // Delete detalles, pagos, factura
-    try { await conn.query('DELETE FROM FACTURA_PAGOS WHERE ID_FACTURA = ?', [id]); } catch {}
+    try { await conn.query('DELETE FROM FACTURA_PAGOS WHERE ID_FACTURA = ?', [id]); } catch { }
     await conn.query('DELETE FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [id]);
     await conn.query('DELETE FROM FACTURA WHERE ID_FACTURA = ?', [id]);
 
     await conn.commit();
     return Response.json({ ok: true, deleted: id });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
+    try { await conn.rollback(); } catch { }
     const message = e && e.message ? e.message : 'Error al eliminar la venta';
     return Response.json({ error: message }, { status: 400 });
   } finally {
-    try { conn.release(); } catch {}
+    try { conn.release(); } catch { }
   }
 }

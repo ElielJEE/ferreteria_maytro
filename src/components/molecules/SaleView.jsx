@@ -11,7 +11,7 @@ export default function SaleView({ sale, onClose }) {
 			<div className='grid grid-cols-2 gap-4'>
 				<div className='mb-2 flex gap-2'>
 					<div className='font-semibold'>Nombre:</div>
-					<div className='font-semibold'>{sale.cliente_nombre || sale.cliente || '-'}</div>
+					<div className='font-semibold'>{sale.cliente.nombre}</div>
 				</div>
 				<div className='mb-2 flex gap-2'>
 					<div className='font-semibold'>Fecha:</div>

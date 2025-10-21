@@ -75,7 +75,7 @@ export const updateSale = async (payload) => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const message = data && (data.error || data.message) ? (data.error || data.message) : 'Error al actualizar la venta';
-      console.log(message);
+      console.log("desde updateService:" + message);
       return { success: false, message };
     }
     return { success: true, ...data };
