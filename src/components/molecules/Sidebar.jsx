@@ -45,7 +45,7 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 					onClick={() => setOpenSidebar(false)}
 				></div>
 			)}
-			<aside className={`flex flex-col left-0 h-screen fixed top-0 bg-light border-r border-dark/10 pl-5 transition-all duration-500 z-40
+			<aside className={`flex flex-col left-0 h-screen fixed top-0 bg-light-2 border-r border-dark/10 pl-5 transition-all duration-500 z-40
 		${openSidebar ? "translate-x-0" : "-translate-x-full"} xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%]`}>
 				<div className='w-full flex p-4 items-center gap-2'>
 					<img src="/images/logo.jpg" alt="logo-el-maytro" className='h-12 w-12' />
@@ -62,8 +62,8 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 								.map((item, index) => {
 									const hasSubModules = item.subModules && item.subModules.length > 0;
 									return (
-										<li key={index} className='w-[90%]'>
-											<div className='flex justify-center items-center'>
+										<li key={index} className='w-[94%]'>
+											<div className={`flex justify-center items-center ${openIndex === index ? "bg-dark/5 rounded-md" : ""} px-3 py-1 cursor-pointer hover:bg-dark/5 rounded-md`}>
 												{
 													hasSubModules ? (
 														<>
@@ -91,13 +91,13 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 												}
 											</div>
 											<ul
-												className={`border-l border-dark/10 ml-2 mt-1 transition-all duration-400 overflow-hidden 
-											${openIndex === index ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}
+												className={`border-l border-dark/10 ml-5 mt-1 transition-all duration-400 overflow-hidden 
+											${openIndex === index ? "max-h-96 opacity-100" : "max-h-0 opacity-0"} w-[78%]`}
 											>
 												{
 													item.subModules?.map((subItem, subIndex) => (
 														<li key={subIndex}>
-															<Link href={subItem.path} className='block px-2 py-1 rounded-md'>
+															<Link href={subItem.path} className='block px-2 py-1 rounded-md hover:bg-dark/5'>
 																{subItem.name}
 															</Link>
 														</li>
