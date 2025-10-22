@@ -7,16 +7,22 @@ import DropdownMenu from './DropdownMenu'
 import { FiTrash, FiTrash2 } from 'react-icons/fi'
 
 export default function SaleEdit({ sale, onClose, onSaved }) {
-  const [cliente, setCliente] = useState(sale?.cliente.nombre || '')
+  const [cliente, setCliente] = useState(sale?.cliente?.nombre || sale?.cliente_nombre || sale?.cliente || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [items, setItems] = useState(() => {
     if (!Array.isArray(sale?.items)) return []
-    return sale.items.map(it => ({
-      ...it,
-      cantidad: Number(it.cantidad ?? it.qty ?? 0),
-      precio_unit: Number(it.precio_unit ?? it.precio ?? 0)
-    }))
+    return sale.items.map(it => {
+      const cantidad = Number(it.cantidad ?? it.qty ?? 0)
+      const precio_unit = Number(it.precio_unit ?? it.precio ?? 0)
+      const subtotal = Number(it.subtotal ?? (cantidad * precio_unit))
+      return {
+        ...it,
+        cantidad,
+        precio_unit,
+        subtotal
+      }
+    })
   })
   const [productsOptions, setProductsOptions] = useState([])
   console.log(sale);
@@ -75,6 +81,8 @@ export default function SaleEdit({ sale, onClose, onSaved }) {
         const cantidad = Number(it.cantidad || 0)
         return {
           ...it,
+          producto_id: prod.ID_PRODUCT || prod.id || prod.producto_id || it.producto_id,
+          ID_PRODUCT: prod.ID_PRODUCT || it.ID_PRODUCT,
           producto_nombre: prod.NOMBRE || prod.producto || prod.nombre || it.producto_nombre,
           producto_codigo: prod.CODIGO || prod.codigo || prod.sku || it.producto_codigo,
           precio_unit,
@@ -94,7 +102,7 @@ export default function SaleEdit({ sale, onClose, onSaved }) {
       console.log(items);
       const payload = {
         ...sale,
-        cliente_nombre: cliente,
+        cliente: { nombre: cliente },
         items,
         total
       }
@@ -167,7 +175,7 @@ export default function SaleEdit({ sale, onClose, onSaved }) {
                 </div>
                 <div className='flex flex-col justify-end items-end'>
                   <div className='text-xs text-dark/60'>Subtotal</div>
-                  <div className='font-semibold'>C${Number(it.subtotal).toLocaleString()}</div>
+                  <div className='font-semibold'>C${Number(it.subtotal ?? (Number(it.cantidad || 0) * Number(it.precio_unit || it.precio || 0))).toLocaleString()}</div>
                   <div className='mt-2'>
                     <Button className={'danger'} icon={<FiTrash2 />} func={() => removeItem(idx)} />
                   </div>
