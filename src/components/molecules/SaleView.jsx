@@ -11,19 +11,19 @@ export default function SaleView({ sale, onClose }) {
 			<div className='grid grid-cols-2 gap-4'>
 				<div className='mb-2 flex gap-2'>
 					<div className='font-semibold'>Nombre:</div>
-					<div className='font-semibold'>{sale.cliente.nombre}</div>
+					<div className='font-semibold'>{sale?.cliente?.nombre || sale?.cliente_nombre || sale?.cliente || '-'}</div>
 				</div>
 				<div className='mb-2 flex gap-2'>
 					<div className='font-semibold'>Fecha:</div>
-					<div className='font-semibold'>{sale?.fecha}</div>
+					<div className='font-semibold'>{sale?.fecha || sale?.fecha_venta || '-'}</div>
 				</div>
 				<div className='mb-2 flex gap-2'>
 					<div className='font-semibold'>Sucursal:</div>
-					<div className='font-semibold'>{sale?.sucursal.nombre}</div>
+					<div className='font-semibold'>{sale?.sucursal?.nombre || sale?.sucursal || '-'}</div>
 				</div>
 				<div className='mb-2 flex gap-2'>
 					<div className='font-semibold'>Vendedor:</div>
-					<div className='font-semibold'>{sale?.usuario.nombre}</div>
+					<div className='font-semibold'>{sale?.usuario?.nombre || sale?.hecho_por || sale?.vendedor || '-'}</div>
 				</div>
 			</div>
 			<div className='mb-2'>
@@ -62,7 +62,11 @@ export default function SaleView({ sale, onClose }) {
 			</div>
 			<div className='mt-4 flex justify-end gap-5'>
 				<div className='text-lg font-semibold'>Total C$:</div>
-				<div className='text-lg font-semibold'>{sale.total ? `${Number(sale.total).toLocaleString()}` : (sale.total_venta ? `C$${Number(sale.total_venta).toLocaleString()}` : '-')}</div>
+				<div className='text-lg font-semibold'>{
+					sale?.total != null
+						? Number(sale.total).toLocaleString()
+						: (sale?.total_venta != null ? Number(sale.total_venta).toLocaleString() : '-')
+				}</div>
 			</div>
 		</div>
 	)

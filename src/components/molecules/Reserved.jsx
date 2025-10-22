@@ -134,7 +134,7 @@ export default function Reserved({ sucursalFilter = 'Todas' }) {
 											</td>
 											<td className={`p-2 text-center ${cfg.textColor} ${cfg.bgColor}/10`}>{item.cantidad}</td>
 											<td className='p-2 flex flex-col'>
-												<span className='md:truncate lg:whitespace-normal'>{item.cliente.nombre}</span>
+												<span className='md:truncate lg:whitespace-normal'>{item?.cliente?.nombre || '-'}</span>
 												{item?.cliente?.id && isNaN(Number(item.cliente.id)) && (
 													<span className='text-dark/60 text-sm'>{item.cliente.id}</span>
 												)}
@@ -186,7 +186,7 @@ export default function Reserved({ sucursalFilter = 'Todas' }) {
 									</div>
 									<div className='flex flex-col'>
 										<span className='text-sm text-dark/70'>Cliente</span>
-										<span className='text-lg font-semibold'>{item.cliente.nombre}</span>
+										<span className='text-lg font-semibold'>{item?.cliente?.nombre || '-'}</span>
 									</div>
 									<div className='flex flex-col'>
 										<span className='text-sm text-dark/70'>Telefono</span>
