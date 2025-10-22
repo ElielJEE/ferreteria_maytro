@@ -56,10 +56,10 @@ export default function Alerts({ sucursalFilter }) {
 						.filter((alertType) => alertType.status === 'bajo')
 						.map((alert, index) => (
 							<AlertCard AlertCard key={index} {...alert} >
-								<Button 
-								text={"Reabastecer"}
-								className={"yellow"}
-								
+								<Button
+									text={"Reabastecer"}
+									className={"yellow"}
+
 								/>
 							</AlertCard>
 						))
@@ -77,10 +77,10 @@ export default function Alerts({ sucursalFilter }) {
 						.filter((alertType) => alertType.status === 'agotado')
 						.map((alert, index) => (
 							<AlertCard AlertCard key={index} {...alert} >
-								<Button 
-								text={"Urgente"}
-								className={"danger"}
-								
+								<Button
+									text={"Urgente"}
+									className={"danger"}
+
 								/>
 							</AlertCard>
 						))
@@ -97,13 +97,7 @@ export default function Alerts({ sucursalFilter }) {
 					data
 						.filter((alertType) => alertType.status === 'exceso')
 						.map((alert, index) => (
-							<AlertCard AlertCard key={index} {...alert} >
-								<Button 
-								text={"Promocionar"}
-								className={"blue"}
-								
-								/>
-							</AlertCard>
+							<AlertCard AlertCard key={index} {...alert} />
 						))
 				}
 			</section>
