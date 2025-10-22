@@ -320,7 +320,7 @@ export default function ControlStockOrg() {
 			}
 		})();
 	}, [isActiveModal]);
-
+	console.log(productos);
 	// Estado para sucursales reales
 	const [sucursales, setSucursales] = useState([]);
 
@@ -691,11 +691,6 @@ export default function ControlStockOrg() {
 													))}
 												</ul>
 											)}
-											<span>
-												⚠️ ATENCIÓN: Esta advertencia debe eliminarse cuando se implemente la lógica final.
-												El input "Cliente" debe permitir buscar un cliente existente y autocompletar el campo "Teléfono".
-												Si el cliente no existe, se registrará como nuevo junto con su número de teléfono.
-											</span>
 										</div>
 										<Input
 											label="Teléfono"

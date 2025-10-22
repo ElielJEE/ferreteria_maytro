@@ -10,7 +10,7 @@ export default function ModalContainer({ setIsActiveModal, modalTitle, modalDesc
 			onClick={() => setIsActiveModal(false)}
 		>
 			<div
-				className='w-full max-w-lg bg-light rounded-lg p-4'
+				className='bg-light rounded-lg p-4 mx-h-[100vh - 10px]'
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className='w-full'>
