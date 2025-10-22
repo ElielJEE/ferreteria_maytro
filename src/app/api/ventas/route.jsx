@@ -43,6 +43,19 @@ export async function POST(req) {
     if (body.usuario_id) usuarioId = body.usuario_id;
     if (body.sucursal_id) sucursalId = body.sucursal_id;
 
+    // Fallback: derive sucursal from the usuario if not present in token/payload
+    try {
+      if (!sucursalId && usuarioId) {
+        const [uRows] = await conn.query('SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1', [usuarioId]);
+        if (uRows && uRows[0] && uRows[0].ID_SUCURSAL) sucursalId = uRows[0].ID_SUCURSAL;
+      }
+      // As an additional fallback, try by sucursal name in payload
+      if (!sucursalId && body.sucursal) {
+        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
+        if (suc && suc[0] && suc[0].ID_SUCURSAL) sucursalId = suc[0].ID_SUCURSAL;
+      }
+    } catch { /* ignore resolution errors */ }
+
     await conn.beginTransaction();
 
     // Validate and compute
@@ -294,7 +307,7 @@ export async function PUT(req) {
     // Prepare new detalles: validate stock availability (after revert)
     let computedSubtotal = 0;
     for (const it of items) {
-      const prodId = Number(it.ID_PRODUCT || it.producto_id || it.producto_id || it.producto_id);
+      const prodId = Number(it.ID_PRODUCT || it.producto_id || it.id);
       const qty = Number(it.quantity || it.cantidad || 0);
       const precio = Number(it.PRECIO || it.precio_unit || it.precio || 0);
       if (!prodId || qty <= 0) {
@@ -352,7 +365,9 @@ export async function PUT(req) {
     }
 
     // Update factura (subtotal, descuento, total, cliente)
-    const clienteId = await getOrCreateCliente(conn, cliente?.nombre || cliente?.cliente_nombre, cliente?.telefono || cliente?.telefono_cliente);
+  const clienteNombre = (cliente?.nombre || cliente?.cliente_nombre || body?.cliente_nombre || '').toString();
+  const clienteTelefono = (cliente?.telefono || cliente?.telefono_cliente || body?.telefono_cliente || '').toString();
+  const clienteId = await getOrCreateCliente(conn, clienteNombre, clienteTelefono);
     await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, id]);
 
     await conn.commit();
