@@ -106,8 +106,7 @@ export default function ControlStockOrg() {
 		"Entrada (Aumentar Stock)",
 		"Salida (Reducir Stock)",
 		"Marcar como Dañado",
-		"Marcar como Reservado",
-		"Transferencia",
+		"Marcar como Reservado"
 	];
 
 	const [cardData, setCardData] = useState({
@@ -760,39 +759,6 @@ export default function ControlStockOrg() {
 											/>
 										</>
 									)}
-
-								{tipoMovimiento === "Transferencia" && (
-									<>
-										<Input
-											label="Cantidad"
-											type="number"
-											placeholder="0"
-											inputClass="no icon"
-											onChange={(e) => {
-												setCantidadMovimiento(e.target.value);
-												setFormErrors(prev => ({ ...prev, cantidad: '' }));
-											}}
-											error={formErrors.cantidad}
-										/>
-										<Input
-											label="Referencia (opcional)"
-											placeholder="Ej: ORD-001, VEN-1234"
-											inputClass="no icon"
-										/>
-										<DropdownMenu
-											label="Sucursal destino"
-											options={[...new Set(data.map((d) => d.sucursal))]}
-											defaultValue="Selecciona destino"
-										/>
-										<Input
-											label="Motivo"
-											placeholder="Describe el motivo..."
-											inputClass="no icon"
-											isTextarea={true}
-											isLastElement={true}
-										/>
-									</>
-								)}
 								{formErrors.general && <span className='text-danger text-center'>{formErrors.general}</span>}
 								<div className='col-span-2 flex gap-2 mt-2'>
 									<Button
