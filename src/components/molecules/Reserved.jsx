@@ -247,6 +247,18 @@ export default function Reserved({ sucursalFilter = 'Todas' }) {
 											<span className='text-sm text-dark/70'>Notas</span>
 											<span className='text-lg font-semibold'>{item.notas}</span>
 										</div>
+										<Button
+											text={'Revisar Entrega'}
+											icon={<FiEye />}
+											className={"success"}
+											func={() => toggleModalType('ver', item)}
+										/>
+										<Button
+											text={'Editar'}
+											icon={<FiEdit />}
+											className={"blue"}
+											func={() => toggleModalType('editar', item)}
+										/>
 									</Card>
 								)
 							})}
@@ -294,7 +306,7 @@ export default function Reserved({ sucursalFilter = 'Todas' }) {
 											<div className='font-semibold'>{selectedItem?.notas || ''}</div>
 										</div>
 									</div>
-									<div className='w-2xl'>
+									<div className='sm:w-2xl w-full'>
 										<table className='w-full border-collapse text-sm'>
 											<thead>
 												<tr className='text-left border-b border-dark/20'>
@@ -308,7 +320,7 @@ export default function Reserved({ sucursalFilter = 'Todas' }) {
 											<tbody>
 												<tr className='border-b border-dark/10'>
 													<td className='p-2'>{selectedItem?.codigo || ''}</td>
-													<td className='p-2'>{selectedItem?.producto || ''}</td>
+													<td className='p-2' title={selectedItem?.producto}>{selectedItem?.producto || ''}</td>
 													<td className='p-2'>{selectedItem?.cantidad || ''}</td>
 													<td className='p-2'>{''}</td>
 													<td className='p-2'>{"C$ "}</td>
@@ -380,12 +392,12 @@ export default function Reserved({ sucursalFilter = 'Todas' }) {
 										/>
 									</div>
 									<div className='flex gap-2'>
-										<DropdownMenu 
+										<DropdownMenu
 											label={"Producto"}
 											options={[]}
 											defaultValue={selectedItem?.producto || ''}
 										/>
-										<Input 
+										<Input
 											label={"Cantidad"}
 											placeholder={"Cantidad"}
 											inputClass={"no icon"}
@@ -402,6 +414,7 @@ export default function Reserved({ sucursalFilter = 'Todas' }) {
 										<Button
 											text={"Guardar Cambios"}
 											className={'success'}
+											func={handleSubmitEdit}
 										/>
 									</div>
 								</form>
