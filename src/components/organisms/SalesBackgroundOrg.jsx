@@ -226,9 +226,9 @@ export default function SalesBackgroundOrg() {
 											<span className='text-lg font-semibold'>{item.hecho_por}</span>
 										</div>
 										<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
-											<Button className={"none"} text={"Ver"} icon={<FiEye />} func={() => toggleModalType('ver', item)} />
-											<Button className={"none"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('editar', item)} />
-											<Button className={'success'} icon={<FiPrinter />} func={() => toggleModalType('print', item)} />
+											<Button className={"primary"} text={"Ver"} icon={<FiEye />} func={() => toggleModalType('ver', item)} />
+											<Button className={"blue"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('editar', item)} />
+											<Button className={'success'} text={"Imprimir"} icon={<FiPrinter />} func={() => toggleModalType('print', item)} />
 										</div>
 									</Card>
 								))}
