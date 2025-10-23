@@ -6,7 +6,7 @@ import { BsEye } from "react-icons/bs";
 import { BsEyeSlash } from "react-icons/bs";
 import { HiOutlineUser } from "react-icons/hi2";
 
-export default function Input({ type, placeholder, iconInput, value = "", onChange, label, inputClass, isTextarea, error = "", isLastElement }) {
+export default function Input({ min, max, type, placeholder, iconInput, value = "", onChange, label, inputClass, isTextarea, error = "", isLastElement }) {
 	const [showPassword, setShowPassword] = useState(false);
 
 	return (
@@ -46,7 +46,8 @@ export default function Input({ type, placeholder, iconInput, value = "", onChan
 								{...(onChange ? { value, onChange } : { defaultValue: value })}
 								id={type}
 								className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
-							/* required */
+								min={min || null}
+								max={max || null}
 							/>
 							{error && <span className='text-danger text-sm'>{error}</span>}
 						</div>
