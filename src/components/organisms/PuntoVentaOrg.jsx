@@ -1,9 +1,9 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { Card, Input } from '../molecules'
-import { FiCheck, FiDollarSign, FiFile, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX } from 'react-icons/fi'
+import { FiCheck, FiDollarSign, FiFile, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX } from 'react-icons/fi'
 import { ProductService, SalesService, StockService, AuthService } from '@/services';
-import { useActive, useFilter } from '@/hooks';
+import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin } from 'react-icons/bs';
 
@@ -22,6 +22,7 @@ export default function PuntoVentaOrg() {
 	const [clienteNombre, setClienteNombre] = useState('');
 	const [clienteTelefono, setClienteTelefono] = useState('');
 	const [processing, setProcessing] = useState(false);
+	const isMobile = useIsMobile({ breakpoint: 1024 })
 
 	useEffect(() => {
 		const fetchAll = async () => {
@@ -238,10 +239,34 @@ export default function PuntoVentaOrg() {
 		setError(null);
 	}
 
+	const [activeTab, setActiveTab] = useState("productos");
+
 	return (
 		<>
-			<div className='w-full p-6 grid grid-cols-3 items-start gap-4'>
-				<section className='w-full border border-dark/20 rounded-lg p-4 flex flex-col gap-4 col-span-2'>
+			{isMobile &&
+				<section className='w-full flex justify-center'>
+					<div className='grid grid-cols-2 p-1 h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold w-1/2'>
+						<div
+							className={`flex gap-2 items-center justify-center cursor-pointer rounded-sm ${activeTab === "productos" ? "bg-light text-dark" : ""
+								}`}
+							onClick={() => setActiveTab("productos")}
+						>
+							<FiList />
+							<h2 className='hidden md:block'>Productos</h2>
+						</div>
+						<div
+							className={`flex gap-2 items-center justify-center cursor-pointer rounded-sm ${activeTab === "venta" ? "bg-light text-dark" : ""
+								}`}
+							onClick={() => setActiveTab("venta")}
+						>
+							<FiShoppingBag />
+							<h2 className='hidden md:block'>Venta</h2>
+						</div>
+					</div>
+				</section>
+			}
+			<div className={`w-full p-6 grid ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} items-start gap-4`}>
+				<section className={`${isMobile && activeTab === 'productos' ? 'flex' : !isMobile ? 'flex' : 'hidden'} w-full border border-dark/20 rounded-lg p-4 flex-col gap-4 col-span-2`}>
 					<div className='flex flex-col'>
 						<div className='flex items-center gap-2'>
 							<FiSearch className='h-6 w-6 text-dark' />
@@ -258,7 +283,7 @@ export default function PuntoVentaOrg() {
 							/>
 						</div>
 					</div>
-					<div className='grid grid-cols-2 gap-2 max-h-[calc(100vh-280px)] overflow-y-scroll'>
+					<div className={`grid sm:grid-cols-2 grid-cols-1 gap-2 ${isMobile ? 'max-h-[calc(100vh-320px)]' : 'max-h-[calc(100vh-280px)]'} overflow-y-scroll`}>
 						{
 							filteredProducts.map((item, index) => (
 								<Card
@@ -286,9 +311,9 @@ export default function PuntoVentaOrg() {
 						}
 					</div>
 				</section>
-				<section className='w-full flex flex-col gap-4 max-h-[calc(100vh-130px)] overflow-y-auto'>
+				<section className={`${isMobile && activeTab === 'venta' ? 'flex' : !isMobile ? 'flex' : 'hidden'} w-full flex-col gap-4 max-h-[calc(100vh-130px)] overflow-y-auto`}>
 					<div className='w-full border border-dark/20 rounded-lg p-4 flex flex-col gap-4'>
-						<div className='flex items-center gap-2'>	
+						<div className='flex items-center gap-2'>
 							<FiUser className='h-5 w-5 text-dark' />
 							<h2 className='md:text-xl font-semibold'>Informacion del Cliente</h2>
 						</div>
