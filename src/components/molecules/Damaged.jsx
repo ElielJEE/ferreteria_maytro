@@ -13,8 +13,11 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 	const [selectedItem, setSelectedItem] = useState(null);
 	const { isActiveModal, setIsActiveModal } = useActive(false);
 	const [loading, setLoading] = useState(false);
+	const [evalLoading, setEvalLoading] = useState(false);
 	const [cardData, setCardData] = useState({ danados: 0, recuperables: 0, perdida_total: 0, valor_perdido: 0 });
 	const [rows, setRows] = useState([]);
+	const [accion, setAccion] = useState('');
+	const [evalCantidad, setEvalCantidad] = useState('');
 
 	const cardsConfig = [
 		{ key: "danados", title: "Dañados", icon: FiXCircle, color: "danger" },
@@ -73,7 +76,38 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 			setIsActiveModal(false);
 		} else {
 			setSelectedItem(item);
+			setAccion('');
+			setEvalCantidad('');
 			setIsActiveModal(true);
+		}
+	}
+
+	const onAceptarEvaluacion = async () => {
+		if (!selectedItem) return;
+		const norm = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+		const accionNorm = norm(accion);
+		const maxQty = Number(selectedItem.cantidad || 0);
+		const qty = Number(evalCantidad || 0);
+		if (!(qty > 0) || qty > maxQty) {
+			alert('Cantidad inválida. Debe ser mayor a 0 y no exceder la cantidad dañada.');
+			return;
+		}
+		if (accionNorm.includes('recuperado')) {
+			try {
+				setEvalLoading(true);
+				const res = await StockService.recuperarDanado({ id: selectedItem.id, cantidad: qty });
+				if (!res.success) {
+					alert(res.message || 'No se pudo recuperar el producto.');
+					return;
+				}
+				setIsActiveModal(false);
+				try { if (typeof window !== 'undefined') window.dispatchEvent(new Event('stock:updated')); } catch {}
+			} finally {
+				setEvalLoading(false);
+			}
+		} else if (accionNorm.includes('perdida')) {
+			// Placeholder: flujo de pérdida total no solicitado. Podríamos marcar estado como 'Pérdida Total'.
+			alert('Evaluación como pérdida total aún no implementada.');
 		}
 	}
 
@@ -128,6 +162,7 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 										};
 										const cfgDano = findCfg(tiposConfig, item.tipo_dano);
 										const cfgEstado = findCfg(tiposConfig, item.estado);
+                                        const isRecovered = (() => { const n = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim(); return n(item.estado) === 'recuperado' || Number(item.cantidad || 0) <= 0; })();
 										return (
 											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
 												<td className='p-2'>{item.codigo}</td>
@@ -165,6 +200,7 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 														className={'none'}
 														icon={<FiInfo />}
 														func={() => handleEvaluation(item)}
+														disabled={isRecovered}
 													/>
 												</td>
 											</tr>
@@ -218,6 +254,7 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 												className={'dark'}
 												icon={<FiInfo />}
 												func={() => handleEvaluation(item)}
+												disabled={(() => { const n = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim(); return n(item.estado) === 'recuperado' || Number(item.cantidad || 0) <= 0; })()}
 											/>
 										</div>
 									</Card>
@@ -278,6 +315,7 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 								label={'Acción a realizar'}
 								options={['Evaluar como recuperado', 'Evaluar como pérdida total']}
 								defaultValue={'Seleccionar acción...'}
+								onChange={(v) => setAccion(typeof v === 'object' ? (v.label || v.value) : v)}
 							/>
 							<Input
 								label={'Cantidad a evaluar'}
@@ -286,6 +324,8 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 								inputClass='no icon'
 								max={selectedItem.cantidad}
 								min={1}
+								value={evalCantidad}
+								onChange={(e) => setEvalCantidad(e.target.value)}
 							/>
 						</div>
 						<div className='flex justify-end gap-2 mt-4'>
@@ -295,9 +335,10 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 								func={() => setIsActiveModal(false)}
 							/>
 							<Button
-								text={"Aceptar"}
+								text={evalLoading ? 'Procesando...' : "Aceptar"}
 								className={"success"}
-								func={() => handleEvaluation(selectedItem, true)}
+								disabled={evalLoading}
+								func={onAceptarEvaluacion}
 							/>
 						</div>
 					</div>

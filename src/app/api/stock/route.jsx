@@ -847,3 +847,286 @@ export async function POST(req) {
     return Response.json({ error: e.message }, { status: 500 });
   }
 }
+
+export async function PUT(req) {
+  // Actualiza o gestiona reservas (editar, confirmar entrega, cancelar)
+  const conn = await pool.getConnection();
+  try {
+    const body = await req.json();
+    const action = (body?.action || '').toString();
+    await conn.beginTransaction();
+    await ensureReservasTable(conn);
+
+    // Helper para obtener usuario del token/payload
+    let usuario_id = body?.usuario_id ?? null;
+    try {
+      const token = req.cookies?.get?.('token')?.value ?? null;
+      if (token) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        usuario_id = decoded?.id ?? decoded?.sub ?? decoded?.userId ?? decoded?.user_id ?? usuario_id;
+      }
+    } catch { /* ignore */ }
+
+    // Helper: upsert cliente por nombre/telefono
+    const getOrCreateCliente = async (nombre, telefono) => {
+      const name = (nombre || '').toString().trim();
+      const tel = (telefono || '').toString().trim();
+      if (!name && !tel) return null;
+      const clauses = []; const values = [];
+      if (name) { clauses.push('NOMBRE_CLIENTE = ?'); values.push(name); }
+      if (tel) { clauses.push('TELEFONO_CLIENTE = ?'); values.push(tel); }
+      const [rows] = await conn.query(`SELECT ID_CLIENTES FROM CLIENTES WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
+      if (rows?.length) return rows[0].ID_CLIENTES;
+      if (!name) return null;
+      const [ins] = await conn.query(`INSERT INTO CLIENTES (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`, [name, tel || null]);
+      return ins.insertId || null;
+    };
+
+    if (action === 'updateReserva') {
+      const id = body?.id ?? body?.id_reserva ?? body?.reserva_id;
+      if (!id) {
+        await conn.rollback();
+        return Response.json({ error: 'ID de reserva requerido' }, { status: 400 });
+      }
+
+      const [rows] = await conn.query(`SELECT * FROM RESERVAS WHERE ID_RESERVA = ? FOR UPDATE`, [id]);
+      if (!rows?.length) {
+        await conn.rollback();
+        return Response.json({ error: 'Reserva no encontrada' }, { status: 404 });
+      }
+      const resv = rows[0];
+      const idProduct = resv.ID_PRODUCT;
+      const idSucursal = resv.ID_SUCURSAL;
+
+      // Campos editables
+      const nuevoNombre = body?.cliente?.nombre ?? body?.cliente_nombre ?? null;
+      const nuevoTelefono = body?.telefono ?? body?.cliente?.telefono ?? null;
+      const nuevaFechaEntrega = body?.fecha_entrega ?? null;
+      const nuevasNotas = body?.notas ?? body?.descripcion ?? null;
+      const nuevoEstado = body?.estado ?? null;
+      const nuevaCantidadRaw = body?.cantidad;
+      const nuevaCantidad = (nuevaCantidadRaw == null || nuevaCantidadRaw === '') ? null : Number(nuevaCantidadRaw);
+
+      // Si cambia la cantidad, ajustar stock sucursal y registrar movimiento
+      if (nuevaCantidad != null && Number.isFinite(nuevaCantidad) && nuevaCantidad !== Number(resv.CANTIDAD)) {
+        const delta = nuevaCantidad - Number(resv.CANTIDAD);
+        // delta > 0: aumenta reservado -> restar de stock sucursal
+        // delta < 0: reduce reservado -> devolver a stock sucursal
+        const [stRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+        const stockActual = stRows?.length ? Number(stRows[0].CANTIDAD || 0) : 0;
+        if (delta > 0 && stockActual < delta) {
+          await conn.rollback();
+          return Response.json({ error: 'Stock en sucursal insuficiente para aumentar la reserva' }, { status: 400 });
+        }
+        const stockAnterior = stockActual;
+        const stockNuevo = stockActual - delta; // si delta negativo, suma
+        // Actualizar stock
+        if (stRows?.length) {
+          await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
+        } else {
+          await conn.query('INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, Math.max(0, stockNuevo)]);
+        }
+        // Registrar movimiento
+        try {
+          const allowed = await getAllowedTipoMovimiento(conn);
+          if (delta > 0) {
+            const tipoMov = chooseTipo(allowed, 'reservado', 'salida');
+            await conn.query(
+              `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [idProduct, idSucursal, usuario_id ?? null, tipoMov, delta, 'Ajuste de reserva (aumento)', id, stockAnterior, stockNuevo]
+            );
+          } else if (delta < 0) {
+            const tipoMov = chooseTipo(allowed, 'entrada', 'entrada');
+            const cant = Math.abs(delta);
+            await conn.query(
+              `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [idProduct, idSucursal, usuario_id ?? null, tipoMov, cant, 'Ajuste de reserva (reducción)', id, stockAnterior, stockNuevo]
+            );
+          }
+        } catch { }
+      }
+
+      // Actualizar campos en RESERVAS
+      const updates = [];
+      const values = [];
+      if (nuevaCantidad != null && Number.isFinite(nuevaCantidad)) { updates.push('CANTIDAD = ?'); values.push(nuevaCantidad); }
+      if (nuevaFechaEntrega != null) { updates.push('FECHA_ENTREGA = ?'); values.push(nuevaFechaEntrega ? new Date(nuevaFechaEntrega) : null); }
+      if (nuevasNotas != null) { updates.push('NOTAS = ?'); values.push(nuevasNotas || null); }
+      if (nuevoTelefono != null) { updates.push('TELEFONO_CONTACTO = ?'); values.push((nuevoTelefono || '').toString()); }
+      if (nuevoEstado != null) { updates.push('ESTADO = ?'); values.push((nuevoEstado || '').toString().toLowerCase()); }
+      if (nuevoNombre != null || nuevoTelefono != null) {
+        const cliId = await getOrCreateCliente(nuevoNombre, nuevoTelefono);
+        updates.push('ID_CLIENTES = ?'); values.push(cliId || null);
+      }
+      if (updates.length) {
+        const sql = `UPDATE RESERVAS SET ${updates.join(', ')} WHERE ID_RESERVA = ?`;
+        values.push(id);
+        await conn.query(sql, values);
+      }
+
+      await conn.commit();
+      return Response.json({ ok: true, id });
+    }
+
+    if (action === 'confirmarEntrega') {
+      const id = body?.id ?? body?.id_reserva ?? body?.reserva_id;
+      if (!id) {
+        await conn.rollback();
+        return Response.json({ error: 'ID de reserva requerido' }, { status: 400 });
+      }
+      const fechaEntrega = body?.fecha_entrega ? new Date(body.fecha_entrega) : new Date();
+      const notas = body?.notas ?? null;
+      await conn.query(`UPDATE RESERVAS SET ESTADO = 'completada', FECHA_ENTREGA = ?, NOTAS = COALESCE(?, NOTAS) WHERE ID_RESERVA = ?`, [fechaEntrega, notas, id]);
+      await conn.commit();
+      return Response.json({ ok: true, id });
+    }
+
+    if (action === 'cancelarReserva') {
+      const id = body?.id ?? body?.id_reserva ?? body?.reserva_id;
+      if (!id) {
+        await conn.rollback();
+        return Response.json({ error: 'ID de reserva requerido' }, { status: 400 });
+      }
+      const [rows] = await conn.query(`SELECT * FROM RESERVAS WHERE ID_RESERVA = ? FOR UPDATE`, [id]);
+      if (!rows?.length) {
+        await conn.rollback();
+        return Response.json({ error: 'Reserva no encontrada' }, { status: 404 });
+      }
+      const resv = rows[0];
+      const idProduct = resv.ID_PRODUCT;
+      const idSucursal = resv.ID_SUCURSAL;
+      const cant = Number(resv.CANTIDAD || 0);
+      // Devolver stock
+      const [stRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+      const stockActual = stRows?.length ? Number(stRows[0].CANTIDAD || 0) : 0;
+      const stockAnterior = stockActual;
+      const stockNuevo = stockActual + cant;
+      if (stRows?.length) {
+        await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
+      } else {
+        await conn.query('INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, stockNuevo]);
+      }
+      // Movimiento entrada por cancelación
+      try {
+        await conn.query(
+          `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+           VALUES (?, ?, ?, 'entrada', ?, 'Cancelación de reserva', ?, ?, ?)`,
+          [idProduct, idSucursal, usuario_id ?? null, cant, id, stockAnterior, stockNuevo]
+        );
+      } catch { }
+
+      await conn.query(`UPDATE RESERVAS SET ESTADO = 'cancelada' WHERE ID_RESERVA = ?`, [id]);
+      await conn.commit();
+      return Response.json({ ok: true, id });
+    }
+
+    // Recuperar productos dañados: devolver cantidad al stock de la sucursal original
+    if (action === 'recuperarDanado') {
+      try {
+        const id = body?.id ?? body?.danado_id ?? body?.id_danado;
+        const cantidadRec = Number(body?.cantidad || 0);
+        if (!id) {
+          await conn.rollback();
+          return Response.json({ error: 'ID de registro dañado requerido' }, { status: 400 });
+        }
+        if (!(cantidadRec > 0)) {
+          await conn.rollback();
+          return Response.json({ error: 'Cantidad a recuperar inválida' }, { status: 400 });
+        }
+
+        // Cargar registro de dañados
+        const [rows] = await conn.query('SELECT * FROM STOCK_DANADOS WHERE ID_DANADO = ? FOR UPDATE', [id]);
+        if (!rows?.length) {
+          await conn.rollback();
+          return Response.json({ error: 'Registro de dañado no encontrado' }, { status: 404 });
+        }
+        const d = rows[0];
+        const idProduct = Number(d.ID_PRODUCT);
+        const idSucursal = d.ID_SUCURSAL;
+        const cantActual = Number(d.CANTIDAD || 0);
+        if (!idProduct || !idSucursal) {
+          await conn.rollback();
+          return Response.json({ error: 'Registro dañado incompleto (producto/sucursal)' }, { status: 400 });
+        }
+        if (cantidadRec > cantActual) {
+          await conn.rollback();
+          return Response.json({ error: 'Cantidad a recuperar excede la cantidad dañada' }, { status: 400 });
+        }
+
+        // Sumar al stock de la sucursal
+        const [stRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+        const stockAnterior = stRows?.length ? Number(stRows[0].CANTIDAD || 0) : 0;
+        const stockNuevo = stockAnterior + cantidadRec;
+        if (stRows?.length) {
+          await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
+        } else {
+          await conn.query('INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, stockNuevo]);
+        }
+
+        // Registrar movimiento como 'entrada' por recuperación
+        try {
+          const allowed = await getAllowedTipoMovimiento(conn);
+          const tipoMov = chooseTipo(allowed, 'entrada', 'entrada');
+          await conn.query(
+            `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [idProduct, idSucursal, body?.usuario_id ?? null, tipoMov, cantidadRec, 'Recuperado de daño', id, stockAnterior, stockNuevo]
+          );
+        } catch { /* ignore movement errors */ }
+
+        // Ajustar el registro de dañados: restar cantidad y actualizar estado/perdida si aplica
+        let precioUnit = 0;
+        try {
+          const [pRows] = await conn.query('SELECT PRECIO FROM PRODUCTOS WHERE ID_PRODUCT = ?', [idProduct]);
+          if (pRows?.length) precioUnit = Number(pRows[0].PRECIO || 0);
+        } catch { precioUnit = 0; }
+
+        const [colsRes] = await conn.query(
+          `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS'`
+        );
+        const available = new Set((colsRes || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
+        const nuevaCant = Math.max(0, cantActual - cantidadRec);
+
+        const sets = ['CANTIDAD = ?'];
+        const vals = [nuevaCant, id];
+
+        // Si existe PERDIDA, disminuirla proporcionalmente
+        if (available.has('PERDIDA') && precioUnit > 0) {
+          const restar = Number((cantidadRec * precioUnit).toFixed(2));
+          // Usar expresión: PERDIDA = GREATEST(PERDIDA - restar, 0)
+          try {
+            await conn.query('UPDATE STOCK_DANADOS SET PERDIDA = GREATEST(PERDIDA - ?, 0) WHERE ID_DANADO = ?', [restar, id]);
+          } catch { /* ignore */ }
+        }
+
+        // Actualizar estado a 'recuperado' si quedó en cero
+        if (nuevaCant === 0) {
+          if (available.has('ESTADO')) {
+            try { await conn.query('UPDATE STOCK_DANADOS SET ESTADO = ? WHERE ID_DANADO = ?', ['recuperado', id]); } catch { }
+          } else if (available.has('ESTADO_DANO')) {
+            try { await conn.query('UPDATE STOCK_DANADOS SET ESTADO_DANO = ? WHERE ID_DANADO = ?', ['recuperado', id]); } catch { }
+          }
+        }
+
+        // Aplicar actualización de cantidad
+        await conn.query('UPDATE STOCK_DANADOS SET ' + sets.join(', ') + ' WHERE ID_DANADO = ?', vals);
+
+        await conn.commit();
+        return Response.json({ ok: true, id, recuperado: cantidadRec, stock_nuevo: stockNuevo, cantidad_restante: nuevaCant });
+      } catch (e) {
+        try { await conn.rollback(); } catch { }
+        return Response.json({ error: e.message || 'Error al recuperar dañado' }, { status: 400 });
+      }
+    }
+
+    await conn.rollback();
+    return Response.json({ error: 'Acción inválida' }, { status: 400 });
+  } catch (e) {
+    try { await conn.rollback(); } catch { }
+    return Response.json({ error: e.message || 'Error al actualizar reserva' }, { status: 400 });
+  } finally {
+    try { conn.release(); } catch { }
+  }
+}
