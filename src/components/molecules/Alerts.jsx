@@ -2,8 +2,15 @@ import React, { useEffect, useState } from 'react'
 import { FiAlertCircle, FiAlertTriangle, FiTrendingUp, FiXCircle } from 'react-icons/fi'
 import { AlertCard } from '.'
 import { Button } from '../atoms';
+import { StockService } from '@/services';
 export default function Alerts({ sucursalFilter }) {
 	const [data, setData] = useState([]);
+	const [movimiento, setMovimiento] = useState("");
+	const [cantidad, setCantidad] = useState(0);
+	const [sucursal, setSucursal] = useState("");
+	const [producto, setProducto] = useState("");
+	const [motivo, setMotivo] = useState("");
+	const [ref, setRef] = useState("");
 
 	useEffect(() => {
 		const fetchAlertas = async () => {
@@ -32,6 +39,32 @@ export default function Alerts({ sucursalFilter }) {
 		window.addEventListener('stock:updated', handler);
 		return () => window.removeEventListener('stock:updated', handler);
 	}, [sucursalFilter]);
+	console.log(data);
+
+	const handleUrgente = async (dataAlert) => {
+		console.log(dataAlert);
+
+		const payload = {
+			tipo: "Entrada (Aumentar Stock)",
+			producto: dataAlert.productName,
+			sucursal: dataAlert.sucursal,
+			cantidad: Number(dataAlert.store < dataAlert.max ? dataAlert.store : dataAlert.max),
+			motivo: "Rehabastecimiento de Stock mediante alerta de agotado.",
+			referencia: "ALE-URG-001",
+			descripcion: "Rehabastecimiento de Stock mediante alerta de agotado.",
+		};
+		console.log(payload);
+		const res = await StockService.registrarMovimiento(payload);
+
+		if (!res.success) {
+			console.log(res);
+			return;
+		}
+
+		window.dispatchEvent(new CustomEvent('stock:updated', {
+			detail: { tipo: movimiento, producto: dataAlert.productName, sucursal: dataAlert.sucursal }
+		}));
+	}
 
 	return (
 		<div className='flex flex-col gap-4'>
@@ -80,7 +113,7 @@ export default function Alerts({ sucursalFilter }) {
 								<Button
 									text={"Urgente"}
 									className={"danger"}
-
+									func={() => handleUrgente(alert)}
 								/>
 							</AlertCard>
 						))
