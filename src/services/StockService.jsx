@@ -97,6 +97,88 @@ const StockService = {
     }
   },
 
+  async updateReserva({ id, cantidad, cliente, telefono, fecha_entrega, notas, estado, usuario_id }) {
+    try {
+      const res = await fetch(API_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'updateReserva',
+          id,
+          cantidad,
+          cliente,
+          telefono,
+          fecha_entrega,
+          notas,
+          estado,
+          usuario_id,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudo actualizar la reserva';
+        return { success: false, message };
+      }
+      return { success: true, data: json };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión' };
+    }
+  },
+
+  async confirmarEntrega({ id, fecha_entrega, notas, usuario_id }) {
+    try {
+      const res = await fetch(API_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirmarEntrega', id, fecha_entrega, notas, usuario_id }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudo confirmar la entrega';
+        return { success: false, message };
+      }
+      return { success: true, data: json };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión' };
+    }
+  },
+
+  async cancelarReserva({ id, usuario_id }) {
+    try {
+      const res = await fetch(API_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancelarReserva', id, usuario_id }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudo cancelar la reserva';
+        return { success: false, message };
+      }
+      return { success: true, data: json };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión' };
+    }
+  },
+
+  async recuperarDanado({ id, cantidad, usuario_id }) {
+    try {
+      const res = await fetch(API_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'recuperarDanado', id, cantidad, usuario_id }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudo recuperar el producto dañado';
+        return { success: false, message };
+      }
+      return { success: true, data: json };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión' };
+    }
+  },
+
   async registrarMovimiento(data) {
     const payload = { ...data };
 

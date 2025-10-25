@@ -209,7 +209,7 @@ export default function SalesBackgroundOrg() {
 							<div className='flex flex-col mt-2 gap-2'>
 								{filteredSales.map((item, index) => (
 									<Card
-										productName={item.cliente || '-'}
+										productName={item.cliente || 'Consumidor Final'}
 										key={index}
 										sucursal={item.sucursal || ''}
 									>
