@@ -38,7 +38,7 @@ export default function Summary({ sucursalFilter }) {
 		disponible: 'bg-success',
 		bajo: 'bg-danger',
 		agotado: 'bg-danger',
-		exceso: 'bg-yellow',
+		exceso: 'bg-blue',
 		default: 'bg-dark',
 	};
 
