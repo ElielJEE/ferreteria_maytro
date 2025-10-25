@@ -66,13 +66,6 @@ export default function LoginOrg() {
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
 							/>
-
-							<div className="flex item-center justify-end text-sm">
-								<a href="#" className="text-accent hover:text-primary/80 font-medium transition-colors text-primary">
-									¿Olvidaste tu contraseña?
-								</a>
-							</div>
-
 							<Button
 								text={"Iniciar sesion"}
 								className={"primary"}

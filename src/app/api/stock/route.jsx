@@ -42,7 +42,7 @@ const ensureReservasTable = async (connOrPool) => {
       CANTIDAD INT NOT NULL,
       FECHA_RESERVA DATE NOT NULL,
       FECHA_ENTREGA DATE NULL,
-      ESTADO ENUM('pendiente','parcial','completada','cancelada') NOT NULL DEFAULT 'pendiente',
+      ESTADO ENUM('pendiente','entregada','cancelada') NOT NULL DEFAULT 'pendiente',
       TELEFONO_CONTACTO VARCHAR(20) NULL,
       NOTAS VARCHAR(255) NULL,
       CREATED_AT TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -978,7 +978,7 @@ export async function PUT(req) {
       }
       const fechaEntrega = body?.fecha_entrega ? new Date(body.fecha_entrega) : new Date();
       const notas = body?.notas ?? null;
-      await conn.query(`UPDATE RESERVAS SET ESTADO = 'completada', FECHA_ENTREGA = ?, NOTAS = COALESCE(?, NOTAS) WHERE ID_RESERVA = ?`, [fechaEntrega, notas, id]);
+      await conn.query(`UPDATE RESERVAS SET ESTADO = 'entregada', FECHA_ENTREGA = ?, NOTAS = COALESCE(?, NOTAS) WHERE ID_RESERVA = ?`, [fechaEntrega, notas, id]);
       await conn.commit();
       return Response.json({ ok: true, id });
     }

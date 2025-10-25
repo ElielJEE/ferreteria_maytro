@@ -41,23 +41,23 @@ export default function SaleView({ sale, onClose }) {
 							<table className='w-full border-collapse text-sm'>
 								<thead>
 									<tr className='text-left border-b border-dark/20'>
-										<th className='p-2'>Cantidad</th>
+										<th className='p-2 text-center'>Cantidad</th>
 										<th className='p-2'>Código</th>
 										<th className='p-2'>Nombre</th>
-										<th className='p-2'>Unidad</th>
-										<th className='p-2'>Precio</th>
-										<th className='p-2'>Subtotal</th>
+										<th className='p-2'>Unidad<br />de Medida</th>
+										<th className='p-2 text-center'>Precio</th>
+										<th className='p-2 text-center'>Subtotal</th>
 									</tr>
 								</thead>
 								<tbody>
 									{sale.items.map((it, i) => (
 										<tr key={i} className='border-b border-dark/10'>
-											<td className='p-2'>{it.cantidad ?? it.qty ?? '-'}</td>
+											<td className='p-2 text-center'>{it.cantidad ?? it.qty ?? '-'}</td>
 											<td className='p-2'>{it.codigo || it.producto_codigo || it.sku || '-'}</td>
 											<td className='p-2'>{it.producto_nombre || it.producto || '-'}</td>
 											<td className='p-2'>{it.unidad || it.unit || '-'}</td>
-											<td className='p-2'>{"C$ " + Number(it.precio_unit || it.precio || 0).toLocaleString()}</td>
-											<td className='p-2'>{"C$ " + Number(it.subtotal || it.cantidad * (it.precio_unit || it.precio || 0)).toLocaleString()}</td>
+											<td className='p-2 text-center'>{"C$ " + Number(it.precio_unit || it.precio || 0).toLocaleString()}</td>
+											<td className='p-2 text-center'>{"C$ " + Number(it.subtotal || it.cantidad * (it.precio_unit || it.precio || 0)).toLocaleString()}</td>
 										</tr>
 									))}
 								</tbody>
