@@ -249,9 +249,9 @@ export default function ControlStockOrg() {
 			const base = calcCards(rows);
 			// Calcular valor total de inventario (igual que en Productos) y restar perdidas de dañados
 			try {
-				const [prodResp, danadosResp] = await Promise.all([
+							const [prodResp, danadosResp] = await Promise.all([
 					fetch('/api/productos'),
-					StockService.getDanados('Todas')
+								StockService.getDanados(topSucursal)
 				]);
 				let productos = [];
 				if (prodResp && prodResp.ok) {

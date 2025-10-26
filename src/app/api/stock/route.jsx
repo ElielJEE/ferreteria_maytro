@@ -4,6 +4,26 @@ import jwt from 'jsonwebtoken';
 // --- Inlined StockService logic (migrated from src/server/services/StockService.js)
 
 // Utilities
+const isSucursalId = (val) => /^[A-Za-z0-9_-]{2,15}$/.test(String(val || ''));
+
+const buildSucursalWhere = (sucursal, alias = 's') => {
+  if (!sucursal || sucursal === 'Todas') return { where: '', params: [] };
+  if (isSucursalId(sucursal)) return { where: `WHERE ${alias}.ID_SUCURSAL = ?`, params: [sucursal] };
+  return { where: `WHERE ${alias}.NOMBRE_SUCURSAL = ?`, params: [sucursal] };
+};
+
+async function getUserSucursalFromReq(req) {
+  try {
+    const token = req.cookies?.get?.('token')?.value ?? null;
+    if (!token) return { isAdmin: false, sucursalId: null };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const [[row]] = await pool.query(`SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1`, [decoded.id || decoded.ID]);
+    const sucursalId = row?.ID_SUCURSAL ?? null;
+    return { isAdmin: sucursalId == null, sucursalId };
+  } catch {
+    return { isAdmin: false, sucursalId: null };
+  }
+}
 const mapTipoMovimiento = (label) => {
   const t = (label || '').toString().toLowerCase();
   if (/entrada/.test(t)) return 'entrada';
@@ -67,8 +87,7 @@ const ensureReservasTable = async (connOrPool) => {
 
 // Service functions inlined
 async function getMovimientos({ sucursal }) {
-  const where = (sucursal && sucursal !== 'Todas') ? 'WHERE s.NOMBRE_SUCURSAL = ?' : '';
-  const params = (sucursal && sucursal !== 'Todas') ? [sucursal] : [];
+  const { where, params } = buildSucursalWhere(sucursal, 's');
   const [rows] = await pool.query(`
     SELECT
       mi.id,
@@ -128,8 +147,7 @@ async function getResumen({ sucursal }) {
   `);
   const hasStatus = colCheck?.[0] && Number(colCheck[0].CNT || 0) > 0;
   const statusSelect = hasStatus ? "IFNULL(st.STATUS, 'ACTIVO') AS STATUS" : "'ACTIVO' AS STATUS";
-  const where = (sucursal && sucursal !== 'Todas') ? 'WHERE s.NOMBRE_SUCURSAL = ?' : '';
-  const params = (sucursal && sucursal !== 'Todas') ? [sucursal] : [];
+  const { where, params } = buildSucursalWhere(sucursal, 's');
   const [rows] = await pool.query(`
     SELECT 
       p.ID_PRODUCT,
@@ -175,9 +193,7 @@ async function getResumen({ sucursal }) {
 }
 
 async function getDanados({ sucursal }) {
-  const params = [];
-  const whereSucursal = (sucursal && sucursal !== 'Todas') ? `WHERE s.NOMBRE_SUCURSAL = ?` : '';
-  if (whereSucursal) params.push(sucursal);
+  const { where: whereSucursal, params } = buildSucursalWhere(sucursal, 's');
   const [rows] = await pool.query(
     `SELECT
        sd.ID_DANADO AS id,
@@ -234,8 +250,7 @@ async function getAlertas({ sucursal }) {
     reservasMap = Object.fromEntries((totReservas || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_RESERVADOS || 0)]));
   } catch { reservasMap = {}; }
 
-  const where = (sucursal && sucursal !== 'Todas') ? 'WHERE s.NOMBRE_SUCURSAL = ?' : '';
-  const params = (sucursal && sucursal !== 'Todas') ? [sucursal] : [];
+  const { where, params } = buildSucursalWhere(sucursal, 's');
   const [rows] = await pool.query(`
     SELECT 
       p.ID_PRODUCT,
@@ -290,9 +305,7 @@ async function getAlertas({ sucursal }) {
 }
 
 async function getReservados({ sucursal }) {
-  const params = [];
-  const whereSucursal = (sucursal && sucursal !== 'Todas') ? `WHERE s.NOMBRE_SUCURSAL = ?` : '';
-  if (whereSucursal) params.push(sucursal);
+  const { where: whereSucursal, params } = buildSucursalWhere(sucursal, 's');
   await ensureReservasTable(pool);
   const [rows] = await pool.query(
     `SELECT
@@ -609,7 +622,10 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
 export async function GET(req) {
   try {
     const tab = req.nextUrl.searchParams.get('tab');
-    const sucursal = req.nextUrl.searchParams.get('sucursal');
+    const requested = req.nextUrl.searchParams.get('sucursal');
+    const { isAdmin, sucursalId } = await getUserSucursalFromReq(req);
+    // Non-admins are restricted to their own sucursal ID; admins can request specific or 'Todas'
+    const sucursal = isAdmin ? (requested || 'Todas') : (sucursalId);
 
     // Si solicitan la pestaña Movimientos, devolver historial estructurado
     if (tab === 'Movimientos') {
