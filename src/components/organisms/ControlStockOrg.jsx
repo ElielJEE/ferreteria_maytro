@@ -6,7 +6,7 @@ import { FiAlertTriangle, FiBox, FiDollarSign, FiEye, FiFile, FiGlobe, FiMaximiz
 import { BsBoxSeam, BsBuilding, BsGear } from 'react-icons/bs'
 import { Alerts, Card, Damaged, DropdownMenu, Input, Movements, Reserved, Summary } from '../molecules'
 import StockService from '@/services/StockService';
-import { NivelacionService } from '@/services';
+import { CustomerService, NivelacionService } from '@/services';
 import { useActive, useIsMobile } from '@/hooks'
 import { errors } from 'jose'
 
@@ -80,6 +80,7 @@ export default function ControlStockOrg() {
 			descripcion: motivoMovimiento,
 			tipo_dano: tipoDano,
 			estado_dano: estadoDano,
+
 		};
 
 		if (tipoMovimiento === 'Marcar como Reservado') {
@@ -399,11 +400,20 @@ export default function ControlStockOrg() {
 		})();
 	}, [isActiveModal, mode, selectedSucursal, selectedProducto]);
 
-	const clientes = [
-		{ id: 1, nombre: "Juan Pérez", telefono: "8888-8888" },
-		{ id: 2, nombre: "María López", telefono: "7777-7777" },
-		{ id: 3, nombre: "Carlos Ramírez", telefono: "9999-9999" },
-	];
+	const [clientes, setClientes] = useState({});
+
+	useEffect(() => {
+		const fetchClientes = async () => {
+			try {
+				const clientesData = await CustomerService.getClientes();
+				console.log(clientesData);
+				setClientes(clientesData);
+			} catch (error) {
+				console.error(error);
+			}
+		};
+		fetchClientes();
+	}, []);
 
 	const [cliente, setCliente] = useState("");
 	const [telefono, setTelefono] = useState("");

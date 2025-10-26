@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, Input } from '../molecules'
 import { FiCheck, FiDollarSign, FiFile, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX } from 'react-icons/fi'
-import { ProductService, SalesService, StockService, AuthService } from '@/services';
+import { ProductService, SalesService, StockService, AuthService, CustomerService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin } from 'react-icons/bs';
@@ -23,6 +23,8 @@ export default function PuntoVentaOrg() {
 	const [clienteTelefono, setClienteTelefono] = useState('');
 	const [processing, setProcessing] = useState(false);
 	const isMobile = useIsMobile({ breakpoint: 1024 })
+	const [clientes, setClientes] = useState({});
+	const [clienteFiltrados, setClienteFiltrados] = useState({});
 
 	useEffect(() => {
 		const fetchAll = async () => {
@@ -241,6 +243,38 @@ export default function PuntoVentaOrg() {
 
 	const [activeTab, setActiveTab] = useState("productos");
 
+	useEffect(() => {
+		const fetchClientes = async () => {
+			try {
+				const clientesData = await CustomerService.getClientes();
+				setClientes(clientesData.clientes);
+			} catch (error) {
+				console.error(error);
+			}
+		};
+		fetchClientes();
+	}, []);
+	console.log(clientes);
+
+	const handleClienteChange = (e) => {
+		const value = e.target.value;
+		setClienteNombre(value);
+
+		const resultados = clientes.filter(cliente =>
+			cliente.nombre.toLowerCase().includes(value.toLowerCase())
+		);
+		setClienteFiltrados(resultados);
+
+		const clienteExistente = clientes.find(cliente =>
+			cliente.nombre.toLowerCase() === value.toLowerCase()
+		);
+		if (clienteExistente) {
+			setClienteTelefono(clienteExistente.telefono);
+		} else {
+			setClienteTelefono("");
+		}
+	}
+
 	return (
 		<>
 			{isMobile &&
@@ -318,13 +352,32 @@ export default function PuntoVentaOrg() {
 							<h2 className='md:text-xl font-semibold'>Informacion del Cliente</h2>
 						</div>
 						<div className="flex flex-col w-full">
-							<Input
-								label={"Nombre"}
-								placeholder={"Ingrese nombre del cliente"}
-								inputClass={"no icon"}
-								value={clienteNombre}
-								onChange={(e) => setClienteNombre(e.target.value)}
-							/>
+							<div className='relative'>
+								<Input
+									label={"Nombre"}
+									placeholder={"Ingrese nombre del cliente"}
+									inputClass={"no icon"}
+									value={clienteNombre}
+									onChange={handleClienteChange}
+								/>
+								{clienteFiltrados.length > 0 && clienteNombre !== "" && (
+									<ul className='w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10'>
+										{clienteFiltrados.map((clientes, index) => (
+											<li
+												key={index}
+												onClick={() => {
+													setClienteNombre(clientes.nombre)
+													setClienteTelefono(clientes.telefono)
+													setClienteFiltrados({})
+												}}
+												className='px-2 py-1 cursor-pointer hover:bg-primary hover:text-white'
+											>
+												{clientes.nombre}
+											</li>
+										))}
+									</ul>
+								)}
+							</div>
 							<Input
 								label={"Telefono"}
 								placeholder={"Ingrese numero de telefono del cliente"}

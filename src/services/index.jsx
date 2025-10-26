@@ -5,3 +5,4 @@ export { default as StockService } from './StockService';
 export { default as NivelacionService } from './NivelacionService';
 export * as SalesService from './SalesService';
 export { default as DashboardService } from './DashboardService';
+export * as CustomerService from './CustomerService';
