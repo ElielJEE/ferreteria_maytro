@@ -339,7 +339,7 @@ export default function PuntoVentaOrg() {
 					</div>
 				</section>
 			}
-			<div className={`w-full p-6 grid ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} items-start gap-4`}>
+			<div className={`w-full ${isAdmin ? 'py-0 px-6' : 'p-6'} grid ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} items-start gap-4`}>
 				<section className={`${isMobile && activeTab === 'productos' ? 'flex' : !isMobile ? 'flex' : 'hidden'} w-full border border-dark/20 rounded-lg p-4 flex-col gap-4 col-span-2`}>
 					<div className='flex flex-col'>
 						<div className='flex items-center gap-2'>
