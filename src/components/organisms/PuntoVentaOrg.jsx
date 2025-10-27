@@ -1,8 +1,8 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { Card, Input } from '../molecules'
-import { FiCheck, FiDollarSign, FiFile, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX } from 'react-icons/fi'
-import { ProductService, SalesService, StockService, AuthService, CustomerService } from '@/services';
+import { Card, DropdownMenu, Input } from '../molecules'
+import { FiCheck, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX } from 'react-icons/fi'
+import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin } from 'react-icons/bs';
@@ -25,6 +25,18 @@ export default function PuntoVentaOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
 	const [clientes, setClientes] = useState({});
 	const [clienteFiltrados, setClienteFiltrados] = useState({});
+	const [isAdmin, setIsAdmin] = useState();
+	const [sucursales, setSucursales] = useState([]);
+	const [sucursalSelected, setSucursaleSelected] = useState('Todas');
+
+	useEffect(() => {
+		const getCurrentUser = async () => {
+			const res = await AuthService.getCurrentUser();
+			const admin = !res?.ID_SUCURSAL;
+			setIsAdmin(admin);
+		}
+		getCurrentUser();
+	}, []);
 
 	useEffect(() => {
 		const fetchAll = async () => {
@@ -275,8 +287,36 @@ export default function PuntoVentaOrg() {
 		}
 	}
 
+	useEffect(() => {
+		const fetchSucursales = async () => {
+			const res = await SucursalesService.getSucursales();
+			const sucursalesData = res.sucursales;
+			setSucursales(sucursalesData || []);
+			console.log(sucursales);
+		}
+		fetchSucursales();
+	}, []);
+
 	return (
 		<>
+			{isAdmin &&
+				<section className='w-full py-4 p-6'>
+					<div className='flex flex-col md:flex-row w-full gap-1 md:items-center justify-start border border-dark/20 rounded-lg p-4'>
+						<div className='flex gap-1 items-center'>
+							<FiGlobe className='h-4 w-4 md:h-5 md:w-5 text-blue' />
+							<h3 className='md:text-lg font-semibold'>Sucursal: </h3>
+						</div>
+						<div className='lg:w-1/3 md:w-1/2'>
+							<DropdownMenu
+								options={[{ label: 'Todas', value: 'Todas' }, ...sucursales]}
+								defaultValue={sucursalSelected === 'Todas' ? 'Vista general (Todas las sucursales)' : sucursalSelected}
+								onChange={(opt) => setSucursaleSelected(opt.value === 'Todas' ? 'Todas' : opt.label)}
+							/>
+
+						</div>
+					</div>
+				</section>
+			}
 			{isMobile &&
 				<section className='w-full flex justify-center'>
 					<div className='grid grid-cols-2 p-1 h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold w-1/2'>

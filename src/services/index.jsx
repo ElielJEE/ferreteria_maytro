@@ -6,3 +6,4 @@ export { default as NivelacionService } from './NivelacionService';
 export * as SalesService from './SalesService';
 export { default as DashboardService } from './DashboardService';
 export * as CustomerService from './CustomerService';
+export * as SucursalesService from './SucursalesService';
