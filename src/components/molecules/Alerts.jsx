@@ -55,6 +55,29 @@ export default function Alerts({ sucursalFilter }) {
 		}));
 	}
 
+	const handleRehabastecer = async (dataAlert) => {
+		const rest = dataAlert.max - dataAlert.stock;
+
+		const payload = {
+			tipo: "Entrada (Aumentar Stock)",
+			producto: dataAlert.productName,
+			sucursal: dataAlert.sucursal,
+			cantidad: Number(dataAlert.store >= rest ? rest : dataAlert.store + dataAlert.stock > dataAlert.max ? rest : dataAlert.store),
+			motivo: "Rehabastecimiento de Stock mediante alerta de agotado.",
+			referencia: "ALE-URG-001",
+			descripcion: "Rehabastecimiento de Stock mediante alerta de agotado.",
+		};
+		const res = await StockService.registrarMovimiento(payload);
+
+		if (!res.success) {
+			return;
+		}
+
+		window.dispatchEvent(new CustomEvent('stock:updated', {
+			detail: { tipo: "Entrada (Aumentar Stock)", producto: dataAlert.productName, sucursal: dataAlert.sucursal }
+		}));
+	}
+
 	return (
 		<div className='flex flex-col gap-4'>
 			<div className='flex flex-col w-full mb-4'>
@@ -81,7 +104,7 @@ export default function Alerts({ sucursalFilter }) {
 								<Button
 									text={"Reabastecer"}
 									className={"yellow"}
-
+									func={() => handleRehabastecer(alert)}
 								/>
 							</AlertCard>
 						))
