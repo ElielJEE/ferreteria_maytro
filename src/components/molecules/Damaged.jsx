@@ -1,3 +1,4 @@
+'use client'
 import React, { useEffect, useState } from 'react'
 import { FiAlertTriangle, FiDollarSign, FiInfo, FiTrendingDown, FiUser, FiXCircle } from 'react-icons/fi'
 import { Button, InfoCard, ModalContainer } from '../atoms'
