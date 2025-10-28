@@ -1,3 +1,4 @@
+'use client'
 import React, { useEffect, useState } from 'react'
 import { FiAlertCircle, FiAlertTriangle, FiTrendingUp, FiXCircle } from 'react-icons/fi'
 import { AlertCard } from '.'

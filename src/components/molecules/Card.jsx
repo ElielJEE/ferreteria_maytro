@@ -21,11 +21,11 @@ export default function Card({ productName, status, sucursal, id, category, chil
 					<div className='flex flex-col'>
 						{status &&
 							<span className={`text-sm font-medium text-light px-2 py-1 rounded-full 
-							${status === 'Disponible' || status === 'Recuperable'
+							${status === 'Disponible' || status === 'Recuperable' || status === 'activa' || status === 'procesado'
 									? 'bg-success'
 									: status === 'Exceso'
 										? 'bg-blue'
-										: status === 'Bajo'
+										: status === 'Bajo' || status === 'pendiente'
 											? 'bg-yellow'
 											: 'bg-danger'
 								}`}>

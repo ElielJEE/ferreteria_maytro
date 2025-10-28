@@ -1,3 +1,4 @@
+'use client'
 import { useIsMobile } from '@/hooks';
 import React, { useEffect, useState, useCallback } from 'react';
 import DropdownMenu from './DropdownMenu';
