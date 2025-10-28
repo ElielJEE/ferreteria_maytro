@@ -7,3 +7,4 @@ export { default as PuntoVentaOrg } from './PuntoVentaOrg';
 export { default as QuotationsOrg } from './QuotationsOrg';
 export { default as ReturnsOrg } from './ReturnsOrg';
 export { default as SalesBackgroundOrg } from './SalesBackgroundOrg';
+export { default as CustomerListOrg } from './CustomerListOrg';

@@ -5,7 +5,6 @@ export default function SaleView({ sale, onClose }) {
 	if (!sale) return (
 		<div className='py-4'>No hay información de la venta.</div>
 	)
-	console.log(sale);
 	return (
 		<div className='py-4'>
 			<div className='grid grid-cols-2 gap-4 border-b border-dark/10'>

@@ -1,20 +1,67 @@
 'use client'
 import React, { useState } from 'react'
-import { Button, InfoCard, SwitchButton } from '../atoms'
+import { Button, InfoCard, ModalContainer, SwitchButton } from '../atoms'
 import { FiEdit, FiEye, FiFileText, FiPrinter, FiSearch, FiUser } from 'react-icons/fi'
-import { Card, Input } from '../molecules'
-import { useIsMobile } from '@/hooks'
+import { Card, Input, QueoteView, QuoteEdit } from '../molecules'
+import { useActive, useIsMobile } from '@/hooks'
 
 
 export default function QuotationsOrg() {
 	const [mostrarExpirados, setMostrarExpirados] = useState();
 	const isMobile = useIsMobile({ breakpoint: 1024 })
+	const [mode, setMode] = useState('ver');
+	const { isActiveModal, setIsActiveModal } = useActive();
+	const [selectedQuote, setSelectedQuote] = useState();
 
 	const cotizacionesEjemplo = [
-		{ id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'activa', creadaPor: 'Maria Garcia' },
-		{ id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'expirada', creadaPor: 'Maria Garcia' },
-		{ id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'activa', creadaPor: 'Maria Garcia' },
+		{
+			id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'activa', creadaPor: 'Maria Garcia', sucursal: {
+				id: 's1',
+				name: 'sucursal sur'
+			}, products: [
+				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro' , unitPrice: '20'},
+				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza' , unitPrice: '20'},
+			], subtotal: 2900.00
+		},
+		{
+			id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'expirada', creadaPor: 'Maria Garcia', sucursal: [{
+				id: 's1',
+				name: 'sucursal sur'
+			}], products: [
+				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro' , unitPrice: '20'},
+				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza' , unitPrice: '20'},
+			], subtotal: 2900.00
+		},
+		{
+			id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'activa', creadaPor: 'Maria Garcia', sucursal: [{
+				id: 's1',
+				name: 'sucursal sur'
+			}], products: [
+				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro' , unitPrice: '20'},
+				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
+				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza' , unitPrice: '20'},
+			], subtotal: 2900.00
+		},
 	]
+
+	const toggleModalMode = (type, itemData) => {
+		setMode(type);
+		if (type === 'ver') {
+			setSelectedQuote(itemData);
+			setIsActiveModal(true)
+		} else if (type === 'edit') {
+			setSelectedQuote(itemData);
+			setIsActiveModal(true)
+		}
+	}
 
 	return (
 		<>
@@ -105,8 +152,8 @@ export default function QuotationsOrg() {
 												</td>
 												<td className='p-2 flex justify-center items-center'>
 													<div className='flex gap-2 justify-center w-1/2'>
-														<Button className={'primary'} icon={<FiEye />} />
-														<Button className={'blue'} icon={<FiEdit />} />
+														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalMode('ver', item)} />
+														<Button className={'blue'} icon={<FiEdit />} func={() => toggleModalMode('edit', item)} />
 														<Button className={'success'} icon={<FiPrinter />} />
 													</div>
 												</td>
@@ -158,7 +205,19 @@ export default function QuotationsOrg() {
 						}
 					</div>
 				</section >
-			</div >
+			</div>
+			{
+				isActiveModal && (
+					<ModalContainer
+						setIsActiveModal={setIsActiveModal}
+						modalTitle={mode === 'ver' ? 'Detalles de Cotizacion' : mode === 'editar' ? 'Editar Cotizacion' : mode === 'eliminar' ? 'Eliminar venta' : ''}
+						modalDescription={mode === 'ver' ? 'Información completa de la cotizacion.' : mode === 'editar' ? 'Editar cotizacion' : mode === 'eliminar' ? 'Eliminar venta' : ''}
+					>
+						{mode === 'ver' && <QueoteView quote={selectedQuote} onClose={() => setIsActiveModal(false)} />}
+						{mode === 'edit' && <QuoteEdit quote={selectedQuote} onClose={() => setIsActiveModal(false)} />}
+					</ModalContainer>
+				)
+			}
 		</>
 	)
 }
