@@ -4,6 +4,7 @@ import "./globals.css";
 import { NavBar, Sidebar } from "@/components/molecules";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,7 +19,6 @@ const geistMono = Geist_Mono({
 export default function RootLayout({ children }) {
   const [openSidebar, setOpenSidebar] = useState(true);
   const pathname = usePathname();
-  console.log(pathname);
 
   useEffect(() => {
     const handleResize = () => {
@@ -60,6 +60,12 @@ export default function RootLayout({ children }) {
         >
           {children}
         </main>
+
+        <Script
+          src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.5/qz-tray.js"
+          strategy="afterInteractive"
+          onLoad={() => console.log("QZ Tray script loaded ✅")}
+        />
       </body>
     </html>
   );

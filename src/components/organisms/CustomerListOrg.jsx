@@ -14,7 +14,6 @@ export default function CustomerListOrg() {
 	useEffect(() => {
 		const getCustomers = async () => {
 			const res = await CustomerService.getClientes();
-			console.log(res);
 			setClientesList(res.clientes)
 		}
 		getCustomers();
@@ -27,8 +26,6 @@ export default function CustomerListOrg() {
 			item.nombre.toLowerCase().includes(term.toLowerCase()) ||
 			item.telefono.includes(term)
 	});
-
-	console.log(clientesList);
 
 	return (
 		<div className='w-full p-6 flex flex-col'>
@@ -62,18 +59,18 @@ export default function CustomerListOrg() {
 							<table className='w-full border-collapse'>
 								<thead className=' w-full border-b border-dark/20'>
 									<tr className='w-full'>
-										<th className='text-center text-dark/50 font-semibold p-2'>#</th>
-										<th className='text-center text-dark/50 font-semibold p-2'>Nombre</th>
-										<th className='text-center text-dark/50 font-semibold p-2'>Telefono</th>
+										<th className='text-start text-dark/50 font-semibold p-2'>#</th>
+										<th className='text-start text-dark/50 font-semibold p-2'>Nombre</th>
+										<th className='text-start text-dark/50 font-semibold p-2'>Telefono</th>
 										<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
 									</tr>
 								</thead>
 								<tbody className='w-full'>
 									{filteredCustomers.map((item, index) => (
 										<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
-											<td className='p-2 text-center'>{index + 1}</td>
-											<td className='p-2 text-center'>{item.nombre}</td>
-											<td className='p-2 max-w-[180px] truncate text-center'>{item.telefono}</td>
+											<td className='p-2 text-start'>{index + 1}</td>
+											<td className='p-2 text-start'>{item.nombre}</td>
+											<td className='p-2 text-start'>{item.telefono}</td>
 											<td className='p-2 text-center'>
 												<div className='flex gap-2 justify-center'>
 													<Button

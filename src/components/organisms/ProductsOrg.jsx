@@ -71,7 +71,6 @@ export default function ProductsOrg() {
 				]);
 				setProducts(productsData);
 				setSubcategories(subcats);
-				console.log(productsData, subcats);
 			} catch (error) {
 				console.error(error)
 			}

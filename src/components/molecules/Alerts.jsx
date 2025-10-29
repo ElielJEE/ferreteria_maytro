@@ -4,6 +4,7 @@ import { FiAlertCircle, FiAlertTriangle, FiTrendingUp, FiXCircle } from 'react-i
 import { AlertCard } from '.'
 import { Button } from '../atoms';
 import { StockService } from '@/services';
+
 export default function Alerts({ sucursalFilter }) {
 	const [data, setData] = useState([]);
 
@@ -79,6 +80,8 @@ export default function Alerts({ sucursalFilter }) {
 		}));
 	}
 
+	console.log(data);
+
 	return (
 		<div className='flex flex-col gap-4'>
 			<div className='flex flex-col w-full mb-4'>
@@ -97,7 +100,7 @@ export default function Alerts({ sucursalFilter }) {
 					<FiAlertCircle />
 					Stock Bajo
 				</h3>
-				{data &&
+				{data && data.length !== 0 ? (
 					data
 						.filter((alertType) => alertType.status === 'bajo')
 						.map((alert, index) => (
@@ -109,7 +112,9 @@ export default function Alerts({ sucursalFilter }) {
 								/>
 							</AlertCard>
 						))
-				}
+				) : (
+					<span className='text-sm ml-6'>No hay Alertas</span>
+				)}
 			</section>
 
 			{/* Productos Agotados */}
@@ -118,7 +123,7 @@ export default function Alerts({ sucursalFilter }) {
 					<FiXCircle />
 					Productos Agotados
 				</h3>
-				{data &&
+				{data && data.length !== 0 ? (
 					data
 						.filter((alertType) => alertType.status === 'agotado')
 						.map((alert, index) => (
@@ -130,7 +135,9 @@ export default function Alerts({ sucursalFilter }) {
 								/>
 							</AlertCard>
 						))
-				}
+				) : (
+					<span className='text-sm ml-6'>No hay Alertas</span>
+				)}
 			</section>
 
 			{/* Exceso de Stock */}
@@ -139,13 +146,15 @@ export default function Alerts({ sucursalFilter }) {
 					<FiTrendingUp />
 					Exceso de Stock
 				</h3>
-				{data &&
+				{data && data.length !== 0 ? (
 					data
 						.filter((alertType) => alertType.status === 'exceso')
 						.map((alert, index) => (
 							<AlertCard AlertCard key={index} {...alert} />
 						))
-				}
+				) : (
+					<span className='text-sm ml-6'>No hay Alertas</span>
+				)}
 			</section>
 		</div>
 	)

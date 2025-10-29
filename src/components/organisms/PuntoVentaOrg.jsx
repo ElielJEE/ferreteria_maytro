@@ -266,7 +266,6 @@ export default function PuntoVentaOrg() {
 		};
 		fetchClientes();
 	}, []);
-	console.log(clientes);
 
 	const handleClienteChange = (e) => {
 		const value = e.target.value;
@@ -292,7 +291,6 @@ export default function PuntoVentaOrg() {
 			const res = await SucursalesService.getSucursales();
 			const sucursalesData = res.sucursales;
 			setSucursales(sucursalesData || []);
-			console.log(sucursales);
 		}
 		fetchSucursales();
 	}, []);

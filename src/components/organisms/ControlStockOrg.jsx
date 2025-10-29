@@ -13,7 +13,6 @@ import { errors } from 'jose'
 export default function ControlStockOrg() {
 	const [tipoMovimiento, setTipoMovimiento] = useState("");
 	const [formErrors, setFormErrors] = useState({});
-	console.log(formErrors);
 
 	const validateForm = (form, tipoMovimiento) => {
 		const newErrors = {};
@@ -249,9 +248,9 @@ export default function ControlStockOrg() {
 			const base = calcCards(rows);
 			// Calcular valor total de inventario (igual que en Productos) y restar perdidas de dañados
 			try {
-							const [prodResp, danadosResp] = await Promise.all([
+				const [prodResp, danadosResp] = await Promise.all([
 					fetch('/api/productos'),
-								StockService.getDanados(topSucursal)
+					StockService.getDanados(topSucursal)
 				]);
 				let productos = [];
 				if (prodResp && prodResp.ok) {
@@ -320,7 +319,6 @@ export default function ControlStockOrg() {
 			}
 		})();
 	}, [isActiveModal]);
-	console.log(productos);
 	// Estado para sucursales reales
 	const [sucursales, setSucursales] = useState([]);
 
@@ -406,7 +404,6 @@ export default function ControlStockOrg() {
 		const fetchClientes = async () => {
 			try {
 				const clientesData = await CustomerService.getClientes();
-				console.log(clientesData);
 				setClientes(clientesData);
 			} catch (error) {
 				console.error(error);

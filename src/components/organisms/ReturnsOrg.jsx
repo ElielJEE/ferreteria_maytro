@@ -4,14 +4,30 @@ import { Button, InfoCard } from '../atoms'
 import { FiCheckCircle, FiClock, FiEdit, FiEye, FiFileText, FiPlus, FiPrinter, FiRotateCcw, FiSearch } from 'react-icons/fi'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { useIsMobile } from '@/hooks'
+import { BsBuilding } from 'react-icons/bs'
 
 export default function ReturnsOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
 
 	const devolucionesEjemplos = [
-		{ id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'pendiente', evaluacion: 'sin evaluar' },
-		{ id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'daniado por oxidacion' },
-		{ id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'producto en buen estado, se hizo cambio al cliente.' },
+		{
+			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
+				id: "s1",
+				name: "Sucursal Sur",
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'pendiente', evaluacion: 'sin evaluar'
+		},
+		{
+			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
+				id: "s1",
+				name: "Sucursal Sur",
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'daniado por oxidacion'
+		},
+		{
+			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
+				id: "s1",
+				name: "Sucursal Sur",
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'producto en buen estado, se hizo cambio al cliente.'
+		},
 	]
 
 	return (
@@ -41,10 +57,10 @@ export default function ReturnsOrg() {
 					<div className='flex flex-col md:flex-row justify-between'>
 						<div>
 							<h2 className='md:text-2xl font-semibold'>
-								Gestion de Cotizaciones
+								Gestion de Devoluciones
 							</h2>
 							<span className='text-sm md:text-medium text-dark/50'>
-								Administra cotizaciones para clientes.
+								Administra y Evalua las devoluciones de productos.
 							</span>
 						</div>
 						<div>
@@ -80,6 +96,7 @@ export default function ReturnsOrg() {
 										<tr className='w-full'>
 											<th className='text-start text-dark/50 font-semibold p-2'>ID</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Producto</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Sucursal</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Cliente</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Cantidad</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Fecha</th>
@@ -91,13 +108,19 @@ export default function ReturnsOrg() {
 									<tbody className='w-full'>
 										{devolucionesEjemplos.map((item, index) => (
 											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
-												<td className='p-2 text-center'>
+												<td className='p-2 text-start'>
 													{item.id}
 												</td>
 												<td className='p-2'>
 													<div className='flex flex-col'>
 														<span>{item.productName}</span>
 														<span className='text-sm text-dark/60'>{item.productCode}</span>
+													</div>
+												</td>
+												<td className='p-2'>
+													<div className='flex items-center gap-1 truncate text-dark/70'>
+														<BsBuilding />
+														{item.sucursal.name}
 													</div>
 												</td>
 												<td className='p-2'>
