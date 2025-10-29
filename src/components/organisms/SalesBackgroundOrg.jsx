@@ -42,7 +42,6 @@ export default function SalesBackgroundOrg() {
 			else ventas = [res]
 
 			setData(ventas)
-			console.log(ventas);
 
 		} catch (err) {
 			console.error('Error fetching ventas:', err)

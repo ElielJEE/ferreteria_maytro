@@ -4,6 +4,7 @@ import { Button, InfoCard, ModalContainer, SwitchButton } from '../atoms'
 import { FiEdit, FiEye, FiFileText, FiPrinter, FiSearch, FiUser } from 'react-icons/fi'
 import { Card, Input, QueoteView, QuoteEdit } from '../molecules'
 import { useActive, useIsMobile } from '@/hooks'
+import { BsBuilding } from 'react-icons/bs'
 
 
 export default function QuotationsOrg() {
@@ -19,35 +20,35 @@ export default function QuotationsOrg() {
 				id: 's1',
 				name: 'sucursal sur'
 			}, products: [
-				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro' , unitPrice: '20'},
-				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza' , unitPrice: '20'},
+				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro', unitPrice: '20' },
+				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza', unitPrice: '20' },
 			], subtotal: 2900.00
 		},
 		{
-			id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'expirada', creadaPor: 'Maria Garcia', sucursal: [{
+			id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'expirada', creadaPor: 'Maria Garcia', sucursal: {
 				id: 's1',
 				name: 'sucursal sur'
-			}], products: [
-				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro' , unitPrice: '20'},
-				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza' , unitPrice: '20'},
+			}, products: [
+				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro', unitPrice: '20' },
+				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza', unitPrice: '20' },
 			], subtotal: 2900.00
 		},
 		{
-			id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'activa', creadaPor: 'Maria Garcia', sucursal: [{
+			id: 'COT-001', fecha: '09/10/2025', cliente: 'Juan Perez', telefono: '84005907', items: '5', total: '2900.00', fechaExp: '11/10/2025', estado: 'activa', creadaPor: 'Maria Garcia', sucursal: {
 				id: 's1',
 				name: 'sucursal sur'
-			}], products: [
-				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro' , unitPrice: '20'},
-				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad' , unitPrice: '20'},
-				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza' , unitPrice: '20'},
+			}, products: [
+				{ productName: 'martillo', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'cable', productCode: '1234', cantidad: '3', measureUnit: 'metro', unitPrice: '20' },
+				{ productName: 'pala', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'taladro', productCode: '1234', cantidad: '3', measureUnit: 'unidad', unitPrice: '20' },
+				{ productName: 'tornillos', productCode: '1234', cantidad: '40', measureUnit: 'pieza', unitPrice: '20' },
 			], subtotal: 2900.00
 		},
 	]
@@ -116,6 +117,7 @@ export default function QuotationsOrg() {
 											<th className='text-start text-dark/50 font-semibold p-2'>Validad Hasta</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Estado</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Creado por</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Sucursal</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
 										</tr>
 									</thead>
@@ -150,6 +152,12 @@ export default function QuotationsOrg() {
 														{item.creadaPor}
 													</div>
 												</td>
+												<td className='p-2'>
+													<div className='flex items-center gap-1 truncate text-dark/70'>
+														<BsBuilding />
+														{item.sucursal.name}
+													</div>
+												</td>
 												<td className='p-2 flex justify-center items-center'>
 													<div className='flex gap-2 justify-center w-1/2'>
 														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalMode('ver', item)} />
@@ -165,10 +173,9 @@ export default function QuotationsOrg() {
 						) : (
 							<div className='flex flex-col gap-4'>
 								{cotizacionesEjemplo.map((item, index) => (
-									<div className={`${!mostrarExpirados ? item.estado === 'expirada' && 'hidden' : ''}`}>
+									<div key={index} className={`${!mostrarExpirados ? item.estado === 'expirada' && 'hidden' : ''}`}>
 										<Card
 											productName={item.cliente || 'Consumidor Final'}
-											key={index}
 											status={item.estado}
 											id={item.id}
 										>
@@ -191,6 +198,10 @@ export default function QuotationsOrg() {
 											<div className='flex flex-col'>
 												<span className='text-sm text-dark/70'>Creado por</span>
 												<span className='text-lg font-semibold'>{item.creadaPor}</span>
+											</div>
+											<div className='flex flex-col'>
+												<span className='text-sm text-dark/70'>Sucursal</span>
+												<span className='text-lg font-semibold'>{item.sucursal.name}</span>
 											</div>
 											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
 												<Button className={"primary"} text={"Ver"} icon={<FiEye />} />
