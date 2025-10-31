@@ -8,3 +8,4 @@ export { default as QuotationsOrg } from './QuotationsOrg';
 export { default as ReturnsOrg } from './ReturnsOrg';
 export { default as SalesBackgroundOrg } from './SalesBackgroundOrg';
 export { default as CustomerListOrg } from './CustomerListOrg';
+export { default as PurchasesOrderOrg } from './PurchasesOrderOrg';
