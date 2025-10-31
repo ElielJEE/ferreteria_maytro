@@ -1,34 +1,54 @@
 'use client'
-import React from 'react'
-import { Button, InfoCard } from '../atoms'
+import React, { useState } from 'react'
+import { Button, InfoCard, ModalContainer } from '../atoms'
 import { FiCheckCircle, FiClock, FiEdit, FiEye, FiFileText, FiPlus, FiPrinter, FiRotateCcw, FiSearch } from 'react-icons/fi'
-import { Card, DropdownMenu, Input } from '../molecules'
-import { useIsMobile } from '@/hooks'
+import { Card, DropdownMenu, Input, ReturnCreate, ReturnEdit, ReturnView } from '../molecules'
+import { useActive, useIsMobile } from '@/hooks'
 import { BsBuilding } from 'react-icons/bs'
 
 export default function ReturnsOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
+	const [mode, setMode] = useState();
+	const { isActiveModal, setIsActiveModal } = useActive();
+	const [returnData, setReturnData] = useState({});
 
 	const devolucionesEjemplos = [
 		{
 			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
 				id: "s1",
 				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'pendiente', evaluacion: 'sin evaluar'
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'pendiente', evaluacion: '', motivo: "El motivo de la devolucion."
 		},
 		{
 			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
 				id: "s1",
 				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'daniado por oxidacion'
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'daniado por oxidacion', motivo: "El motivo de la devolucion."
 		},
 		{
 			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
 				id: "s1",
 				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'producto en buen estado, se hizo cambio al cliente.'
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'producto en buen estado, se hizo cambio al cliente.', motivo: "El motivo de la devolucion."
 		},
 	]
+
+	const toggleModalType = (type, data) => {
+		setMode(type)
+
+		if (type === 'create') {
+			setIsActiveModal(true);
+
+		} else if (type === 'edit') {
+			setReturnData(data);
+			setIsActiveModal(true);
+
+		} else if (type === 'ver') {
+			setReturnData(data);
+			setIsActiveModal(true);
+
+		}
+	}
 
 	return (
 		<>
@@ -68,6 +88,7 @@ export default function ReturnsOrg() {
 								text={'Agregar Devolucion'}
 								className={'primary'}
 								icon={<FiPlus />}
+								func={() => toggleModalType('create')}
 							/>
 						</div>
 					</div>
@@ -142,12 +163,12 @@ export default function ReturnsOrg() {
 													</span>
 												</td>
 												<td className='p-2 truncate max-w-[180px]' title={item.evaluacion}>
-													{item.evaluacion}
+													{item.evaluacion || 'Sin Evaluar'}
 												</td>
 												<td className='p-2 flex justify-center items-center'>
 													<div className='flex gap-2 justify-center w-1/2'>
-														<Button className={'primary'} icon={<FiEye />} />
-														<Button className={'blue'} icon={<FiEdit />} />
+														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalType('ver', item)} />
+														<Button className={'blue'} icon={<FiEdit />} func={() => toggleModalType('edit', item)} />
 													</div>
 												</td>
 											</tr>
@@ -186,11 +207,11 @@ export default function ReturnsOrg() {
 											</div>
 											<div className='flex flex-col col-span-2'>
 												<span className='text-sm text-dark/70'>Evaluacion</span>
-												<span className='text-lg font-semibold'>{item.evaluacion}</span>
+												<span className='text-lg font-semibold'>{item.evaluacion || 'Sin Evaluar'}</span>
 											</div>
 											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
-												<Button className={"primary"} text={"Ver"} icon={<FiEye />} />
-												<Button className={"blue"} text={"Editar"} icon={<FiEdit />} />
+												<Button className={"primary"} text={"Ver"} icon={<FiEye />} func={() => toggleModalType('ver')} />
+												<Button className={"blue"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('edit')} />
 											</div>
 										</Card>
 									</div>
@@ -201,6 +222,18 @@ export default function ReturnsOrg() {
 					</div>
 				</section >
 			</div >
+			{
+				isActiveModal &&
+				<ModalContainer
+					setIsActiveModal={setIsActiveModal}
+					modalTitle={mode === 'create' ? 'Agregar devolucion' : mode === 'edit' ? 'Editar devolucion' : 'Detalles de la devolucion'}
+					modalDescription={mode === 'create' ? 'Agregar nueva devolucion de producto' : mode === 'edit' ? 'Editar o Corregir la devolucion del producto' : 'Detalles y Proceso de la devolucion del producto'}
+				>
+					{mode === 'create' && <ReturnCreate onClose={() => setIsActiveModal(false)} />}
+					{mode === 'edit' && <ReturnEdit returnData={returnData} onClose={() => setIsActiveModal(false)} />}
+					{mode === 'ver' && <ReturnView returnData={returnData} onClose={() => setIsActiveModal(false)} />}
+				</ModalContainer>
+			}
 		</>
 	)
 }
