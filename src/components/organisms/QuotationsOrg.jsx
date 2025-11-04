@@ -221,8 +221,9 @@ export default function QuotationsOrg() {
 				isActiveModal && (
 					<ModalContainer
 						setIsActiveModal={setIsActiveModal}
-						modalTitle={mode === 'ver' ? 'Detalles de Cotizacion' : mode === 'editar' ? 'Editar Cotizacion' : mode === 'eliminar' ? 'Eliminar venta' : ''}
-						modalDescription={mode === 'ver' ? 'Información completa de la cotizacion.' : mode === 'editar' ? 'Editar cotizacion' : mode === 'eliminar' ? 'Eliminar venta' : ''}
+						modalTitle={mode === 'ver' ? 'Detalles de Cotizacion' : mode === 'edit' ? 'Editar Cotizacion' : mode === 'eliminar' ? 'Eliminar venta' : ''}
+						modalDescription={mode === 'ver' ? 'Información completa de la cotizacion.' : mode === 'edit' ? 'Editar cotizacion' : mode === 'eliminar' ? 'Eliminar venta' : ''}
+						isForm={mode === 'edit' ? true : false}
 					>
 						{mode === 'ver' && <QueoteView quote={selectedQuote} onClose={() => setIsActiveModal(false)} />}
 						{mode === 'edit' && <QuoteEdit quote={selectedQuote} onClose={() => setIsActiveModal(false)} />}

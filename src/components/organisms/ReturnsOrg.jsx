@@ -17,19 +17,19 @@ export default function ReturnsOrg() {
 			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
 				id: "s1",
 				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'pendiente', evaluacion: '', motivo: "El motivo de la devolucion."
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', motivo: "El motivo de la devolucion."
 		},
 		{
 			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
 				id: "s1",
 				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'daniado por oxidacion', motivo: "El motivo de la devolucion."
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', motivo: "El motivo de la devolucion."
 		},
 		{
 			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
 				id: "s1",
 				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', estado: 'procesado', evaluacion: 'producto en buen estado, se hizo cambio al cliente.', motivo: "El motivo de la devolucion."
+			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', motivo: "El motivo de la devolucion."
 		},
 	]
 
@@ -60,18 +60,6 @@ export default function ReturnsOrg() {
 						cardIcon={<FiRotateCcw className='h-5 w-5 text-primary' />}
 						cardIconColor={'primary'}
 					/>
-					<InfoCard
-						CardTitle={"Total Pendientes"}
-						cardValue={"1"}
-						cardIcon={<FiClock className='h-5 w-5 text-yellow' />}
-						cardIconColor={'yellow'}
-					/>
-					<InfoCard
-						CardTitle={"Total Procesadas"}
-						cardValue={"2"}
-						cardIcon={<FiCheckCircle className='h-5 w-5 text-success' />}
-						cardIconColor={'success'}
-					/>
 				</section>
 				<section className='p-6 border border-dark/20 rounded-lg flex flex-col gap-4'>
 					<div className='flex flex-col md:flex-row justify-between'>
@@ -82,14 +70,6 @@ export default function ReturnsOrg() {
 							<span className='text-sm md:text-medium text-dark/50'>
 								Administra y Evalua las devoluciones de productos.
 							</span>
-						</div>
-						<div>
-							<Button
-								text={'Agregar Devolucion'}
-								className={'primary'}
-								icon={<FiPlus />}
-								func={() => toggleModalType('create')}
-							/>
 						</div>
 					</div>
 					<div className='flex flex-col gap-2 w-full'>
@@ -121,9 +101,7 @@ export default function ReturnsOrg() {
 											<th className='text-start text-dark/50 font-semibold p-2'>Cliente</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Cantidad</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Fecha</th>
-											<th className='text-start text-dark/50 font-semibold p-2'>Estado</th>
-											<th className='text-start text-dark/50 font-semibold p-2'>Evaluacion</th>
-											<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Motivo</th>
 										</tr>
 									</thead>
 									<tbody className='w-full'>
@@ -157,19 +135,8 @@ export default function ReturnsOrg() {
 													<span>{item.fecha}</span>
 													<span className='text-sm text-dark/60'>{item.hora}</span>
 												</td>
-												<td className='p-2'>
-													<span className={`${item.estado === 'procesado' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 text-sm`}>
-														{item.estado.charAt(0).toUpperCase() + item.estado.slice(1).toLowerCase()}
-													</span>
-												</td>
-												<td className='p-2 truncate max-w-[180px]' title={item.evaluacion}>
-													{item.evaluacion || 'Sin Evaluar'}
-												</td>
-												<td className='p-2 flex justify-center items-center'>
-													<div className='flex gap-2 justify-center w-1/2'>
-														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalType('ver', item)} />
-														<Button className={'blue'} icon={<FiEdit />} func={() => toggleModalType('edit', item)} />
-													</div>
+												<td className='p-2 truncate max-w-[180px]' title={item.motivo}>
+													{item.motivo || 'Sin Evaluar'}
 												</td>
 											</tr>
 										))}
@@ -228,6 +195,7 @@ export default function ReturnsOrg() {
 					setIsActiveModal={setIsActiveModal}
 					modalTitle={mode === 'create' ? 'Agregar devolucion' : mode === 'edit' ? 'Editar devolucion' : 'Detalles de la devolucion'}
 					modalDescription={mode === 'create' ? 'Agregar nueva devolucion de producto' : mode === 'edit' ? 'Editar o Corregir la devolucion del producto' : 'Detalles y Proceso de la devolucion del producto'}
+					isForm={true}
 				>
 					{mode === 'create' && <ReturnCreate onClose={() => setIsActiveModal(false)} />}
 					{mode === 'edit' && <ReturnEdit returnData={returnData} onClose={() => setIsActiveModal(false)} />}

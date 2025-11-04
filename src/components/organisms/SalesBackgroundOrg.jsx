@@ -242,6 +242,7 @@ export default function SalesBackgroundOrg() {
 						setIsActiveModal={setIsActiveModal}
 						modalTitle={mode === 'ver' ? 'Detalles de Venta' : mode === 'editar' ? 'Editar venta' : mode === 'eliminar' ? 'Eliminar venta' : ''}
 						modalDescription={mode === 'ver' ? 'Información completa de la transacción' : mode === 'editar' ? 'Editar venta' : mode === 'eliminar' ? 'Eliminar venta' : ''}
+						isForm={mode === 'editar' ? true : false}
 					>
 						{mode === 'ver' && <SaleView sale={selectedSale} onClose={() => setIsActiveModal(false)} />}
 						{mode === 'editar' && <SaleEdit sale={selectedSale} onClose={() => setIsActiveModal(false)} onSaved={() => fetchSales()} />}
