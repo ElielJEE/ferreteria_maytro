@@ -116,22 +116,22 @@ const sidebarData = [
 			},
 			{
 				name: "Roles",
-				path: "/configuracion/usuarios",
+				path: "/configuracion/roles",
 				roles: ["admin"]
 			},
 			{
 				name: "Caja",
-				path: "/configuracion/usuarios",
+				path: "/configuracion/caja",
 				roles: ["admin"]
 			},
 			{
 				name: "Tasa de cambio",
-				path: "/configuracion/usuarios",
+				path: "/configuracion/tasa-de-cambio",
 				roles: ["admin"]
 			},
 			{
 				name: "Sucursales",
-				path: "/configuracion/usuarios",
+				path: "/configuracion/sucursales",
 				roles: ["admin"]
 			},
 		]
