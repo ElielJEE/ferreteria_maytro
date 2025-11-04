@@ -70,11 +70,6 @@ const sidebarData = [
 				roles: ["admin", "vendedor"]
 			},
 			{
-				name: "Recepcion de Mercancia",
-				path: "/compras/recepcion-mercancia",
-				roles: ["admin", "vendedor"]
-			},
-			{
 				name: "Historial de Compras",
 				path: "/compras/historial-compras",
 				roles: ["admin", "vendedor"]
@@ -107,45 +102,7 @@ const sidebarData = [
 		title: "Proveedores",
 		icon: <FiTruck />,
 		roles: ["admin", "vendedor"],
-		subModules: [
-			{
-				name: "Lista de Proveedores",
-				path: "/proveedores/lista-proveedores",
-				roles: ["admin", "vendedor"]
-			},
-			{
-				name: "Ordenes Pendientes",
-				path: "/proveedores/ordenes-pendientes",
-				roles: ["admin", "vendedor"]
-			}
-		]
-	},
-	{
-		title: "Reportes",
-		icon: <BsBarChartSteps />,
-		roles: ["admin", "vendedor"],
-		subModules: [
-			{
-				name: "Ventas Diarias",
-				path: "/reportes/ventas-diarias",
-				roles: ["admin", "vendedor"]
-			},
-			{
-				name: "Productos Mas Vendidos",
-				path: "/reportes/top-productos",
-				roles: ["admin", "vendedor"]
-			},
-			{
-				name: "Inventario Valorizado",
-				path: "/reportes/inventario-valorizado",
-				roles: ["admin", "vendedor"]
-			},
-			{
-				name: "Estado Financiero",
-				path: "/reportes/estado-financiero",
-				roles: ["admin", "vendedor"]
-			},
-		]
+		link: "/proveedores",
 	},
 	{
 		title: "Configuración",
@@ -156,7 +113,27 @@ const sidebarData = [
 				name: "Usuarios",
 				path: "/configuracion/usuarios",
 				roles: ["admin"]
-			}
+			},
+			{
+				name: "Roles",
+				path: "/configuracion/usuarios",
+				roles: ["admin"]
+			},
+			{
+				name: "Caja",
+				path: "/configuracion/usuarios",
+				roles: ["admin"]
+			},
+			{
+				name: "Tasa de cambio",
+				path: "/configuracion/usuarios",
+				roles: ["admin"]
+			},
+			{
+				name: "Sucursales",
+				path: "/configuracion/usuarios",
+				roles: ["admin"]
+			},
 		]
 	},
 ]
