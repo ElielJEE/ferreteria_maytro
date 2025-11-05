@@ -1,15 +1,16 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { Card, DropdownMenu, Input } from '../molecules'
-import { FiCheck, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiTruck, FiUser, FiX } from 'react-icons/fi'
+import { FiCheck, FiDollarSign, FiFile, FiGlobe, FiKey, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiTruck, FiUser, FiX } from 'react-icons/fi'
 import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, ProveedorService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
-import { BsCalculator, BsCashCoin } from 'react-icons/bs';
+import { BsBoxSeam, BsCalculator, BsCashCoin, BsWrench } from 'react-icons/bs';
 import { useRouter } from 'next/navigation';
 
 export default function NewPurchase() {
 	const [products, setProducts] = useState([]);
+	const [product, setProduct] = useState([]);
 	const [subcategories, setSubcategories] = useState([]);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [productList, setProductList] = useState([]);
@@ -21,6 +22,7 @@ export default function NewPurchase() {
 	const [proveedores, setProveedores] = useState({});
 	const [proveedoresFiltrados, setProveedoresFiltrados] = useState({});
 	const router = useRouter();
+	const { isActiveModal, setIsActiveModal } = useActive();
 
 	useEffect(() => {
 		const fetchAll = async () => {
@@ -51,11 +53,12 @@ export default function NewPurchase() {
 	});
 
 	const addToProductList = (product) => {
-		// No permitir agregar si no hay stock en sucursal
-		if (!product || Number(product.CANTIDAD || 0) <= 0) {
-			setError('Producto sin stock en la sucursal');
+		// Permite agregar un precio de compra si no existe en la base de datos.
+		if (Number(product.PRECIO_COMPRA || 0) <= 0 || Number(product.PRECIO_COMPRA || 0) === null) {
+			addPrice(product);
 			return;
 		}
+
 		setProductList((prevList) => {
 			const existingProduct = prevList.find(
 				(item) => item.ID_PRODUCT === product.ID_PRODUCT
@@ -76,6 +79,12 @@ export default function NewPurchase() {
 			}
 		});
 	};
+
+	const addPrice = (productData) => {
+		setIsActiveModal(true);
+		setProduct(productData);
+	}
+	console.log(product);
 
 	const updateQuantity = (id, newQuantity) => {
 		setProductList((prevList) =>
@@ -197,8 +206,8 @@ export default function NewPurchase() {
 				<section className={`${isMobile && activeTab === 'productos' ? 'flex' : !isMobile ? 'flex' : 'hidden'} w-full border border-dark/20 rounded-lg p-4 flex-col gap-4 col-span-2`}>
 					<div className='flex flex-col'>
 						<div className='flex items-center gap-2'>
-							<FiSearch className='h-6 w-6 text-dark' />
-							<h2 className='md:text-2xl font-semibold'>Catalogo de Productos</h2>
+							<BsBoxSeam className='h-6 w-6 text-dark' />
+							<h2 className='md:text-2xl font-semibold'>Agregar Productos</h2>
 						</div>
 						<span className='text-sm md:text-medium text-dark/50'>Busca productos por nombre, codigo o categoria</span>
 						<div className='w-full flex flex-col gap-1 sticky top-20 bg-light pt-2'>
@@ -316,7 +325,6 @@ export default function NewPurchase() {
 													<input
 														type='number'
 														min='1'
-														max={product.CANTIDAD}
 														value={product.quantity}
 														onChange={(e) =>
 															updateQuantity(product.ID_PRODUCT, parseInt(e.target.value) || 1)
@@ -335,10 +343,14 @@ export default function NewPurchase() {
 												/>
 												<div className='flex flex-col items-end'>
 													<span className='font-semibold text-primary text-lg'>
-														${(product.PRECIO * product.quantity).toFixed(2)}
+														${(product.PRECIO_COMPRA * product.quantity).toFixed(2)}
 													</span>
-													<span className='text-dark/70 text-sm'>
-														${product.PRECIO} c/u
+													<span className='text-dark/70 text-sm flex gap-2 items-center'>
+														<Button
+															icon={<BsWrench />}
+															className={'none'}
+														/>
+														${product.PRECIO_COMPRA} c/u
 													</span>
 												</div>
 											</div>
@@ -368,6 +380,36 @@ export default function NewPurchase() {
 					</div>
 				</section>
 			</div>
+			{
+				isActiveModal && (
+					<ModalContainer
+						setIsActiveModal={setIsActiveModal}
+						modalTitle={`Agregar precio a "${product.PRODUCT_NAME}"`}
+						modalDescription={'Agrega el precio unitario de la compra para este producto. Solo la primera vez.'}
+						isForm={true}
+					>
+						<form className='flex flex-col gap-2 mt-2' onSubmit={(e) => {e.preventDefault()}}>
+							<Input
+								label={'Precio unitario del producto'}
+								placeholder={'Ingresa el precio unitario de la compra...'}
+								inputClass={'no icon'}
+							/>
+							<div className='flex gap-2'>
+								<Button
+									text={'Cancelar'}
+									className={'secondary'}
+									func={() => setIsActiveModal(false)}
+								/>
+								<Button
+									text={'Agregar'}
+									className={'success'}
+									func={() => addToProductList(product)}
+								/>
+							</div>
+						</form>
+					</ModalContainer>
+				)
+			}
 		</>
 	)
 }
