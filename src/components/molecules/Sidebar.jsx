@@ -47,11 +47,13 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 			<aside className={`flex flex-col left-0 h-screen fixed top-0 bg-light-2 border-r border-dark/10 pl-5 transition-all duration-500 z-40
 		${openSidebar ? "translate-x-0" : "-translate-x-full"} xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%]`}>
 				<div className='w-full flex p-4 items-center gap-2'>
-					<img src="/images/logo.jpg" alt="logo-el-maytro" className='h-12 w-12' />
-					<div className='flex flex-col'>
-						<h2 className='text-lg font-bold'>Ferreteria El Maytro</h2>
-						<span className='text-sm text-dark/70'>Ferreteria y Construccion</span>
-					</div>
+					<Link href={"/dashboard"} className='flex gap-2'>
+						<img src="/images/logo.jpg" alt="logo-el-maytro" className='h-12 w-12' />
+						<div className='flex flex-col'>
+							<h2 className='text-lg font-bold'>Ferreteria El Maytro</h2>
+							<span className='text-sm text-dark/70'>Ferreteria y Construccion</span>
+						</div>
+					</Link>
 				</div>
 				<div className='w-full flex flex-col justify-center pl-2'>
 					<h3 className='text-sm'>Menu del Sistema</h3>

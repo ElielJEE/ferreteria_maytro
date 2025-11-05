@@ -30,6 +30,12 @@ export default function SucursalesOrg() {
 			item.label.toLowerCase().includes(term.toLowerCase())
 	});
 
+	const handleSubmit = (e) => {
+		e.preventDefault()
+
+		setIsActiveModal(false)
+	}
+
 	return (
 		<>
 			<div className='w-full p-6 flex flex-col'>
@@ -130,7 +136,7 @@ export default function SucursalesOrg() {
 						modalDescription={"Crea una nueva sucursal para ferreteria El Maytro"}
 						isForm={true}
 					>
-						<form action="" className='flex flex-col gap-4'>
+						<form action="" className='flex flex-col gap-4' onSubmit={handleSubmit}>
 							<Input
 								label={'Nombre de la Sucursal'}
 								inputClass={'no icon'}
@@ -141,11 +147,16 @@ export default function SucursalesOrg() {
 								inputClass={'no icon'}
 								placeholder={"Ingrese codigo de la nueva sucursal..."}
 							/>
-							<div>
+							<div className='flex gap-4'>
 								<Button 
 									text={"Cancelar"}
+									className={'secondary'}
+									func={() => setIsActiveModal(false)}
 								/>
-								<Button />
+								<Button 
+									text={'Agregar'}
+									className={'success'}
+								/>
 							</div>
 						</form>
 					</ModalContainer>

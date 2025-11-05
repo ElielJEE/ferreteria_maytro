@@ -63,18 +63,7 @@ const sidebarData = [
 		title: "Compras",
 		icon: <BsCart2 />,
 		roles: ["admin", "vendedor"],
-		subModules: [
-			{
-				name: "Ordenes de Compra",
-				path: "/compras/ordenes-compra",
-				roles: ["admin", "vendedor"]
-			},
-			{
-				name: "Historial de Compras",
-				path: "/compras/historial-compras",
-				roles: ["admin", "vendedor"]
-			},
-		]
+		link: "/compras"
 	},
 	{
 		title: "Clientes",

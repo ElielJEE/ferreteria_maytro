@@ -4,9 +4,11 @@ import { FiCheckCircle, FiClock, FiDollarSign, FiEye, FiPlus, FiSearch, FiShoppi
 import { Button, InfoCard } from '../atoms';
 import { Card, DropdownMenu, Input } from '../molecules';
 import { useIsMobile } from '@/hooks';
+import { useRouter } from 'next/navigation';
 
 export default function PurchasesOrderOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
+	const router = useRouter();
 
 	const ordenesEjemplo = [
 		{
@@ -101,7 +103,7 @@ export default function PurchasesOrderOrg() {
 		{ key: 0, title: 'Valor Total', color: 'success', icon: FiDollarSign },
 	]
 
-	console.log(cardConfig);
+
 
 	return (
 		<>
@@ -134,7 +136,7 @@ export default function PurchasesOrderOrg() {
 								text={'Nueva Orden'}
 								className={'primary'}
 								icon={<FiPlus />}
-							/* func={() => toggleModalType('create')} */
+								func={() => router.push('/compras/nueva-compra')}
 							/>
 						</div>
 					</div>
