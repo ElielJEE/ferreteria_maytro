@@ -11,3 +11,4 @@ export { default as CustomerListOrg } from './CustomerListOrg';
 export { default as PurchasesOrderOrg } from './PurchasesOrderOrg';
 export { default as CajaOrg } from './CajaOrg';
 export { default as NewPurchase } from './NewPurchase';
+export { default as ProveedoresOrg } from './ProveedoresOrg';

@@ -1,14 +1,18 @@
 'use client'
-import React, { useState } from 'react'
-import { FiCheckCircle, FiClock, FiDollarSign, FiEye, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart } from 'react-icons/fi';
-import { Button, InfoCard } from '../atoms';
+import React, { useEffect, useState } from 'react'
+import { FiCheckCircle, FiClock, FiDollarSign, FiEye, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash2 } from 'react-icons/fi';
+import { Button, InfoCard, ModalContainer } from '../atoms';
 import { Card, DropdownMenu, Input } from '../molecules';
-import { useIsMobile } from '@/hooks';
+import { useActive, useIsMobile } from '@/hooks';
 import { useRouter } from 'next/navigation';
+import { BsBoxSeam } from 'react-icons/bs';
 
 export default function PurchasesOrderOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
 	const router = useRouter();
+	const { isActiveModal, setIsActiveModal } = useActive();
+	const [purchaseData, setPurchaseData] = useState([]);
+	const [mode, setMode] = useState('');
 
 	const ordenesEjemplo = [
 		{
@@ -30,7 +34,7 @@ export default function PurchasesOrderOrg() {
 					cantidad: 50,
 					precioUnitario: 35.00,
 					subtotal: 1750.00,
-					estado: "Pendiente"
+					estado: "Entregado"
 				},
 				{
 					codigo: "HER002",
@@ -63,7 +67,7 @@ export default function PurchasesOrderOrg() {
 				esperada: "2024-02-01",
 				recepcion: "2025-10-31"
 			},
-			estado: "Recibida",
+			estado: "Pendiente",
 			productos: [
 				{
 					codigo: "HER001",
@@ -103,7 +107,25 @@ export default function PurchasesOrderOrg() {
 		{ key: 0, title: 'Valor Total', color: 'success', icon: FiDollarSign },
 	]
 
+	const handleView = (itemData) => {
+		setPurchaseData(itemData);
+		setIsActiveModal(true)
+		console.log(itemData);
+	}
 
+	const handleProcess = () => {
+		setIsActiveModal(false)
+		setMode('')
+	}
+
+	const handleSave = () => {
+		setIsActiveModal(false)
+		setMode('')
+	}
+
+	useEffect(() => {
+		setMode('')
+	}, [isActiveModal])
 
 	return (
 		<>
@@ -154,7 +176,7 @@ export default function PurchasesOrderOrg() {
 								inputClass={'no icon'}
 							/>
 							<DropdownMenu
-								options={['Todas', 'Pendiente', 'Procesado',]}
+								options={['Todas', 'Pendiente', 'Recibida',]}
 								defaultValue={'Todas'}
 							/>
 						</div>
@@ -202,7 +224,7 @@ export default function PurchasesOrderOrg() {
 												</td>
 												<td className='p-2 flex justify-center items-center'>
 													<div className='flex gap-2 justify-center w-1/2'>
-														<Button className={'primary'} icon={<FiEye />} /* func={() => toggleModalMode('ver', item)} */ />
+														<Button className={'primary'} icon={<FiEye />} func={() => handleView(item)} />
 													</div>
 												</td>
 											</tr>
@@ -251,6 +273,155 @@ export default function PurchasesOrderOrg() {
 					</div>
 				</section>
 			</div>
+			{
+				isActiveModal && (
+					<ModalContainer
+						setIsActiveModal={setIsActiveModal}
+						modalTitle={"Detalles de la Compra"}
+						modalDescription='Revisa los detalles de la compra y gestiona su proceso'
+						isForm={true}
+					>
+						<div className='py-4'>
+							<div className='grid grid-cols-3 gap-4'>
+								<div className='mb-2 flex flex-col'>
+									<div className='text-dark/70 font-semibold'>Cliente</div>
+									<div className='font-semibold'>{purchaseData?.proveedor?.nombre || 'Consumidor Final'}</div>
+								</div>
+								<div className='mb-2 flex flex-col'>
+									<div className='text-dark/70 font-semibold'>Telefono</div>
+									<div className='font-semibold'>{purchaseData?.proveedor?.telefono || 'N/A'}</div>
+								</div>
+								<div className='mb-2 flex flex-col'>
+									<div className='text-dark/70 font-semibold'>Fecha Creada</div>
+									<div className='font-semibold'>{purchaseData?.fechas?.creacion ? new Date(purchaseData?.fechas?.creacion).toLocaleDateString() : ''}</div>
+								</div>
+								<div className='mb-2 flex flex-col'>
+									<div className='text-dark/70 font-semibold'>Fecha Estimada</div>
+									<div className='font-semibold'>{purchaseData?.fechas?.esperada ? new Date(purchaseData?.fechas?.esperada).toLocaleDateString() : ''}</div>
+								</div>
+								<div className='mb-2 flex flex-col'>
+									<div className='text-dark/70 font-semibold'>Fecha Recepcion</div>
+									<div className='font-semibold'>{purchaseData?.fechas?.recepcion ? new Date(purchaseData?.fechas?.recepcion).toLocaleDateString() : ''}</div>
+								</div>
+								<div className='mb-2 flex flex-col'>
+									<div className='text-dark/70 font-semibold'>Estado</div>
+									<div className={`font-semibold ${purchaseData.estado === 'Recibida' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 w-max`}>{purchaseData?.estado}</div>
+								</div>
+								<div className='mb-2 flex flex-col'>
+									<div className='text-dark/70 font-semibold'>Codigo de Referencia</div>
+									<div className='font-semibold'>{purchaseData?.id}</div>
+								</div>
+								{
+									purchaseData?.estado !== 'Recibida' && mode !== 'procesar' &&
+									<div className='mb-2 flex flex-col items-end col-span-2'>
+										<div className='font-semibold'>
+											<Button
+												text={'Recibir Mercancia'}
+												className={'transparent'}
+												icon={<BsBoxSeam />}
+												func={() => setMode('procesar')}
+											/>
+										</div>
+									</div>
+								}
+							</div>
+							<div className='mb-2  border-t border-dark/10'>
+								<div className='mt-1'>
+									{Array.isArray(purchaseData.productos) && purchaseData.productos.length ? (
+										<div className='w-full overflow-y-scroll max-h-[200px]'>
+											<table className='w-full border-collapse text-sm'>
+												<thead>
+													<tr className='text-left border-b border-dark/20'>
+														{
+															mode === 'procesar' &&
+															<th className='p-2 text-center'></th>
+														}
+														<th className='p-2 text-center'>Cantidad</th>
+														<th className='p-2'>Código</th>
+														<th className='p-2'>Nombre</th>
+														<th className='p-2'>Unidad<br />de Medida</th>
+														<th className='p-2 text-center'>Precio</th>
+														<th className='p-2 text-center'>Subtotal</th>
+														{
+															purchaseData?.estado === 'Recibida'
+																? <th className='p-2'>Estado</th>
+																: mode !== 'procesar' && <th className='p-2 text-center'>Acciones</th>
+														}
+													</tr>
+												</thead>
+												<tbody>
+													{purchaseData.productos.map((it, i) => (
+														<tr key={i} className='border-b border-dark/10'>
+															{
+																mode === 'procesar' &&
+																<td className='p-2 text-center'>
+																	<input
+																		type='checkbox'
+																	/>
+																</td>
+															}
+															<td className='p-2 text-center'>{it.cantidad ?? it.qty ?? '-'}</td>
+															<td className='p-2'>{it.codigo || '-'}</td>
+															<td className='p-2'>{it.producto || '-'}</td>
+															<td className='p-2'>{it.measureUnit || '-'}</td>
+															<td className='p-2 text-center'>{"C$ " + Number(it.precioUnitario || 0).toLocaleString()}</td>
+															<td className='p-2 text-center'>{"C$ " + Number(it.cantidad * (it.precioUnitario || 0)).toLocaleString()}</td>
+															{
+																purchaseData?.estado === 'Recibida'
+																	? <td className='p-2'>
+																		<span className={`${it.estado === 'Entregado' ? 'bg-success' : 'bg-yellow'} rounded-full text-light px-2`}>
+																			{it.estado || '-'}
+																		</span>
+																	</td>
+																	: mode !== 'procesar' &&
+																	<td className='p-2 text-center'>
+																		<Button
+																			icon={<FiTrash2 />}
+																			className={'danger'}
+																		/>
+																	</td>
+															}
+														</tr>
+													))}
+												</tbody>
+											</table>
+										</div>
+									) : (
+										<div className='text-sm'>Sin items detallados</div>
+									)}
+								</div>
+							</div>
+							<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>
+								<div className='text-lg font-bold'>Total:</div>
+								<div className='text-lg font-bold text-primary'>{purchaseData?.total ? `C$ ${Number(purchaseData?.total).toLocaleString()}` : (purchaseData?.total_venta ? `C$${Number(purchaseData?.total_venta).toLocaleString()}` : '-')}</div>
+							</div>
+							<div className='mb-2 flex flex-col'>
+								<div className='text-dark/70 font-semibold'>Notas</div>
+								<div className='font-semibold'>{purchaseData?.notas}</div>
+							</div>
+							<div className='mt-4 flex gap-4'>
+								<Button
+									text={'Cerrar'}
+									className={'secondary'}
+									func={() => {
+										setIsActiveModal(false)
+										setMode('')
+									}}
+								/>
+								{
+									purchaseData?.estado !== 'Recibida' &&
+									<Button
+										text={mode === 'procesar' ? 'Procesar Compra' : 'Guardar Cambios'}
+										icon={<FiShoppingBag />}
+										className={mode === 'procesar' ? 'success' : 'primary'}
+										func={mode === 'procesar' ? () => handleProcess() : () => handleSave()}
+									/>
+								}
+							</div>
+						</div>
+					</ModalContainer>
+				)
+			}
 		</>
 	)
 }

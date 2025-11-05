@@ -2,29 +2,25 @@
 import React, { useEffect, useState } from 'react'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { FiCheck, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiTruck, FiUser, FiX } from 'react-icons/fi'
-import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService } from '@/services';
+import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, ProveedorService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin } from 'react-icons/bs';
+import { useRouter } from 'next/navigation';
 
 export default function NewPurchase() {
 	const [products, setProducts] = useState([]);
 	const [subcategories, setSubcategories] = useState([]);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [productList, setProductList] = useState([]);
-	const { setIsActiveModal, isActiveModal } = useActive();
-	const [mode, setMode] = useState('venta');
-	const [montoCordobas, setMontoCordobas] = useState("");
-	const [montoDolares, setMontoDolares] = useState("");
-	const [cambio, setCambio] = useState(0);
 	const [error, setError] = useState(null);
-	const [currentUser, setCurrentUser] = useState(null);
-	const [clienteNombre, setClienteNombre] = useState('');
-	const [clienteTelefono, setClienteTelefono] = useState('');
-	const [processing, setProcessing] = useState(false);
+	const [proveedorNombre, setProveedorNombre] = useState('');
+	const [proveedorTelefono, setProveedorTelefono] = useState('');
+	const [fechaEntrega, setFechaEntrega] = useState('');
 	const isMobile = useIsMobile({ breakpoint: 1024 })
-	const [clientes, setClientes] = useState({});
+	const [proveedores, setProveedores] = useState({});
 	const [proveedoresFiltrados, setProveedoresFiltrados] = useState({});
+	const router = useRouter();
 
 	useEffect(() => {
 		const fetchAll = async () => {
@@ -107,165 +103,71 @@ export default function NewPurchase() {
 	const descuento = 0; // o podrías usar un estado si más adelante aplicas descuentos
 	const total = subtotal - descuento;
 
-	const toggleModalType = (type) => {
-		if (type === 'venta') {
-			setMode(type);
-			setIsActiveModal(true);
+	const validateFields = (form) => {
+		const newErrors = {};
 
-		} else if (type === 'cotizacion') {
-			setMode(type);
-			setIsActiveModal(true);
+		// Campos siempre requeridos
+		const required = ['nombre', 'telefono', 'fecha'];
+		required.forEach((field) => {
+			const value = form[field];
+			if (value === null || value === undefined || String(value).trim() === '') {
+				newErrors[field] = 'Este campo es requerido';
+			}
+		});
 
-		} else if (type === 'credito') {
-			setMode(type);
-			setIsActiveModal(true);
-
-		} else if (type === 'confirmar venta') {
-			setMode(type);
-			setIsActiveModal(false);
-			handleSubmitVenta();
-		}
-	};
-
-	const handleConfirmarVenta = (e) => {
-		e.preventDefault();
-
-		// Validar sucursal: no se puede vender sin sucursal asignada
-		if (!currentUser?.ID_SUCURSAL) {
-			setError('No tiene una sucursal asignada para procesar ventas.');
-			return;
-		}
-
-		const totalRecibido = parseFloat(montoCordobas || 0) + (parseFloat(montoDolares || 0) * 36.55);
-
-		if (totalRecibido < total) {
-			setError("Monto no válido: el monto recibido es menor al total de la compra.");
-			return;
-		}
-
-		toggleModalType('confirmar venta');
-	};
-
-
-	const calcularCambio = (totalCompra, montoCordobas = 0, montoDolares = 0, tasaCambio = 36.55) => {
-		if (montoCordobas + (montoDolares * tasaCambio) < totalCompra) {
-			return 0;
-		} else {
-			const montoTotalCordobas = montoCordobas + (montoDolares * tasaCambio);
-			const cambio = montoTotalCordobas - totalCompra;
-			return parseFloat(cambio.toFixed(2));
-		}
-	};
-
-	useEffect(() => {
-		const cambioCalculado = calcularCambio(
-			total,
-			parseFloat(montoCordobas || 0),
-			parseFloat(montoDolares || 0)
-		);
-		setCambio(cambioCalculado);
-	}, [montoCordobas, montoDolares, total]);
-
-	const handleSubmitVenta = async () => {
-		try {
-			setProcessing(true);
-			// Construir payload separado de la UI/form
-			const items = productList.map(p => ({
-				ID_PRODUCT: p.ID_PRODUCT,
-				CODIGO_PRODUCTO: p.CODIGO_PRODUCTO,
-				PRODUCT_NAME: p.PRODUCT_NAME,
-				PRECIO: Number(p.PRECIO || 0),
-				quantity: Number(p.quantity || 0),
-			}));
-			const payload = {
-				items,
-				subtotal: Number(subtotal.toFixed(2)),
-				descuento: Number(descuento || 0),
-				total: Number(total.toFixed(2)),
-				pago: {
-					cordobas: Number(montoCordobas || 0),
-					dolares: Number(montoDolares || 0),
-					tasaCambio: 36.55,
-				},
-				cliente: {
-					nombre: clienteNombre,
-					telefono: clienteTelefono,
-				},
-				sucursal_id: currentUser?.ID_SUCURSAL || null
-			};
-
-			const res = await SalesService.createSale(payload);
-			// Mostrar modal de resultado con cambio
-			setMode('confirmar venta');
-			setIsActiveModal(true);
-			setCambio(res?.cambio ?? cambio);
-		} catch (e) {
-			console.error('Error procesando venta:', e);
-			setError(e?.message || 'Error al procesar la venta');
-		} finally {
-			setProcessing(false);
-		}
-	};
-
-	const handleModalClose = () => {
-		setMode('');
-		setIsActiveModal(false);
-		setMontoCordobas("");
-		setMontoDolares("");
-		setError(null);
-	};
-
-	const handleDone = () => {
-		setIsActiveModal(false);
-		setMode('');
-		setMontoCordobas("");
-		setMontoDolares("");
-		setProductList([]);
-		setError(null);
+		setError(newErrors);
+		return Object.keys(newErrors).length === 0;
 	}
+
+	const handleSubmitCompra = async () => {
+		const form = {
+			nombre: proveedorNombre,
+			telefono: proveedorTelefono,
+			fecha: fechaEntrega,
+		}
+
+		const isValid = validateFields(form)
+		if (!isValid) {
+			return;
+		}
+
+		router.push("/compras");
+	};
 
 	const [activeTab, setActiveTab] = useState("productos");
 
 	useEffect(() => {
-		const fetchClientes = async () => {
+		const fetchProveedores = async () => {
 			try {
-				const clientesData = await CustomerService.getClientes();
-				setClientes(clientesData.clientes);
+				const proveedoresData = await ProveedorService.getProveedores();
+				setProveedores(proveedoresData.proveedores);
 			} catch (error) {
 				console.error(error);
 			}
 		};
-		fetchClientes();
+		fetchProveedores();
 	}, []);
 
-	const handleClienteChange = (e) => {
+	const handleProveedoresChange = (e) => {
 		const value = e.target.value;
-		setClienteNombre(value);
+		setProveedorNombre(value);
 
-		const resultados = clientes.filter(cliente =>
-			cliente.nombre.toLowerCase().includes(value.toLowerCase())
-		);
-		setClienteFiltrados(resultados);
+		setError(prev => ({ ...prev, nombre: '' }))
 
-		const clienteExistente = clientes.find(cliente =>
-			cliente.nombre.toLowerCase() === value.toLowerCase()
+		const resultados = proveedores.filter(proveedor =>
+			proveedor.nombre.toLowerCase().includes(value.toLowerCase())
 		);
-		if (clienteExistente) {
-			setClienteTelefono(clienteExistente.telefono);
+		setProveedoresFiltrados(resultados);
+
+		const proveedorExiste = proveedores.find(proveedor =>
+			proveedor.nombre.toLowerCase() === value.toLowerCase()
+		);
+		if (proveedorExiste) {
+			setProveedorTelefono(proveedorExiste.telefono);
 		} else {
-			setClienteTelefono("");
+			setProveedorTelefono("");
 		}
 	}
-
-	useEffect(() => {
-		const fetchSucursales = async () => {
-			const res = await SucursalesService.getSucursales();
-			const sucursalesData = res.sucursales;
-			setSucursales(sucursalesData || []);
-		}
-		fetchSucursales();
-	}, []);
-
 
 	return (
 		<>
@@ -345,22 +247,23 @@ export default function NewPurchase() {
 									label={"Nombre"}
 									placeholder={"Ingrese nombre del Proveedor"}
 									inputClass={"no icon"}
-									value={clienteNombre}
-									onChange={handleClienteChange}
+									value={proveedorNombre}
+									onChange={handleProveedoresChange}
+									error={error && error.nombre}
 								/>
-								{clienteFiltrados.length > 0 && clienteNombre !== "" && (
+								{proveedoresFiltrados.length > 0 && proveedorNombre !== "" && (
 									<ul className='w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10'>
-										{clienteFiltrados.map((clientes, index) => (
+										{proveedoresFiltrados.map((proveedores, index) => (
 											<li
 												key={index}
 												onClick={() => {
-													setClienteNombre(clientes.nombre)
-													setClienteTelefono(clientes.telefono)
-													setClienteFiltrados({})
+													setProveedorNombre(proveedores.nombre)
+													setProveedorTelefono(proveedores.telefono)
+													setProveedoresFiltrados({})
 												}}
 												className='px-2 py-1 cursor-pointer hover:bg-primary hover:text-white'
 											>
-												{clientes.nombre}
+												{proveedores.nombre}
 											</li>
 										))}
 									</ul>
@@ -370,13 +273,23 @@ export default function NewPurchase() {
 								label={"Telefono"}
 								placeholder={"Ingrese numero de telefono del Proveedor"}
 								inputClass={"no icon"}
-								value={clienteTelefono}
-								onChange={(e) => setClienteTelefono(e.target.value)}
+								value={proveedorTelefono}
+								onChange={(e) => {
+									setProveedorTelefono(e.target.value)
+									setError(prev => ({ ...prev, telefono: '' }))
+								}}
+								error={error && error.telefono}
 							/>
 							<Input
 								label={'Fecha Estimada de Entrega'}
 								type={'date'}
 								inputClass={'no icon'}
+								value={fechaEntrega}
+								onChange={(e) => {
+									setFechaEntrega(e.target.value)
+									setError(prev => ({ ...prev, fecha: '' }))
+								}}
+								error={error && error.fecha}
 							/>
 						</div>
 					</div>
@@ -450,83 +363,11 @@ export default function NewPurchase() {
 							className={'success'}
 							text={'Procesar Orden'}
 							icon={<FiShoppingBag className='h-5 w-5' />}
-							func={() => toggleModalType('venta')}
+							func={() => handleSubmitCompra()}
 						/>
 					</div>
 				</section>
 			</div>
-			{
-				isActiveModal && (
-					<ModalContainer
-						setIsActiveModal={handleModalClose}
-						modalTitle={mode === 'venta'
-							? 'Procesar Venta'
-							: (mode === 'cotizacion'
-								? 'Crear Cotizacion'
-								: (mode === 'Credito'
-									? 'Gestionar Credito'
-									: 'Cambio Total: C$' + cambio
-								)
-							)
-						}
-						modalDescription={mode === 'venta'
-							? 'Confirma los detalles de la venta antes de proceder.'
-							: (mode === 'cotizacion'
-								? 'Genera una cotización para el cliente.'
-								: (mode === 'Credito'
-									? 'Gestiona el crédito para el cliente.'
-									: ''
-								)
-							)
-						}
-					>
-						{mode === 'venta' ? (
-							<form className='flex flex-col gap-4'>
-								<Input
-									label={"Monto recibido en Cordobas"}
-									placeholder={"Ingresar monto recibido en cordobas..."}
-									iconInput={<BsCashCoin className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
-									value={montoCordobas}
-									onChange={(e) => setMontoCordobas(e.target.value)}
-								/>
-								<Input
-									label={"Monto recibido en Dolares"}
-									placeholder={"Ingresar monto recibido en dolares..."}
-									iconInput={<FiDollarSign className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
-									value={montoDolares}
-									onChange={(e) => setMontoDolares(e.target.value)}
-								/>
-								{error && <span className='text-danger text-sm'>{error}</span>}
-								<div className='flex gap-4'>
-									<Button
-										className={'danger'}
-										text={"Cancelar"}
-										icon={<FiX className='h-5 w-5' />}
-										func={handleModalClose}
-									/>
-									<Button
-										className={'success'}
-										text={processing ? 'Procesando…' : 'Confirmar Venta'}
-										icon={<FiCheck className='h-5 w-5' />}
-										func={processing ? undefined : handleConfirmarVenta}
-									/>
-								</div>
-							</form>
-						) : (
-							<div className='flex mt-2'>
-								<Button
-									className={'success'}
-									text={'Hecho'}
-									icon={<FiCheck className='h-5 w-5' />}
-									func={handleDone}
-								/>
-							</div>
-						)
-
-						}
-					</ModalContainer>
-				)
-			}
 		</>
 	)
 }
