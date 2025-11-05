@@ -72,22 +72,18 @@ export default function ReturnsOrg() {
 							</span>
 						</div>
 					</div>
-					<div className='flex flex-col gap-2 w-full'>
-						<Input
-							type={'search'}
-							placeholder={'Buscar cotizaciones...'}
-							iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
-						/>
-						<div className='md:w-1/2 w-full flex gap-2 flex-col md:flex-row'>
+					<div className='flex flex-col md:flex-row gap-2 w-full'>
+						<div className='w-full'>
 							<Input
-								type={'date'}
-								inputClass={'no icon'}
-							/>
-							<DropdownMenu
-								options={['Todas', 'Pendiente', 'Procesado',]}
-								defaultValue={'Todas'}
+								type={'search'}
+								placeholder={'Buscar cotizaciones...'}
+								iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
 							/>
 						</div>
+						<Input
+							type={'date'}
+							inputClass={'no icon'}
+						/>
 					</div>
 					<div>
 						{!isMobile ? (
@@ -175,10 +171,6 @@ export default function ReturnsOrg() {
 											<div className='flex flex-col col-span-2'>
 												<span className='text-sm text-dark/70'>Evaluacion</span>
 												<span className='text-lg font-semibold'>{item.evaluacion || 'Sin Evaluar'}</span>
-											</div>
-											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
-												<Button className={"primary"} text={"Ver"} icon={<FiEye />} func={() => toggleModalType('ver')} />
-												<Button className={"blue"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('edit')} />
 											</div>
 										</Card>
 									</div>
