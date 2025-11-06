@@ -28,8 +28,9 @@ export default function PuntoVentaOrg() {
 	const [clienteFiltrados, setClienteFiltrados] = useState({});
 	const [isAdmin, setIsAdmin] = useState();
 	const [sucursales, setSucursales] = useState([]);
-	const [sucursalSelected, setSucursaleSelected] = useState('Todas');
-	const router = useRouter();
+	// Admin-only: sucursal seleccionada (objeto { label, value }) o null para "Todas"
+	const [selectedSucursal, setSelectedSucursal] = useState(null);
+  const router = useRouter();
 
 	useEffect(() => {
 		const getCurrentUser = async () => {
@@ -40,17 +41,29 @@ export default function PuntoVentaOrg() {
 		getCurrentUser();
 	}, []);
 
+	// Cargar usuario al montar y cuando se procese una venta (para refrescar datos de usuario si cambian)
 	useEffect(() => {
-		const fetchAll = async () => {
+		const fetchUser = async () => {
+			const user = await AuthService.getCurrentUser();
+			setCurrentUser(user);
+		};
+		fetchUser();
+	}, [processing]);
+
+	// Cargar catálogo según sucursal efectiva (usuario o selección admin)
+	useEffect(() => {
+		const fetchCatalog = async () => {
 			try {
-				// Obtener sucursal del usuario
-				const user = await AuthService.getCurrentUser();
-				setCurrentUser(user);
-				const sucNombre = user?.SUCURSAL_NOMBRE || 'Todas';
-				// Traer resumen de stock (si admin sin sucursal => 'Todas')
-				const { success, resumen } = await StockService.getResumen(sucNombre);
+				// Determinar sucursal a consultar:
+				// - Si el usuario tiene sucursal asignada => usar su nombre (compatibilidad)
+				// - Si es admin y seleccionó una sucursal => usar su ID (value)
+				// - En otro caso => 'Todas'
+				const sucursalParam = currentUser?.ID_SUCURSAL
+					? (currentUser?.SUCURSAL_NOMBRE || currentUser?.ID_SUCURSAL)
+					: (selectedSucursal?.value || 'Todas');
+
+				const { success, resumen } = await StockService.getResumen(sucursalParam);
 				const rows = success ? (resumen || []) : [];
-				// Normalizar al shape esperado por POS/Card
 				const normalized = rows.map(r => ({
 					ID_PRODUCT: r.ID_PRODUCT,
 					CODIGO_PRODUCTO: r.CODIGO_PRODUCTO,
@@ -62,16 +75,18 @@ export default function PuntoVentaOrg() {
 					NOMBRE_SUCURSAL: r.NOMBRE_SUCURSAL,
 				}));
 				setProducts(normalized);
-				// Subcategorías (derivadas de los datos)
 				const subcats = Array.from(new Set(normalized.map(n => n.NOMBRE_SUBCATEGORIA).filter(Boolean)))
 					.map((name, idx) => ({ ID_SUBCATEGORIAS: `sub-${idx}`, NOMBRE_SUBCATEGORIA: name }));
 				setSubcategories(subcats);
 			} catch (error) {
-				console.error('Error cargando catálogo:', error)
+				console.error('Error cargando catálogo:', error);
 			}
+		};
+		// Evitar llamada si aún no tenemos user (primera carga); se llamará tras setCurrentUser
+		if (currentUser !== undefined) {
+			fetchCatalog();
 		}
-		fetchAll();
-	}, [processing]);
+	}, [currentUser, selectedSucursal]);
 
 	const filteredProducts = useFilter({
 		data: products.map(p => ({
@@ -161,10 +176,14 @@ export default function PuntoVentaOrg() {
 	const handleConfirmarVenta = (e) => {
 		e.preventDefault();
 
-		// Validar sucursal: no se puede vender sin sucursal asignada
+		// Validar sucursal para admin o usuario:
+		// - Usuario con sucursal: OK
+		// - Admin: debe seleccionar una sucursal específica (no 'Todas')
 		if (!currentUser?.ID_SUCURSAL) {
-			setError('No tiene una sucursal asignada para procesar ventas.');
-			return;
+			if (!selectedSucursal || selectedSucursal?.value === 'Todas') {
+				setError('Seleccione una sucursal para procesar la venta.');
+				return;
+			}
 		}
 
 		const totalRecibido = parseFloat(montoCordobas || 0) + (parseFloat(montoDolares || 0) * 36.55);
@@ -222,7 +241,8 @@ export default function PuntoVentaOrg() {
 					nombre: clienteNombre,
 					telefono: clienteTelefono,
 				},
-				sucursal_id: currentUser?.ID_SUCURSAL || null
+				// Si usuario tiene sucursal se usa; si es admin, usar la sucursal seleccionada
+				sucursal_id: currentUser?.ID_SUCURSAL || (selectedSucursal?.value ?? null)
 			};
 
 			const res = await SalesService.createSale(payload);
@@ -295,7 +315,7 @@ export default function PuntoVentaOrg() {
 			const res = await SucursalesService.getSucursales();
 			const sucursalesData = res.sucursales;
 			setSucursales(sucursalesData || []);
-		}
+		};
 		fetchSucursales();
 	}, []);
 
@@ -332,6 +352,12 @@ export default function PuntoVentaOrg() {
 	const confirmCotizacion = () => {
 		router.push('/venta/cotizaciones');
 	}
+	// Al cambiar sucursal seleccionada, limpiar el carrito (evita mezclar stock entre sucursales)
+	useEffect(() => {
+		if (isAdmin) {
+			setProductList([]);
+		}
+	}, [isAdmin, selectedSucursal]);
 
 	return (
 		<>
@@ -345,8 +371,15 @@ export default function PuntoVentaOrg() {
 						<div className='lg:w-1/3 md:w-1/2'>
 							<DropdownMenu
 								options={[{ label: 'Todas', value: 'Todas' }, ...sucursales]}
-								defaultValue={sucursalSelected === 'Todas' ? 'Vista general (Todas las sucursales)' : sucursalSelected}
-								onChange={(opt) => setSucursaleSelected(opt.value === 'Todas' ? 'Todas' : opt.label)}
+								defaultValue={'Vista general (Todas las sucursales)'}
+								onChange={(opt) => {
+									if (typeof opt === 'object') {
+										setSelectedSucursal(opt);
+									} else {
+										// opt === 'Todas'
+										setSelectedSucursal(null);
+									}
+								}}
 							/>
 
 						</div>
