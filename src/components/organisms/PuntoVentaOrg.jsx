@@ -6,6 +6,7 @@ import { ProductService, SalesService, StockService, AuthService, CustomerServic
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin } from 'react-icons/bs';
+import { useRouter } from 'next/navigation';
 
 export default function PuntoVentaOrg() {
 	const [products, setProducts] = useState([]);
@@ -29,6 +30,7 @@ export default function PuntoVentaOrg() {
 	const [sucursales, setSucursales] = useState([]);
 	// Admin-only: sucursal seleccionada (objeto { label, value }) o null para "Todas"
 	const [selectedSucursal, setSelectedSucursal] = useState(null);
+  const router = useRouter();
 
 	useEffect(() => {
 		const getCurrentUser = async () => {
@@ -158,7 +160,7 @@ export default function PuntoVentaOrg() {
 
 		} else if (type === 'cotizacion') {
 			setMode(type);
-			setIsActiveModal(true);
+			handleCotizacion();
 
 		} else if (type === 'credito') {
 			setMode(type);
@@ -291,6 +293,8 @@ export default function PuntoVentaOrg() {
 		const value = e.target.value;
 		setClienteNombre(value);
 
+		setError(prev => ({ ...prev, nombre: '' }))
+
 		const resultados = clientes.filter(cliente =>
 			cliente.nombre.toLowerCase().includes(value.toLowerCase())
 		);
@@ -315,6 +319,39 @@ export default function PuntoVentaOrg() {
 		fetchSucursales();
 	}, []);
 
+	const validateFields = (form) => {
+		const newErrors = {};
+
+		// Campos siempre requeridos
+		const required = ['nombre', 'telefono'];
+		required.forEach((field) => {
+			const value = form[field];
+			if (value === null || value === undefined || String(value).trim() === '') {
+				newErrors[field] = 'Este campo es requerido';
+			}
+		});
+
+		setError(newErrors);
+		return Object.keys(newErrors).length === 0;
+	}
+
+	const handleCotizacion = () => {
+		const form = {
+			nombre: clienteNombre,
+			telefono: clienteTelefono,
+		}
+
+		const isValid = validateFields(form)
+		if (!isValid) {
+			return;
+		} else {
+			setIsActiveModal(true);
+		}
+	}
+
+	const confirmCotizacion = () => {
+		router.push('/venta/cotizaciones');
+	}
 	// Al cambiar sucursal seleccionada, limpiar el carrito (evita mezclar stock entre sucursales)
 	useEffect(() => {
 		if (isAdmin) {
@@ -423,7 +460,7 @@ export default function PuntoVentaOrg() {
 							<FiUser className='h-5 w-5 text-dark' />
 							<h2 className='md:text-xl font-semibold'>Informacion del Cliente</h2>
 						</div>
-						<div className="flex flex-col w-full">
+						<div className="flex flex-col w-full gap-2">
 							<div className='relative'>
 								<Input
 									label={"Nombre"}
@@ -431,6 +468,7 @@ export default function PuntoVentaOrg() {
 									inputClass={"no icon"}
 									value={clienteNombre}
 									onChange={handleClienteChange}
+									error={error && error.nombre}
 								/>
 								{clienteFiltrados.length > 0 && clienteNombre !== "" && (
 									<ul className='w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10'>
@@ -455,7 +493,15 @@ export default function PuntoVentaOrg() {
 								placeholder={"Ingrese numero de telefono del cliente"}
 								inputClass={"no icon"}
 								value={clienteTelefono}
-								onChange={(e) => setClienteTelefono(e.target.value)}
+								onChange={(e) => {
+									setClienteTelefono(e.target.value)
+									setError(prev => ({ ...prev, telefono: '' }))
+								}}
+								error={error && error.telefono}
+							/>
+							<Button
+								text={'Aplicar Descuento'}
+								className={'blue'}
 							/>
 						</div>
 					</div>
@@ -544,6 +590,7 @@ export default function PuntoVentaOrg() {
 								className={'blue'}
 								text={'Crear Cotizacion'}
 								icon={<FiFile className='h-5 w-5' />}
+								func={() => toggleModalType('cotizacion')}
 							/>
 							<Button
 								className={'danger'}
@@ -571,7 +618,7 @@ export default function PuntoVentaOrg() {
 						modalDescription={mode === 'venta'
 							? 'Confirma los detalles de la venta antes de proceder.'
 							: (mode === 'cotizacion'
-								? 'Genera una cotización para el cliente.'
+								? ('Genera una cotización para el cliente ingresando la fecha de espera \npara procesar la venta.')
 								: (mode === 'Credito'
 									? 'Gestiona el crédito para el cliente.'
 									: ''
@@ -611,6 +658,26 @@ export default function PuntoVentaOrg() {
 									/>
 								</div>
 							</form>
+						) : mode === 'cotizacion' ? (
+							<div className='flex flex-col gap-2'>
+								<Input
+									label={'Fecha Valida Hasta:'}
+									type={'date'}
+									inputClass={'no icon'}
+								/>
+								<div className='flex gap-2 w-full'>
+									<Button
+										text={'Cancelar Cotizacion'}
+										className={'secondary'}
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										text={'Confirmar Cotizacion'}
+										className={'success'}
+										func={() => confirmCotizacion()}
+									/>
+								</div>
+							</div>
 						) : (
 							<div className='flex mt-2'>
 								<Button
@@ -623,7 +690,7 @@ export default function PuntoVentaOrg() {
 						)
 
 						}
-					</ModalContainer>
+					</ModalContainer >
 				)
 			}
 		</>

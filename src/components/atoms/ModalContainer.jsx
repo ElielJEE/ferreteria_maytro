@@ -17,7 +17,7 @@ export default function ModalContainer({ setIsActiveModal, modalTitle, modalDesc
 				<div className='w-full'>
 					<h2 className='md:text-lg font-semibold'>{modalTitle}</h2>
 					{modalDescription &&
-						<span className='text-sm text-dark/70'>{modalDescription}</span>
+						<span className='text-sm text-dark/70' style={{ whiteSpace: 'pre-line' }}>{modalDescription}</span>
 					}
 				</div>
 				{children}

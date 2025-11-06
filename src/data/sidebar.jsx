@@ -80,11 +80,6 @@ const sidebarData = [
 				path: "/clientes/creditos",
 				roles: ["admin", "vendedor"]
 			},
-			{
-				name: "Historial de Credito",
-				path: "/clientes/historial-compras",
-				roles: ["admin", "vendedor"]
-			},
 		]
 	},
 	{
@@ -121,6 +116,11 @@ const sidebarData = [
 			{
 				name: "Sucursales",
 				path: "/configuracion/sucursales",
+				roles: ["admin"]
+			},
+			{
+				name: "Unidades de Medida",
+				path: "/configuracion/unidades-medidas",
 				roles: ["admin"]
 			},
 		]
