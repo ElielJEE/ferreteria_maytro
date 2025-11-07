@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link';
 import { usePathname } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 import { BiHomeAlt } from 'react-icons/bi';
@@ -65,7 +66,9 @@ export default function NavBar({ openSidebar, setOpenSidebar }) {
 								onClick={() => setOpenSidebar(!openSidebar)}
 							/>
 						</div>
-						<BiHomeAlt className='text-primary h-4 w-4 ml-4 md:h-5 md:w-5' />
+						<Link href={"/dashboard"}>
+							<BiHomeAlt className='text-primary h-4 w-4 ml-4 md:h-5 md:w-5' />
+						</Link>
 						<h3 className='text-sm md:text-lg lg:text-xl xl:text-2xl'>{formattedPaths.join(" > ")} - El Maytro</h3>
 					</div>
 					<span className='flex gap-1 justify-center items-center text-medium text-dark/70'><FiCalendar /> {date}</span>

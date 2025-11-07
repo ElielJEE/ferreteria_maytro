@@ -123,6 +123,11 @@ const sidebarData = [
 				path: "/configuracion/unidades-medidas",
 				roles: ["admin"]
 			},
+			{
+				name: "Descuentos",
+				path: "/configuracion/descuentos",
+				roles: ["admin"]
+			},
 		]
 	},
 ]
