@@ -136,7 +136,7 @@ export default function SaleEdit({ sale, onClose, onSaved }) {
 
   console.log("desde SalesEdit:" + error);
   return (
-    <div className='py-4'>
+    <div className='py-4'>s
       <div className='mb-2'>
         <div className='text-sm text-dark/70'>Editar cliente</div>
         <Input

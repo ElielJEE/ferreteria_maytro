@@ -5,7 +5,7 @@ import { FiActivity, FiDollarSign, FiEdit, FiEye, FiFile, FiPrinter, FiSearch, F
 import { BsBuilding, BsStop } from 'react-icons/bs'
 import { MdBlock } from 'react-icons/md'
 import { useActive, useFilter, useIsMobile } from '@/hooks'
-import { Card, CreditosView, Input } from '../molecules'
+import { Card, CreditosEdit, CreditosView, Input } from '../molecules'
 
 export default function CreditosOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
@@ -121,10 +121,8 @@ export default function CreditosOrg() {
 			setIsActiveModal(true)
 
 		} else if (type === 'editar') {
-			setSelectedSale(item);
-			if (success) {
-				setIsActiveModal(true)
-			}
+			setSelectedCredit(item);
+			setIsActiveModal(true)
 
 		} else if (type === 'print') {
 
@@ -303,8 +301,7 @@ export default function CreditosOrg() {
 						isForm={mode === 'editar' ? true : false}
 					>
 						{mode === 'ver' && <CreditosView creditData={selectedCredit} onClose={() => setIsActiveModal(false)} />}
-						{mode === 'editar' && <SaleEdit sale={selectedSale} onClose={() => setIsActiveModal(false)} onSaved={() => fetchSales()} />}
-						{mode === 'eliminar' && <SaleDelete sale={selectedSale} onClose={() => setIsActiveModal(false)} onDeleted={() => fetchSales()} />}
+						{mode === 'editar' && <CreditosEdit creditData={selectedCredit} onClose={() => setIsActiveModal(false)} />}
 					</ModalContainer>
 				)
 			}
