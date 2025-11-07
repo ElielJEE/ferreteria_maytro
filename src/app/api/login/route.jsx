@@ -45,15 +45,13 @@ export async function POST(req) {
 
 		const token = jwt.sign(
 			{ id: user.ID, username: user.NOMBRE_USUARIO, role: user.ID_ROL },
-			process.env.JWT_SECRET,
-			{ expiresIn: "8h" }
+			process.env.JWT_SECRET
 		);
 
 		const response = NextResponse.json({ message: "Login exitoso" });
 		response.cookies.set("token", token, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
-			maxAge: 3600,
 			path: "/",
 			sameSite: "strict"
 		});
