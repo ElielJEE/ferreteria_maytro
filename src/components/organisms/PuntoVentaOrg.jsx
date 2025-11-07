@@ -18,19 +18,24 @@ export default function PuntoVentaOrg() {
 	const [montoCordobas, setMontoCordobas] = useState("");
 	const [montoDolares, setMontoDolares] = useState("");
 	const [cambio, setCambio] = useState(0);
-	const [error, setError] = useState(null);
+	const [error, setError] = useState({
+		nombre: '',
+		telefono: '',
+		fecha: '',
+		general: '',
+	});
 	const [currentUser, setCurrentUser] = useState(null);
 	const [clienteNombre, setClienteNombre] = useState('');
 	const [clienteTelefono, setClienteTelefono] = useState('');
 	const [processing, setProcessing] = useState(false);
 	const isMobile = useIsMobile({ breakpoint: 1024 })
-	const [clientes, setClientes] = useState({});
-	const [clienteFiltrados, setClienteFiltrados] = useState({});
+	const [clientes, setClientes] = useState([]);
+	const [clienteFiltrados, setClienteFiltrados] = useState([]);
 	const [isAdmin, setIsAdmin] = useState();
 	const [sucursales, setSucursales] = useState([]);
 	// Admin-only: sucursal seleccionada (objeto { label, value }) o null para "Todas"
 	const [selectedSucursal, setSelectedSucursal] = useState(null);
-  const router = useRouter();
+	const router = useRouter();
 
 	useEffect(() => {
 		const getCurrentUser = async () => {
@@ -103,7 +108,7 @@ export default function PuntoVentaOrg() {
 	const addToProductList = (product) => {
 		// No permitir agregar si no hay stock en sucursal
 		if (!product || Number(product.CANTIDAD || 0) <= 0) {
-			setError('Producto sin stock en la sucursal');
+			setError({ general: 'Producto sin stock en la sucursal' });
 			return;
 		}
 		setProductList((prevList) => {
@@ -181,7 +186,7 @@ export default function PuntoVentaOrg() {
 		// - Admin: debe seleccionar una sucursal específica (no 'Todas')
 		if (!currentUser?.ID_SUCURSAL) {
 			if (!selectedSucursal || selectedSucursal?.value === 'Todas') {
-				setError('Seleccione una sucursal para procesar la venta.');
+				setError({ general: 'Seleccione una sucursal para procesar la venta.' });
 				return;
 			}
 		}
@@ -189,7 +194,7 @@ export default function PuntoVentaOrg() {
 		const totalRecibido = parseFloat(montoCordobas || 0) + (parseFloat(montoDolares || 0) * 36.55);
 
 		if (totalRecibido < total) {
-			setError("Monto no válido: el monto recibido es menor al total de la compra.");
+			setError({ general: "Monto no válido: el monto recibido es menor al total de la compra." });
 			return;
 		}
 
@@ -252,7 +257,7 @@ export default function PuntoVentaOrg() {
 			setCambio(res?.cambio ?? cambio);
 		} catch (e) {
 			console.error('Error procesando venta:', e);
-			setError(e?.message || 'Error al procesar la venta');
+			setError({ general: e?.message || 'Error al procesar la venta' });
 		} finally {
 			setProcessing(false);
 		}
@@ -478,7 +483,7 @@ export default function PuntoVentaOrg() {
 												onClick={() => {
 													setClienteNombre(clientes.nombre)
 													setClienteTelefono(clientes.telefono)
-													setClienteFiltrados({})
+													setClienteFiltrados([])
 												}}
 												className='px-2 py-1 cursor-pointer hover:bg-primary hover:text-white'
 											>
@@ -642,7 +647,7 @@ export default function PuntoVentaOrg() {
 									value={montoDolares}
 									onChange={(e) => setMontoDolares(e.target.value)}
 								/>
-								{error && <span className='text-danger text-sm'>{error}</span>}
+								{error.general && <span className='text-danger text-sm'>{error.general}</span>}
 								<div className='flex gap-4'>
 									<Button
 										className={'danger'}
