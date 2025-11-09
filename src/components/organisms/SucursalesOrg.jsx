@@ -9,19 +9,35 @@ import { BsBuilding } from 'react-icons/bs';
 
 export default function SucursalesOrg() {
 	const [sucursales, setSucursales] = useState([]);
-	const [searchTerm, setSearchTerm] = useState();
+	const [searchTerm, setSearchTerm] = useState('');
 	const isMobile = useIsMobile({ breakpoint: 1024 })
 	const { isActiveModal, setIsActiveModal } = useActive();
 
-	useEffect(() => {
-		const fetchSucursales = async () => {
+	// Modal state
+	const [mode, setMode] = useState(null); // 'create' | 'edit' | 'delete'
+	const [selected, setSelected] = useState(null); // { label, value }
+
+	// Form state
+	const [nombre, setNombre] = useState('');
+	const [codigo, setCodigo] = useState('');
+	const [direccion, setDireccion] = useState('');
+	const [telefono, setTelefono] = useState('');
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState('');
+
+	const loadSucursales = async () => {
+		try {
 			const res = await SucursalesService.getSucursales();
-			const sucursalesData = res.sucursales;
-			setSucursales(sucursalesData || []);
+			const sucursalesData = res?.sucursales || [];
+			setSucursales(sucursalesData);
+		} catch (e) {
+			console.error('Error cargando sucursales', e);
 		}
-		fetchSucursales();
+	};
+
+	useEffect(() => {
+		loadSucursales();
 	}, []);
-	console.log(sucursales);
 
 	const filteredSucursales = useFilter({
 		data: sucursales,
@@ -30,11 +46,94 @@ export default function SucursalesOrg() {
 			item.label.toLowerCase().includes(term.toLowerCase())
 	});
 
-	const handleSubmit = (e) => {
-		e.preventDefault()
+	const resetForm = () => {
+		setNombre('');
+		setCodigo('');
+		setDireccion('');
+		setTelefono('');
+		setError('');
+	};
 
-		setIsActiveModal(false)
-	}
+	const toggleModalType = (type, item = null) => {
+		setMode(type);
+		setSelected(item);
+		setError('');
+		if (type === 'create') {
+			resetForm();
+			setIsActiveModal(true);
+		} else if (type === 'edit') {
+			// Prefill with current values available
+			setNombre(item?.label || '');
+			setCodigo(item?.value || ''); // codigo bloqueado en edición
+			setDireccion('');
+			setTelefono('');
+			setIsActiveModal(true);
+		} else if (type === 'delete') {
+			setIsActiveModal(true);
+		}
+	};
+
+	const handleCreateSubmit = async (e) => {
+		e.preventDefault();
+		setLoading(true);
+		setError('');
+		try {
+			if (!nombre || !codigo) {
+				setError('Nombre y Código son requeridos');
+				setLoading(false);
+				return;
+			}
+			await SucursalesService.crearSucursal({ codigo, nombre, direccion, telefono });
+			await loadSucursales();
+			setIsActiveModal(false);
+			resetForm();
+		} catch (err) {
+			setError(err?.message || 'Error al crear sucursal');
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleEditSubmit = async (e) => {
+		e.preventDefault();
+		setLoading(true);
+		setError('');
+		try {
+			if (!selected?.value) {
+				setError('Sucursal no seleccionada');
+				setLoading(false);
+				return;
+			}
+			await SucursalesService.actualizarSucursal({
+				id: selected.value,
+				nombre: nombre || undefined,
+				direccion: direccion || undefined,
+				telefono: telefono || undefined,
+			});
+			await loadSucursales();
+			setIsActiveModal(false);
+			resetForm();
+		} catch (err) {
+			setError(err?.message || 'Error al actualizar sucursal');
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const confirmDelete = async () => {
+		if (!selected?.value) return;
+		setLoading(true);
+		setError('');
+		try {
+			await SucursalesService.eliminarSucursal(selected.value);
+			await loadSucursales();
+			setIsActiveModal(false);
+		} catch (err) {
+			setError(err?.message || 'Error al eliminar sucursal');
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	return (
 		<>
@@ -58,7 +157,7 @@ export default function SucursalesOrg() {
 								text={'Nueva Sucursal'}
 								icon={<FiPlus />}
 								className={'primary'}
-								func={() => setIsActiveModal(true)}
+								func={() => toggleModalType('create')}
 							/>
 						</div>
 					</div>
@@ -114,11 +213,11 @@ export default function SucursalesOrg() {
 									filteredSucursales.map((item, index) => (
 										<Card
 											key={index}
-											productName={item.nombre}
+											productName={item.label}
 										>
 											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
-												<Button className={"blue"} text={"Editar"} icon={<FiEdit />} />
-												<Button className={"danger"} text={"Eliminar"} icon={<FiTrash2 />} />
+												<Button className={"blue"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('edit', item)} />
+												<Button className={"danger"} text={"Eliminar"} icon={<FiTrash2 />} func={() => toggleModalType('delete', item)} />
 											</div>
 										</Card>
 									))
@@ -132,33 +231,82 @@ export default function SucursalesOrg() {
 				isActiveModal && (
 					<ModalContainer
 						setIsActiveModal={setIsActiveModal}
-						modalTitle={"Crea una nueva sucursal"}
-						modalDescription={"Crea una nueva sucursal para ferreteria El Maytro"}
-						isForm={true}
+						modalTitle={
+							mode === 'create' ? 'Crea una nueva sucursal' :
+								mode === 'edit' ? `Editar sucursal ${selected?.label || ''}` :
+									`¿Eliminar sucursal "${selected?.label || ''}"?`
+						}
+						modalDescription={
+							mode === 'delete' ? 'Esta acción no se puede deshacer.' :
+								(mode === 'edit' ? 'Actualiza la información de la sucursal' : 'Crea una nueva sucursal para ferretería El Maytro')
+						}
+						isForm={mode !== 'delete'}
 					>
-						<form action="" className='flex flex-col gap-4' onSubmit={handleSubmit}>
-							<Input
-								label={'Nombre de la Sucursal'}
-								inputClass={'no icon'}
-								placeholder={'Ingrese nombre de la nueva sucursal...'}
-							/>
-							<Input
-								label={'Codigo de la Sucursal'}
-								inputClass={'no icon'}
-								placeholder={"Ingrese codigo de la nueva sucursal..."}
-							/>
-							<div className='flex gap-4'>
-								<Button 
-									text={"Cancelar"}
-									className={'secondary'}
-									func={() => setIsActiveModal(false)}
-								/>
-								<Button 
-									text={'Agregar'}
-									className={'success'}
-								/>
-							</div>
-						</form>
+						{
+							mode === 'delete' ? (
+								<div className='flex gap-4'>
+									<Button
+										text={"Cancelar"}
+										className={'secondary'}
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										text={loading ? 'Eliminando…' : 'Eliminar'}
+										className={'danger'}
+										func={confirmDelete}
+									/>
+								</div>
+							) : (
+								<form className='flex flex-col gap-4' onSubmit={mode === 'create' ? handleCreateSubmit : handleEditSubmit}>
+									<Input
+										label={'Nombre de la Sucursal'}
+										inputClass={'no icon'}
+										placeholder={'Ingrese nombre de la sucursal...'}
+										type={'text'}
+										value={nombre}
+										onChange={(e) => setNombre(e.target.value)}
+									/>
+									<Input
+										label={'Codigo de la Sucursal'}
+										inputClass={'no icon'}
+										placeholder={"Ingrese código de la sucursal..."}
+										type={'text'}
+										value={codigo}
+										onChange={(e) => setCodigo(e.target.value)}
+										// En edición, el código/ID no debe cambiarse
+										// Se muestra como read-only
+									/>
+									<Input
+										label={'Dirección (opcional)'}
+										inputClass={'no icon'}
+										placeholder={'Ingrese dirección...'}
+										type={'text'}
+										value={direccion}
+										onChange={(e) => setDireccion(e.target.value)}
+									/>
+									<Input
+										label={'Teléfono (opcional)'}
+										inputClass={'no icon'}
+										placeholder={'Ingrese teléfono...'}
+										type={'text'}
+										value={telefono}
+										onChange={(e) => setTelefono(e.target.value)}
+									/>
+									{error && <span className='text-danger text-sm'>{error}</span>}
+									<div className='flex gap-4'>
+										<Button
+											text={"Cancelar"}
+											className={'secondary'}
+											func={() => setIsActiveModal(false)}
+										/>
+										<Button
+											text={loading ? (mode === 'create' ? 'Agregando…' : 'Guardando…') : (mode === 'create' ? 'Agregar' : 'Guardar')}
+											className={'success'}
+										/>
+									</div>
+								</form>
+							)
+						}
 					</ModalContainer>
 				)
 			}

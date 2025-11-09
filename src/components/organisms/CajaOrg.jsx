@@ -1,59 +1,81 @@
 'use client'
-import React, { useEffect, useState } from 'react'
-import { SucursalesService } from '@/services';
+import React, { useEffect, useMemo, useState } from 'react'
+import { SucursalesService, CajaService } from '@/services';
 import { Input } from '../molecules';
 import { Button } from '../atoms';
 import { FiLock, FiTrash2, FiUnlock } from 'react-icons/fi';
 
 export default function CajaOrg() {
 	const [sucursales, setSucursales] = useState([]);
-	const [cajas, setCajas] = useState('Abierta');
-	const [cerrarCaja, setCerrarCaja] = useState(false);
+	const [cajas, setCajas] = useState({}); // por sucursal: { status, montoInicial, horaApertura, sesionId }
+	const [cerrarCaja, setCerrarCaja] = useState({}); // flags por sucursal
 	const [diferencia, setDiferencia] = useState(0)
-	const historialCantidadEjemplo = [1, 2, 3, 4];
+	const [historial, setHistorial] = useState([]);
 	console.log(sucursales);
 
 	useEffect(() => {
-		const fetchSucursal = async () => {
+		const fetchData = async () => {
 			const res = await SucursalesService.getSucursales();
-			const sucursalesData = res.sucursales;
-			setSucursales(sucursalesData || []);
-
+			const sucursalesData = res.sucursales || [];
+			setSucursales(sucursalesData);
+			// cargar estado de caja por sucursal
 			const initialState = {};
-			(sucursalesData || []).forEach(s => {
-				initialState[s.value] = {
-					status: 'Cerrada',
-					montoInicial: 0,
-					horaApertura: null
-				};
-			});
+			for (const s of sucursalesData) {
+				try {
+					const est = await CajaService.getEstado(s.value);
+					const abierta = est?.abierta;
+					if (abierta) {
+						initialState[s.value] = {
+							status: 'Abierta',
+							montoInicial: Number(abierta.MONTO_INICIAL || 0),
+							horaApertura: new Date(abierta.FECHA_APERTURA).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+							sesionId: abierta.ID_SESION,
+						};
+					} else {
+						initialState[s.value] = { status: 'Cerrada', montoInicial: 0, horaApertura: null, sesionId: null };
+					}
+				} catch {
+					initialState[s.value] = { status: 'Cerrada', montoInicial: 0, horaApertura: null, sesionId: null };
+				}
+			}
 			setCajas(initialState);
+			// cargar historial general (últimos 20)
+			try {
+				const h = await CajaService.getHistorial({ limit: 20 });
+				setHistorial(h?.historial || []);
+			} catch {}
 		}
-		fetchSucursal();
+		fetchData();
 	}, [])
 
-	const handleOpenCaja = (id, monto) => {
-		const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-		setCajas(prev => ({
-			...prev,
-			[id]: {
-				...prev[id],
-				status: 'Abierta',
-				montoInicial: monto,
-				horaApertura: horaActual
-			}
-		}));
+	const handleOpenCaja = async (id, monto) => {
+		try {
+			const res = await CajaService.abrirCaja({ sucursal_id: id, monto_inicial: Number(monto || 0) });
+			const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+			setCajas(prev => ({
+				...prev,
+				[id]: { status: 'Abierta', montoInicial: Number(monto || 0), horaApertura: horaActual, sesionId: res?.sesion_id || null }
+			}));
+			// refrescar historial
+			const h = await CajaService.getHistorial({ limit: 20 });
+			setHistorial(h?.historial || []);
+		} catch (e) {
+			console.error('Abrir caja error:', e);
+		}
 	};
 
-	const handleCloseCaja = (id) => {
-		setCajas(prev => ({
-			...prev,
-			[id]: {
-				...prev[id],
-				status: 'Cerrada'
-			}
-		}));
+	const handleCloseCaja = async (id, montoFinal) => {
+		try {
+			const sesionId = cajas?.[id]?.sesionId || null;
+			const res = await CajaService.cerrarCaja({ sesion_id: sesionId, sucursal_id: id, monto_final: Number(montoFinal || 0) });
+			setCajas(prev => ({ ...prev, [id]: { status: 'Cerrada', montoInicial: 0, horaApertura: null, sesionId: null } }));
+			setCerrarCaja(prev => ({ ...prev, [id]: false }));
+			// refrescar historial
+			const h = await CajaService.getHistorial({ limit: 20 });
+			setHistorial(h?.historial || []);
+		} catch (e) {
+			console.error('Cerrar caja error:', e);
+		}
 	};
 
 	return (
@@ -129,7 +151,7 @@ export default function CajaOrg() {
 															text={'Deshacer Apertura'}
 															className={'danger'}
 															icon={<FiTrash2 />}
-															func={() => handleCloseCaja(sucursal.value)}
+															func={() => handleCloseCaja(sucursal.value, 0)}
 														/>
 													</>
 												) : (
@@ -138,11 +160,16 @@ export default function CajaOrg() {
 															label={'Monto Final en Caja (C$)'}
 															placeholder={'0.00'}
 															inputClass={'no icon'}
+															type={'number'}
+															value={cajas?.[sucursal.value]?.montoFinal || ''}
+															onChange={(e) => setCajas(prev => ({ ...prev, [sucursal.value]: { ...prev[sucursal.value], montoFinal: e.target.value } }))}
 														/>
 														<Input
 															label={'Total de Ventas (C$)'}
 															placeholder={'0.00'}
 															inputClass={'no icon'}
+															value={''}
+															onChange={() => {}}
 														/>
 														<div className='p-2 bg-dark/10 rounded-md flex flex-col w-full gap-2'>
 															<div className='flex flex-col'>
@@ -176,7 +203,7 @@ export default function CajaOrg() {
 															<Button
 																text={'Cerrar Caja'}
 																className={'success'}
-																func={() => handleCloseCaja(sucursal.value)}
+																func={() => handleCloseCaja(sucursal.value, cajas?.[sucursal.value]?.montoFinal || 0)}
 															/>
 															<Button
 																text={'Cancelar'}
@@ -223,22 +250,22 @@ export default function CajaOrg() {
 					<div className='p-6 border border-dark/20 rounded-lg flex flex-col gap-2'>
 						<h2 className='flex gap-1 items-center text-lg font-semibold'>
 							<FiLock />
-							Historial ({historialCantidadEjemplo.length})
+							Historial ({historial.length})
 						</h2>
 						<div className='flex flex-col gap-2 max-h-[477px] overflow-y-auto'>
-							{historialCantidadEjemplo.map((index) => (
-								<div key={index} className='p-4 border border-dark/20 rounded-lg grid grid-cols-2 gap-2'>
-									<span className='font-semibold text-lg'>Sucursal Sur</span>
-									<span className='border rounded-full text-center border-dark/30 font-semibold'>2025-05-11 23:05</span>
+							{historial.map((h) => (
+								<div key={h.ID_SESION} className='p-4 border border-dark/20 rounded-lg grid grid-cols-2 gap-2'>
+									<span className='font-semibold text-lg'>{h.ID_SUCURSAL}</span>
+									<span className='border rounded-full text-center border-dark/30 font-semibold'>{new Date(h.FECHA_APERTURA).toLocaleString()}</span>
 									<div className='flex flex-col'>
 										<span className='font-semibold text-sm text-dark/60'>Monto Inicial</span>
-										<span className='font-semibold'>C$1000.00</span>
+										<span className='font-semibold'>C${Number(h.MONTO_INICIAL || 0).toFixed(2)}</span>
 									</div>
 									<div className='flex flex-col'>
 										<span className='font-semibold text-sm text-dark/60'>Monto Final</span>
-										<span className='font-semibold text-primary'>C$1000.00</span>
+										<span className='font-semibold text-primary'>C${Number(h.MONTO_FINAL || 0).toFixed(2)}</span>
 									</div>
-									<span className={`${diferencia === 0 ? 'text-success bg-success/20' : diferencia > 0 ? 'text-blue bg-blue/20' : 'text-danger bg-danger/20'} col-span-2 px-2 py-1 rounded-sm font-semibold`}>Diferencia: C$0.00</span>
+									<span className={`${Number(h.DIFERENCIA || 0) === 0 ? 'text-success bg-success/20' : Number(h.DIFERENCIA || 0) > 0 ? 'text-blue bg-blue/20' : 'text-danger bg-danger/20'} col-span-2 px-2 py-1 rounded-sm font-semibold`}>Diferencia: C${Number(h.DIFERENCIA || 0).toFixed(2)}</span>
 								</div>
 							))}
 						</div>
