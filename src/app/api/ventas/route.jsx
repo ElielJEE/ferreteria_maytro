@@ -175,7 +175,15 @@ export async function POST(req) {
     }
 
     // Registrar pago (si existe tabla FACTURA_PAGOS)
-    const tasaCambio = Number(pago?.tasaCambio || 36.55);
+    // Obtener tasa de cambio actual desde tabla de configuración si existe para evitar hardcode
+    let tasaCambio = Number(pago?.tasaCambio || 0);
+    try {
+      if (!tasaCambio || isNaN(tasaCambio) || tasaCambio <= 0) {
+        const [cfg] = await conn.query('SELECT TASA FROM CONFIG_TASA_CAMBIO WHERE ID = 1 LIMIT 1');
+        if (cfg?.length && cfg[0].TASA) tasaCambio = Number(cfg[0].TASA);
+      }
+    } catch { /* tabla puede no existir */ }
+    if (!tasaCambio || isNaN(tasaCambio) || tasaCambio <= 0) tasaCambio = 36.55;
     const recibidoCordobas = Number(pago?.cordobas || 0);
     const recibidoDolares = Number(pago?.dolares || 0);
     const recibidoTotalC = recibidoCordobas + recibidoDolares * tasaCambio;

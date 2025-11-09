@@ -18,6 +18,7 @@ export default function PuntoVentaOrg() {
 	const [montoCordobas, setMontoCordobas] = useState("");
 	const [montoDolares, setMontoDolares] = useState("");
 	const [cambio, setCambio] = useState(0);
+	const [tasaCambio, setTasaCambio] = useState(36.55);
 	const [error, setError] = useState({
 		nombre: '',
 		telefono: '',
@@ -56,6 +57,18 @@ export default function PuntoVentaOrg() {
 		};
 		fetchUser();
 	}, [processing]);
+
+	// Cargar tasa de cambio actual
+	useEffect(() => {
+		const loadTasa = async () => {
+			try {
+				const res = await fetch('/api/tasa-cambio', { cache: 'no-store' });
+				const data = await res.json();
+				if (res.ok && data?.tasa) setTasaCambio(Number(data.tasa));
+			} catch {}
+		};
+		loadTasa();
+	}, []);
 
 	// Cargar catálogo según sucursal efectiva (usuario o selección admin)
 	useEffect(() => {
@@ -218,10 +231,11 @@ export default function PuntoVentaOrg() {
 		const cambioCalculado = calcularCambio(
 			total,
 			parseFloat(montoCordobas || 0),
-			parseFloat(montoDolares || 0)
+			parseFloat(montoDolares || 0),
+			tasaCambio
 		);
 		setCambio(cambioCalculado);
-	}, [montoCordobas, montoDolares, total]);
+	}, [montoCordobas, montoDolares, total, tasaCambio]);
 
 	const handleSubmitVenta = async () => {
 		try {
@@ -242,7 +256,7 @@ export default function PuntoVentaOrg() {
 				pago: {
 					cordobas: Number(montoCordobas || 0),
 					dolares: Number(montoDolares || 0),
-					tasaCambio: 36.55,
+					tasaCambio: Number(tasaCambio || 36.55),
 				},
 				cliente: {
 					nombre: clienteNombre,
