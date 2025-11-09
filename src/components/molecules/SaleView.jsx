@@ -23,6 +23,10 @@ export default function SaleView({ sale, onClose }) {
 			<div className='py-4'>
 				<div className='grid grid-cols-2 gap-4 border-b border-dark/10'>
 					<div className='mb-2 flex flex-col'>
+						<div className='text-dark/70 font-semibold'>N° Factura</div>
+						<div className='font-semibold'>{sale.numero ?? ''}</div>
+					</div>
+					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Cliente</div>
 						<div className='font-semibold'>{sale.cliente?.nombre || 'Consumidor Final'}</div>
 					</div>

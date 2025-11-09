@@ -26,7 +26,13 @@ export default function ControlStockOrg() {
 			}
 		});
 
-		if (['Marcar como Dañado', 'Entrada (Aumentar Stock)', 'Salida (Reducir Stock)'].includes(tipoMovimiento)) {
+		// Cantidad requerida excepto cuando es "Marcar como Dañado" y estado = Perdida Total (se auto-calcula)
+		const requiereCantidad = (
+			['Entrada (Aumentar Stock)', 'Salida (Reducir Stock)'].includes(tipoMovimiento) ||
+			(tipoMovimiento === 'Marcar como Dañado' && form.estadoDano !== 'Perdida Total') ||
+			(tipoMovimiento === 'Marcar como Reservado')
+		);
+		if (requiereCantidad) {
 			if (!form.cantidad || Number(form.cantidad) <= 0) {
 				newErrors.cantidad = 'Ingresa una cantidad válida';
 			}
@@ -53,11 +59,42 @@ export default function ControlStockOrg() {
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 
+		let effectiveCantidad = cantidadMovimiento;
+		// Auto-calcular cantidad completa si es daño con pérdida total
+		if (tipoMovimiento === 'Marcar como Dañado' && estadoDano === 'Perdida Total') {
+			try {
+				// Necesitamos sucursal y producto seleccionados
+				if (selectedSucursal?.label && selectedProducto?.value != null) {
+					const resumenResp = await fetch(`/api/stock?tab=Resumen&sucursal=${encodeURIComponent(selectedSucursal.label)}`);
+					if (resumenResp.ok) {
+						const resumenJson = await resumenResp.json().catch(()=>({}));
+						const filas = resumenJson?.resumen || [];
+						const row = filas.find(r => (r.ID_PRODUCT === selectedProducto.value || r.ID_PRODUCT === selectedProducto?.ID_PRODUCT) && (r.NOMBRE_SUCURSAL === selectedSucursal.label));
+						if (row) {
+							// Usar todo el stock sucursal disponible como pérdida total
+							const stockSucursal = Number(row.STOCK_SUCURSAL || 0);
+							effectiveCantidad = String(stockSucursal);
+						} else {
+							// fallback: si no encontramos fila, marcar error
+							setFormErrors(prev => ({ ...prev, cantidad: 'No se pudo determinar stock para la pérdida total' }));
+						}
+					} else {
+						setFormErrors(prev => ({ ...prev, cantidad: 'No se pudo obtener el resumen de stock' }));
+					}
+				} else {
+					setFormErrors(prev => ({ ...prev, cantidad: 'Selecciona sucursal y producto' }));
+				}
+			} catch (err) {
+				console.error('Auto-cálculo pérdida total:', err);
+				setFormErrors(prev => ({ ...prev, cantidad: 'Error calculando pérdida total' }));
+			}
+		}
+
 		const form = {
 			sucursal: selectedSucursal,
 			producto: selectedProducto,
 			tipoMovimiento,
-			cantidad: cantidadMovimiento,
+			cantidad: effectiveCantidad,
 			motivo: motivoMovimiento,
 			referencia: referenciaMovimiento,
 			tipoDano,
@@ -73,7 +110,7 @@ export default function ControlStockOrg() {
 			tipo: tipoMovimiento,
 			producto: selectedProducto,
 			sucursal: selectedSucursal,
-			cantidad: Number(cantidadMovimiento),
+			cantidad: Number(effectiveCantidad),
 			motivo: motivoMovimiento,
 			referencia: referenciaMovimiento,
 			descripcion: motivoMovimiento,
@@ -604,18 +641,39 @@ export default function ControlStockOrg() {
 								{/* 🔹 Campos dinámicos */}
 								{tipoMovimiento === "Marcar como Dañado" && (
 									<>
-										<Input
-											label="Cantidad"
-											type="number"
-											placeholder="0"
-											inputClass="no icon"
-											value={cantidadMovimiento}
-											onChange={(e) => {
-												setCantidadMovimiento(e.target.value);
-												setFormErrors(prev => ({ ...prev, cantidad: '' }));
+										{/* Estado del daño primero para condicionar cantidad */}
+										<DropdownMenu
+											label="Estado"
+											options={["Recuperable", "Perdida Total"]}
+											defaultValue="Selecciona estado"
+											onChange={(opt) => {
+												const value = typeof opt === 'object' ? opt.label : opt;
+												setEstadoDano(value);
+												// Si es pérdida total limpiamos cantidad (ya no requerida)
+												if (value === 'Perdida Total') {
+													setCantidadMovimiento('');
+													setFormErrors(prev => ({ ...prev, cantidad: '' }));
+												}
+												setFormErrors(prev => ({ ...prev, estadoDano: '' }));
 											}}
-											error={formErrors.cantidad}
+											error={formErrors.estadoDano}
 										/>
+
+										{/* Cantidad solo cuando es recuperable */}
+										{estadoDano !== 'Perdida Total' && (
+											<Input
+												label="Cantidad Recuperable"
+												type="number"
+												placeholder="0"
+												inputClass="no icon"
+												value={cantidadMovimiento}
+												onChange={(e) => {
+													setCantidadMovimiento(e.target.value);
+													setFormErrors(prev => ({ ...prev, cantidad: '' }));
+												}}
+												error={formErrors.cantidad}
+											/>
+										)}
 
 										<DropdownMenu
 											label="Tipo de Daño"
@@ -627,18 +685,6 @@ export default function ControlStockOrg() {
 												setFormErrors(prev => ({ ...prev, tipoDano: '' }));
 											}}
 											error={formErrors.tipoDano}
-										/>
-
-										<DropdownMenu
-											label="Estado"
-											options={["Recuperable", "Perdida Total"]}
-											defaultValue="Selecciona estado"
-											onChange={(opt) => {
-												const value = typeof opt === 'object' ? opt.label : opt;
-												setEstadoDano(value);
-												setFormErrors(prev => ({ ...prev, estadoDano: '' }));
-											}}
-											error={formErrors.estadoDano}
 										/>
 
 										<Input

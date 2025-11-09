@@ -87,8 +87,9 @@ export async function POST(req) {
     // Create invoice (FACTURA and FACTURA_DETALLES)
     const clienteId = await getOrCreateCliente(conn, cliente?.nombre, cliente?.telefono);
     const fecha = new Date();
-    // Detectar si FACTURA tiene columna ID_SUCURSAL (compatibilidad con esquemas previos)
+    // Detectar si FACTURA tiene columnas opcionales (compatibilidad con esquemas previos)
     let hasFacturaSucursal = false;
+    let hasFacturaNumero = false;
     try {
       const [colRows] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
@@ -96,12 +97,48 @@ export async function POST(req) {
       `);
       hasFacturaSucursal = (colRows?.[0] && Number(colRows[0].CNT || 0) > 0) || false;
     } catch { hasFacturaSucursal = false; }
+    try {
+      const [colNum] = await conn.query(`
+        SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'NUMERO_FACTURA'
+      `);
+      hasFacturaNumero = (colNum?.[0] && Number(colNum[0].CNT || 0) > 0) || false;
+    } catch { hasFacturaNumero = false; }
 
-    let facturaSql = 'INSERT INTO FACTURA (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, NULL, ?)';
-    let facturaParams = [fecha, subtotalOk, descuentoOk, totalOk, clienteId || null];
+    // Generar número de factura (FAC-YYYYMMDD-HHMMSS) sin sufijo aleatorio
+    const pad = n => String(n).padStart(2,'0');
+    const y = fecha.getFullYear();
+    const mo = pad(fecha.getMonth()+1);
+    const da = pad(fecha.getDate());
+    const hh = pad(fecha.getHours());
+    const mi = pad(fecha.getMinutes());
+    const ss = pad(fecha.getSeconds());
+    let numeroFactura = `FAC-${y}${mo}${da}-${hh}${mi}${ss}`;
+
+    // Si existe la columna y ya hay una colisión improbable, intentar sufijos incrementales
+    if (hasFacturaNumero) {
+      let intentos = 0;
+      while (intentos < 5) {
+        const [dup] = await conn.query('SELECT 1 FROM FACTURA WHERE NUMERO_FACTURA = ? LIMIT 1', [numeroFactura]);
+        if (!dup?.length) break;
+        intentos++;
+        numeroFactura = `FAC-${y}${mo}${da}-${hh}${mi}${ss}-${intentos}`;
+      }
+    }
+
+    let facturaSql = hasFacturaNumero
+      ? 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, ?, NULL, ?)'
+      : 'INSERT INTO FACTURA (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, NULL, ?)';
+    let facturaParams = hasFacturaNumero
+      ? [numeroFactura, fecha, subtotalOk, descuentoOk, totalOk, clienteId || null]
+      : [fecha, subtotalOk, descuentoOk, totalOk, clienteId || null];
     if (hasFacturaSucursal) {
-      facturaSql = 'INSERT INTO FACTURA (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, NULL, ?, ?)';
-      facturaParams = [fecha, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null];
+      facturaSql = hasFacturaNumero
+        ? 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)'
+        : 'INSERT INTO FACTURA (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, NULL, ?, ?)';
+      facturaParams = hasFacturaNumero
+        ? [numeroFactura, fecha, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null]
+        : [fecha, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null];
     }
     const [factRes] = await conn.query(facturaSql, facturaParams);
     const facturaId = factRes.insertId;
@@ -152,7 +189,7 @@ export async function POST(req) {
 
     await conn.commit();
 
-    return Response.json({ ok: true, facturaId, total: totalOk, cambio });
+  return Response.json({ ok: true, facturaId, numero: hasFacturaNumero ? numeroFactura : null, total: totalOk, cambio });
   } catch (e) {
     try { await conn.rollback(); } catch { }
     return Response.json({ error: e.message || 'Error al procesar la venta' }, { status: 400 });
@@ -163,13 +200,26 @@ export async function POST(req) {
 
 export async function GET(req) {
   try {
+    // Detectar si existe la columna NUMERO_FACTURA para compatibilidad
+    let hasFacturaNumero = false;
+    try {
+      const [colRows] = await pool.query(`
+        SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'NUMERO_FACTURA'
+      `);
+      hasFacturaNumero = (colRows?.[0] && Number(colRows[0].CNT || 0) > 0) || false;
+    } catch { hasFacturaNumero = false; }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     // If id provided, return detailed sale
     if (id) {
       try {
-        const [factRows] = await pool.query('SELECT ID_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?', [id]);
+        const selectDetalle = hasFacturaNumero
+          ? 'SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?'
+          : 'SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?';
+        const [factRows] = await pool.query(selectDetalle, [id]);
         if (!factRows || !factRows.length) return Response.json({ error: 'Factura no encontrada' }, { status: 404 });
         const f = factRows[0];
 
@@ -195,7 +245,7 @@ export async function GET(req) {
 
         // items
         const [itemsRows] = await pool.query(`
-          SELECT fd.ID_PRODUCT, fd.AMOUNT AS cantidad, fd.PRECIO_UNIT AS precio_unit, fd.SUB_TOTAL AS subtotal,
+          SELECT fd.ID_DETALLES_FACTURA, fd.ID_PRODUCT, fd.AMOUNT AS cantidad, fd.PRECIO_UNIT AS precio_unit, fd.SUB_TOTAL AS subtotal,
                  p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
           FROM FACTURA_DETALLES fd
           LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = fd.ID_PRODUCT
@@ -205,6 +255,7 @@ export async function GET(req) {
         return Response.json({
           factura: {
             id: f.ID_FACTURA,
+            numero: f.NUMERO_FACTURA || null,
             fecha: f.FECHA,
             subtotal: Number(f.SUBTOTAL || 0),
             descuento: Number(f.DESCUENTO || 0),
@@ -213,6 +264,7 @@ export async function GET(req) {
             sucursal,
             usuario,
             items: (itemsRows || []).map(it => ({
+              detalle_id: it.ID_DETALLES_FACTURA,
               producto_id: it.ID_PRODUCT,
               producto_nombre: it.producto_nombre,
               producto_codigo: it.producto_codigo,
@@ -231,6 +283,7 @@ export async function GET(req) {
     try {
       const [rows] = await pool.query(`
         SELECT f.ID_FACTURA AS id,
+               ${hasFacturaNumero ? 'f.NUMERO_FACTURA' : 'NULL'} AS numero,
                DATE_FORMAT(f.FECHA, '%Y-%m-%d') AS fecha,
                DATE_FORMAT(f.FECHA, '%H:%i') AS hora,
                f.TOTAL AS total,
@@ -243,7 +296,7 @@ export async function GET(req) {
         ORDER BY f.FECHA DESC
         LIMIT 1000
       `);
-      const mapped = (rows || []).map(r => ({ id: r.id, fecha: r.fecha, hora: r.hora, sucursal: r.sucursal || 'Sin sucursal', cliente: r.cliente || '', total: Number(r.total || 0), hecho_por: r.hecho_por || '' }));
+      const mapped = (rows || []).map(r => ({ id: r.id, numero: r.numero || null, fecha: r.fecha, hora: r.hora, sucursal: r.sucursal || 'Sin sucursal', cliente: r.cliente || '', total: Number(r.total || 0), hecho_por: r.hecho_por || '' }));
       return Response.json({ ventas: mapped });
     } catch (e) {
       return Response.json({ error: e.message || 'Error al obtener ventas' }, { status: 500 });

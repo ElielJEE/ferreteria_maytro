@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { FiCheck, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX } from 'react-icons/fi'
-import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService } from '@/services';
+import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, CotizacionesService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin } from 'react-icons/bs';
@@ -28,6 +28,8 @@ export default function PuntoVentaOrg() {
 	const [clienteNombre, setClienteNombre] = useState('');
 	const [clienteTelefono, setClienteTelefono] = useState('');
 	const [processing, setProcessing] = useState(false);
+	const [savingQuote, setSavingQuote] = useState(false);
+	const [fechaVencimiento, setFechaVencimiento] = useState('');
 	const isMobile = useIsMobile({ breakpoint: 1024 })
 	const [clientes, setClientes] = useState([]);
 	const [clienteFiltrados, setClienteFiltrados] = useState([]);
@@ -354,8 +356,50 @@ export default function PuntoVentaOrg() {
 		}
 	}
 
-	const confirmCotizacion = () => {
-		router.push('/venta/cotizaciones');
+	const confirmCotizacion = async () => {
+		if (savingQuote) return;
+		// Validaciones mínimas
+		const errs = {};
+		if (!clienteNombre?.trim()) errs.nombre = 'Este campo es requerido';
+		if (!clienteTelefono?.trim()) errs.telefono = 'Este campo es requerido';
+		if (!fechaVencimiento) errs.fecha = 'Este campo es requerido';
+		if (!productList?.length) errs.general = 'Agrega al menos un producto';
+		setError(prev => ({ ...(prev || {}), ...errs }));
+		if (Object.keys(errs).length) return;
+
+		// Construir payload para /api/cotizaciones
+		const items = productList.map(p => ({
+			ID_PRODUCT: p.ID_PRODUCT,
+			cantidad: Number(p.quantity || 0),
+			PRECIO: Number(p.PRECIO || 0),
+		}));
+
+		const payload = {
+			items,
+			subtotal: Number(subtotal.toFixed(2)),
+			descuento: Number(descuento || 0),
+			total: Number(total.toFixed(2)),
+			cliente: { nombre: clienteNombre, telefono: clienteTelefono },
+			fecha_vencimiento: fechaVencimiento,
+			// Ayuda a resolver sucursal en el backend (opcional)
+			sucursal_id: currentUser?.ID_SUCURSAL || (selectedSucursal?.value ?? null),
+		};
+
+		try {
+			setSavingQuote(true);
+			const res = await CotizacionesService.createQuote(payload);
+			setSavingQuote(false);
+			if (!res?.success) {
+				setError(prev => ({ ...(prev || {}), general: res?.message || 'No se pudo crear la cotización' }));
+				return;
+			}
+			// Éxito
+			setIsActiveModal(false);
+			router.push('/venta/cotizaciones');
+		} catch (e) {
+			setSavingQuote(false);
+			setError(prev => ({ ...(prev || {}), general: e?.message || 'Error al crear la cotización' }));
+		}
 	}
 	// Al cambiar sucursal seleccionada, limpiar el carrito (evita mezclar stock entre sucursales)
 	useEffect(() => {
@@ -669,18 +713,25 @@ export default function PuntoVentaOrg() {
 									label={'Fecha Valida Hasta:'}
 									type={'date'}
 									inputClass={'no icon'}
+										value={fechaVencimiento}
+										onChange={(e) => {
+											setFechaVencimiento(e.target.value);
+											setError(prev => ({ ...(prev || {}), fecha: '' }));
+										}}
+										error={error && error.fecha}
 								/>
+									{error?.general && <span className='text-danger text-sm'>{error.general}</span>}
 								<div className='flex gap-2 w-full'>
 									<Button
 										text={'Cancelar Cotizacion'}
 										className={'secondary'}
 										func={() => setIsActiveModal(false)}
 									/>
-									<Button
-										text={'Confirmar Cotizacion'}
-										className={'success'}
-										func={() => confirmCotizacion()}
-									/>
+										<Button
+											text={savingQuote ? 'Guardando…' : 'Confirmar Cotizacion'}
+											className={'success'}
+											func={savingQuote ? undefined : confirmCotizacion}
+										/>
 								</div>
 							</div>
 						) : (

@@ -1,10 +1,11 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button, InfoCard, ModalContainer } from '../atoms'
 import { FiCheckCircle, FiClock, FiEdit, FiEye, FiFileText, FiPlus, FiPrinter, FiRotateCcw, FiSearch } from 'react-icons/fi'
 import { Card, DropdownMenu, Input, ReturnCreate, ReturnEdit, ReturnView } from '../molecules'
 import { useActive, useIsMobile } from '@/hooks'
 import { BsBuilding } from 'react-icons/bs'
+import { ReturnsService } from '@/services'
 
 export default function ReturnsOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
@@ -12,26 +13,35 @@ export default function ReturnsOrg() {
 	const { isActiveModal, setIsActiveModal } = useActive();
 	const [returnData, setReturnData] = useState({});
 
-	const devolucionesEjemplos = [
-		{
-			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
-				id: "s1",
-				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', motivo: "El motivo de la devolucion."
-		},
-		{
-			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
-				id: "s1",
-				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', motivo: "El motivo de la devolucion."
-		},
-		{
-			id: 'DEV-001', productName: 'Martillo', productCode: 'H001', cliente: 'juan perez', sucursal: {
-				id: "s1",
-				name: "Sucursal Sur",
-			}, telefono: '84005907', cantidad: '3', fecha: '08/05/2025', hora: '13:23', motivo: "El motivo de la devolucion."
-		},
-	]
+	const [devoluciones, setDevoluciones] = useState([]);
+
+	useEffect(() => {
+		const load = async () => {
+			try {
+				const res = await ReturnsService.getReturns();
+				const list = (res?.devoluciones || []).map(d => ({
+					id: d.id || d.ID_DEVOLUCION,
+					productName: d.producto_nombre || d.PRODUCT_NAME,
+					productCode: d.producto_codigo || d.CODIGO_PRODUCTO,
+					cliente: d.cliente || d.cliente_nombre || 'Consumidor Final',
+					telefono: d.telefono || d.cliente_telefono || '',
+					cantidad: d.cantidad || d.CANTIDAD || 0,
+					fecha: d.fecha ? new Date(d.fecha).toLocaleDateString() : (d.FECHA_DEVOLUCION ? new Date(d.FECHA_DEVOLUCION).toLocaleDateString() : ''),
+					hora: d.fecha ? new Date(d.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (d.FECHA_DEVOLUCION ? new Date(d.FECHA_DEVOLUCION).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
+					motivo: d.motivo || d.MOTIVO || '',
+					evaluacion: d.motivo || d.MOTIVO || '',
+					sucursal: (d.sucursal && (d.sucursal.nombre || d.sucursal_nombre)) ? { id: d.sucursal.id || d.sucursal_id_real || d.ID_SUCURSAL || '', name: d.sucursal.nombre || d.sucursal_nombre } : (d.sucursal_nombre ? { id: d.sucursal_id_real || d.ID_SUCURSAL || '', name: d.sucursal_nombre } : { id: '', name: '' }),
+				}));
+				setDevoluciones(list);
+			} catch (e) {
+				console.error('Error cargando devoluciones', e);
+			}
+		};
+		load();
+		const handler = () => load();
+		try { window.addEventListener('returns:updated', handler); } catch {}
+		return () => { try { window.removeEventListener('returns:updated', handler); } catch {} };
+	}, []);
 
 	const toggleModalType = (type, data) => {
 		setMode(type)
@@ -56,7 +66,7 @@ export default function ReturnsOrg() {
 				<section className='grid md:grid-cols-4 grid-cols-1 gap-4'>
 					<InfoCard
 						CardTitle={"Total Devoluciones"}
-						cardValue={"3"}
+							cardValue={String(devoluciones.length)}
 						cardIcon={<FiRotateCcw className='h-5 w-5 text-primary' />}
 						cardIconColor={'primary'}
 					/>
@@ -101,7 +111,7 @@ export default function ReturnsOrg() {
 										</tr>
 									</thead>
 									<tbody className='w-full'>
-										{devolucionesEjemplos.map((item, index) => (
+										{devoluciones.map((item, index) => (
 											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
 												<td className='p-2 text-start'>
 													{item.id}
@@ -115,7 +125,7 @@ export default function ReturnsOrg() {
 												<td className='p-2'>
 													<div className='flex items-center gap-1 truncate text-dark/70'>
 														<BsBuilding />
-														{item.sucursal.name}
+														{item.sucursal?.name || '—'}
 													</div>
 												</td>
 												<td className='p-2'>
@@ -141,7 +151,7 @@ export default function ReturnsOrg() {
 							</div>
 						) : (
 							<div className='flex flex-col gap-4'>
-								{devolucionesEjemplos.map((item, index) => (
+										{devoluciones.map((item, index) => (
 									<div key={index}>
 										<Card
 											productName={item.productName}
