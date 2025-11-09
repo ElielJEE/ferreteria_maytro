@@ -74,7 +74,8 @@ export default function SalesBackgroundOrg() {
 			return (
 				(item.cliente_nombre || '').toLowerCase().includes(q) ||
 				(item.cliente || '').toLowerCase().includes(q) ||
-				(item.factura_numero?.toString() || '').toLowerCase().includes(q) // 👈 número de factura
+				(item.factura_numero?.toString() || '').toLowerCase().includes(q) || // compat
+				(item.numero?.toString() || '').toLowerCase().includes(q) // número expuesto por API
 			);
 		},
 	});
@@ -167,7 +168,7 @@ export default function SalesBackgroundOrg() {
 													{index + 1}
 												</td>
 												<td className='p-2'>
-													{"luego"}
+													{item.numero ?? ''}
 												</td>
 												<td className='p-2 flex flex-col'>
 													<span>{item.fecha}</span>
@@ -212,6 +213,10 @@ export default function SalesBackgroundOrg() {
 										key={index}
 										sucursal={item.sucursal || ''}
 									>
+										<div className='flex flex-col'>
+											<span className='text-sm text-dark/70'>N° Factura</span>
+											<span className='text-lg font-semibold'>{item.numero ?? ''}</span>
+										</div>
 										<div className='flex flex-col'>
 											<span className='text-sm text-dark/70'>Fecha</span>
 											<span className='text-lg font-semibold'>{item.fecha}</span>

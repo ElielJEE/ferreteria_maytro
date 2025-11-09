@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import DropdownMenu from './DropdownMenu';
 import Input from './Input';
 import { Button } from '../atoms';
-import { ProductService } from '@/services';
+import { ProductService, ReturnsService } from '@/services';
 
 export default function ReturnView({ returnData, onClose, onSave, productData }) {
 	const [productOpts, setProductOpts] = useState([]);
@@ -13,6 +13,8 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 	const [totalAPagar, setTotalAPagar] = useState(0);
 	const [totalADevolver, setTotalADevolver] = useState(0);
 	const [subtotalNuevo, setSubtotalNuevo] = useState(0);
+	const [estado, setEstado] = useState('BUENO');
+	const [motivo, setMotivo] = useState('');
 
 	const productStatus = ['En Buen Estado', 'Dañado'];
 
@@ -72,17 +74,42 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 		}
 	}, [selectedProduct, cantidadDevolver]);
 
-	const handleSubmit = (e) => {
+	const handleSubmit = async (e) => {
 		e.preventDefault();
-		onClose && onClose();
-		onSave && onSave({
-			productReturned: productData,
-			productNew: selectedProduct,
-			cantidadDevolver,
-			nuevoTotal,
-			totalAPagar,
-			totalADevolver
-		});
+		try {
+			const mapEstado = (val) => {
+				if (!val) return 'BUENO';
+				const t = val.toString().toLowerCase();
+				if (t.includes('dañ')) return 'DANIADO';
+				return 'BUENO';
+			};
+			const payload = {
+				factura_id: returnData?.id,
+				detalle_id: productData?.detalle_id,
+				producto_id: productData?.producto_id || productData?.ID_PRODUCT,
+				cantidad: Number(cantidadDevolver || 0),
+				estado: mapEstado(estado),
+				motivo: motivo || null,
+			};
+			if (selectedProduct && selectedProduct.value && selectedProduct.value.ID_PRODUCT) {
+				payload.reemplazo = {
+					producto_id: selectedProduct.value.ID_PRODUCT,
+					cantidad: Number(cantidadDevolver || 0),
+				};
+			}
+			const res = await ReturnsService.createReturn(payload);
+			if (res?.ok) {
+				try { window.dispatchEvent(new CustomEvent('returns:updated')); } catch {}
+				onSave && onSave(res);
+				onClose && onClose();
+			} else {
+				console.error('Error creando devolución:', res);
+				alert(res?.error || res?.message || 'No se pudo procesar la devolución');
+			}
+		} catch (err) {
+			console.error('handleSubmit devolución:', err);
+			alert(err?.message || 'Error procesando la devolución');
+		}
 	};
 
 	return (
@@ -99,6 +126,7 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 					label='Estado del producto'
 					defaultValue='Selecciona un Estado'
 					options={productStatus.map(s => ({ label: s, value: s }))}
+					onChange={(opt) => setEstado(opt?.value || 'BUENO')}
 				/>
 				<Input
 					label='Cantidad a devolver'
@@ -122,6 +150,8 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 					isTextarea
 					placeholder='Ingrese motivo de la devolución...'
 					inputClass='no icon'
+					value={motivo}
+					onChange={(e) => setMotivo(e.target.value)}
 				/>
 
 				{/* Totales */}

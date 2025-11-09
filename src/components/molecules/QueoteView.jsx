@@ -1,9 +1,27 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { Button } from '../atoms';
 import { FiShoppingBag } from 'react-icons/fi';
 
-export default function QueoteView({ quote, onClose }) {
-	console.log(quote);
+export default function QueoteView({ quote, onClose, onProcess }) {
+	// Calcular expiración: fechaExp < hoy (normalizado) o estado marcado como expirada
+	const isExpired = useMemo(() => {
+		try {
+			if (!quote) return false;
+			if (quote.estado && quote.estado.toLowerCase() === 'expirada') return true;
+			const raw = quote.fechaExp || quote.FECHA_VENCIMIENTO;
+			if (!raw) return false;
+			const exp = new Date(raw);
+			if (isNaN(exp.getTime())) return false;
+			const today = new Date();
+			today.setHours(0,0,0,0);
+			exp.setHours(0,0,0,0);
+			// Inclusive: el mismo día de vencimiento ya se considera expirado
+			return exp <= today;
+		} catch { return false; }
+	}, [quote]);
+
+	// Deshabilitar si ya fue procesada o está expirada
+	const disableProcess = (quote?.estado && ['procesada'].includes(String(quote.estado).toLowerCase())) || isExpired;
 
 	return (
 		<div className='py-4'>
@@ -99,6 +117,8 @@ export default function QueoteView({ quote, onClose }) {
 					text={'Procesar Venta'}
 					icon={<FiShoppingBag />}
 					className={'success'}
+					disabled={disableProcess}
+					func={() => { if (!disableProcess && typeof onProcess === 'function') onProcess(quote); }}
 				/>
 			</div>
 		</div>
