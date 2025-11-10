@@ -174,22 +174,25 @@ export default function PuntoVentaOrg() {
 	const total = subtotal - descuento;
 
 	const toggleModalType = (type) => {
-		if (type === 'venta') {
+		if (type === 'venta' && productList.length > 0) {
 			setMode(type);
 			setIsActiveModal(true);
 
-		} else if (type === 'cotizacion') {
+		} else if (type === 'cotizacion' && productList.length > 0) {
 			setMode(type);
 			handleCotizacion();
 
-		} else if (type === 'credito') {
+		} else if (type === 'credito' && productList.length > 0) {
 			setMode(type);
 			setIsActiveModal(true);
 
-		} else if (type === 'confirmar venta') {
+		} else if (type === 'confirmar venta' && productList.length > 0) {
 			setMode(type);
 			setIsActiveModal(false);
 			handleSubmitVenta();
+		} else {
+			setMode('error');
+			setIsActiveModal(true)
 		}
 	};
 
@@ -284,7 +287,12 @@ export default function PuntoVentaOrg() {
 		setIsActiveModal(false);
 		setMontoCordobas("");
 		setMontoDolares("");
-		setError(null);
+		setError({
+			nombre: '',
+			telefono: '',
+			fecha: '',
+			general: '',
+		});
 	};
 
 	const handleDone = () => {
@@ -293,7 +301,12 @@ export default function PuntoVentaOrg() {
 		setMontoCordobas("");
 		setMontoDolares("");
 		setProductList([]);
-		setError(null);
+		setError({
+			nombre: '',
+			telefono: '',
+			fecha: '',
+			general: '',
+		});
 	}
 
 	const [activeTab, setActiveTab] = useState("productos");
@@ -674,7 +687,10 @@ export default function PuntoVentaOrg() {
 								? 'Crear Cotizacion'
 								: (mode === 'Credito'
 									? 'Gestionar Credito'
-									: 'Cambio Total: C$' + cambio
+									: (mode === 'error'
+										? 'Lista de productos vacia'
+										: 'Cambio Total: C$' + cambio
+									)
 								)
 							)
 						}
@@ -684,7 +700,10 @@ export default function PuntoVentaOrg() {
 								? ('Genera una cotización para el cliente ingresando la fecha de espera \npara procesar la venta.')
 								: (mode === 'Credito'
 									? 'Gestiona el crédito para el cliente.'
-									: ''
+									: (mode === 'error'
+										? 'Agrega al menos un producto a la lista para realiar una venta.'
+										: ''
+									)
 								)
 							)
 						}
@@ -747,6 +766,15 @@ export default function PuntoVentaOrg() {
 											func={savingQuote ? undefined : confirmCotizacion}
 										/>
 								</div>
+							</div>
+						) : mode === 'error' ? (
+							<div className='mt-2'>
+								<Button
+									className={'success'}
+									text={'Aceptar'}
+									icon={<FiCheck className='h-5 w-5' />}
+									func={() => setIsActiveModal(false)}
+								/>
 							</div>
 						) : (
 							<div className='flex mt-2'>
