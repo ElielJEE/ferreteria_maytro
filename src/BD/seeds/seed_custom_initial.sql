@@ -25,7 +25,7 @@ ON DUPLICATE KEY UPDATE NOMBRE_SUCURSAL = VALUES(NOMBRE_SUCURSAL), DIRECCION = V
 
 INSERT INTO USUARIOS (ID, NOMBRE, NOMBRE_USUARIO, CORREO, CONTRASENA, ESTATUS, ID_ROL, ID_SUCURSAL)
 VALUES
-  (1, 'Admin Principal', 'admin', 'admin@ferreteria.local', 'adminpass', 'activo', 1, NULL),
+  (1, 'Admin Principal', 'admin', 'admin@ferreteria.local', 'adminpass', 'ACTIVO', 1, NULL),
   (2, 'Gerente S1', 'gerente_s1', 'gerente.s1@ferreteria.local', 'gerentepass', 'activo', 2, 'S1'),
   (3, 'Vendedor S1', 'vendedor_s1', 'vend.s1@ferreteria.local', 'vendpass1', 'activo', 3, 'S1'),
   (4, 'Vendedor S2', 'vendedor_s2', 'vend.s2@ferreteria.local', 'vendpass2', 'activo', 3, 'S2')

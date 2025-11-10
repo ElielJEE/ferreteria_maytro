@@ -11,3 +11,5 @@ export * as SucursalesService from './SucursalesService';
 export * as ProveedorService from './ProveedorService';
 export * as ReturnsService from './ReturnsService';
 export * as CajaService from './CajaService';
+export * as UsuarioService from './UsuarioService';
+export * as RolesService from './RolesService';

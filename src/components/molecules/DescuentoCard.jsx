@@ -10,7 +10,7 @@ export default function DescuentoCard({ title, description, code, percentValue, 
 						<span className='text-dark/70'>{description || "Texto de prueba descripcion."}</span>
 					</div>
 					<div className='px-4 border border-primary rounded-full bg-primary/10 font-semibold md:text-lg text-primary'>
-						{percentValue || "15%"}
+						{percentValue || "15"}%
 					</div>
 				</div>
 				<div className='py-4 px-1 border-y border-dark/10'>

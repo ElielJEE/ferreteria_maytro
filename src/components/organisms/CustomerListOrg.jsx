@@ -13,6 +13,12 @@ export default function CustomerListOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
 	const { isActiveModal, setIsActiveModal } = useActive();
 	const [cliente, setCliente] = useState({});
+	const [error, setError] = useState({
+		nombre: '',
+		telefono: '',
+		direccion: '',
+		general: ''
+	});
 
 	useEffect(() => {
 		const getCustomers = async () => {
@@ -42,15 +48,78 @@ export default function CustomerListOrg() {
 		}
 	}
 
-	const handleEditSubmit = (e) => {
+	const validate = () => {
+		let isValid = true;
+		const newErrors = { nombre: '', telefono: '', direccion: '', general: '' };
+
+		if (!cliente.nombre.trim()) {
+			newErrors.nombre = 'El nombre es obligatorio';
+			isValid = false;
+		}
+
+		if (!cliente.telefono.trim()) {
+			newErrors.telefono = 'El teléfono es obligatorio';
+			isValid = false;
+		}
+
+		if (!cliente.direccion.trim()) {
+			newErrors.direccion = 'La dirección es obligatoria';
+			isValid = false;
+		}
+
+		setError(newErrors);
+		return isValid;
+	};
+
+
+	const handleEditSubmit = async (e) => {
 		e.preventDefault();
 
-		setIsActiveModal(false)
-	}
+		if (!validate()) {
+			return;
+		}
 
-	const confirmDelete = () => {
-		setIsActiveModal(false)
-	}
+		try {
+			const res = await CustomerService.actualizarCliente({
+				id: cliente.id,
+				nombre: cliente.nombre,
+				telefono: cliente.telefono,
+				direccion: cliente.direccion,
+			});
+
+			if (res.error) {
+				setError({ general: res.error });
+				return;
+			}
+
+			setClientesList((prevList) =>
+				prevList.map((c) =>
+					c.id === cliente.id ? { ...c, ...cliente } : c
+				)
+			);
+
+			setIsActiveModal(false);
+		} catch (err) {
+			console.error("Error al actualizar cliente:", err);
+			setError({ general: "Error al actualizar cliente" });
+		}
+	};
+
+	const confirmDelete = async () => {
+		try {
+			const res = await CustomerService.eliminarCliente(cliente.id);
+			if (res.error) {
+				setError({ general: res.error });
+				return;
+			}
+
+			setClientesList((prev) => prev.filter((c) => c.id !== cliente.id));
+			setIsActiveModal(false);
+		} catch (err) {
+			setError({ general: "Error al eliminar cliente ❌" });
+		}
+	};
+
 
 	return (
 		<>
@@ -88,6 +157,7 @@ export default function CustomerListOrg() {
 											<th className='text-start text-dark/50 font-semibold p-2'>#</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Nombre</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Telefono</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Direccion</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
 										</tr>
 									</thead>
@@ -96,7 +166,8 @@ export default function CustomerListOrg() {
 											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
 												<td className='p-2 text-start'>{index + 1}</td>
 												<td className='p-2 text-start'>{item.nombre}</td>
-												<td className='p-2 text-start'>{item.telefono}</td>
+												<td className='p-2 text-start'>{item.telefono || 'N/A'}</td>
+												<td className='p-2 text-start'>{item.direccion}</td>
 												<td className='p-2 text-center'>
 													<div className='flex gap-2 justify-center'>
 														<Button
@@ -151,25 +222,57 @@ export default function CustomerListOrg() {
 						{
 							mode === 'edit' ? (
 								<form className='w-full' onSubmit={handleEditSubmit}>
-									<div className='w-full flex gap-4'>
+									<div className='w-full grid grid-cols-2 gap-4'>
 										<Input
 											label={'Nombre del Cliente'}
 											placeholder={'Ingrese nombre del cliente...'}
 											inputClass={'no icon'}
 											value={cliente.nombre}
+											onChange={(e) => {
+												setCliente({ ...cliente, nombre: e.target.value })
+												setError({ ...error, nombre: '' })
+											}}
+											error={error.nombre && error.nombre}
 										/>
 										<Input
 											label={'Telefono del cliente'}
 											placeholder={'Ingrese telefono del cliente...'}
 											inputClass={'no icon'}
 											value={cliente.telefono}
+											onChange={(e) => {
+												setCliente({ ...cliente, telefono: e.target.value })
+												setError({ ...error, telefono: '' })
+											}}
+											error={error.telefono && error.telefono}
 										/>
+										<div className='col-span-2'>
+											<Input
+												label={'Direccion'}
+												placeholder={'Ingrese la direccion del cliente...'}
+												inputClass={'no icon'}
+												value={cliente.direccion}
+												onChange={(e) => {
+													setCliente({ ...cliente, direccion: e.target.value })
+													setError({ ...error, direccion: '' })
+												}}
+												error={error.direccion && error.direccion}
+											/>
+										</div>
 									</div>
+									{error.general && <span className='text-danger text-center col-span-2 text-sm'>*{error.general}</span>}
 									<div className='flex gap-2 mt-2'>
 										<Button
 											text={'Cancelar'}
 											className={'secondary'}
-											func={() => setIsActiveModal(false)}
+											func={() => {
+												setIsActiveModal(false)
+												setError({
+													nombre: '',
+													telefono: '',
+													direccion: '',
+													general: ''
+												})
+											}}
 										/>
 										<Button
 											text={'Guardar'}
