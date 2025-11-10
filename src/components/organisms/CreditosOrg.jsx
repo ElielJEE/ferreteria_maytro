@@ -2,10 +2,10 @@
 import React, { useState } from 'react'
 import { Button, InfoCard, ModalContainer } from '../atoms'
 import { FiActivity, FiDollarSign, FiEdit, FiEye, FiFile, FiPrinter, FiSearch, FiStopCircle, FiUser } from 'react-icons/fi'
-import { BsBuilding, BsStop } from 'react-icons/bs'
+import { BsBagFill, BsBuilding, BsCash, BsCashCoin, BsStop } from 'react-icons/bs'
 import { MdBlock } from 'react-icons/md'
 import { useActive, useFilter, useIsMobile } from '@/hooks'
-import { Card, CreditosEdit, CreditosView, Input } from '../molecules'
+import { Card, CreditosEdit, CreditosPayment, CreditosView, Input } from '../molecules'
 
 export default function CreditosOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
@@ -122,6 +122,10 @@ export default function CreditosOrg() {
 
 		} else if (type === 'editar') {
 			setSelectedCredit(item);
+			setIsActiveModal(true)
+
+		} else if (type === 'payment') {
+			setSelectedCredit(item)
 			setIsActiveModal(true)
 
 		} else if (type === 'print') {
@@ -242,6 +246,7 @@ export default function CreditosOrg() {
 													<div className='flex gap-2 justify-center w-1/2'>
 														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalType('ver', item)} />
 														<Button className={'blue'} icon={<FiEdit />} func={() => toggleModalType('editar', item)} />
+														<Button className={'purple'} icon={<BsCashCoin />} func={() => toggleModalType('payment', item)} />
 														<Button className={'success'} icon={<FiPrinter />} func={() => toggleModalType('print', item)} />
 													</div>
 												</td>
@@ -296,12 +301,13 @@ export default function CreditosOrg() {
 				isActiveModal && (
 					<ModalContainer
 						setIsActiveModal={setIsActiveModal}
-						modalTitle={mode === 'ver' ? 'Detalles del Credito' : mode === 'editar' ? 'Editar Credito' : mode === 'eliminar' ? 'Eliminar venta' : ''}
-						modalDescription={mode === 'ver' ? 'Información completa de la transacción' : mode === 'editar' ? 'Editar Credito' : mode === 'eliminar' ? 'Eliminar venta' : ''}
-						isForm={mode === 'editar' ? true : false}
+						modalTitle={mode === 'ver' ? 'Detalles del Credito' : mode === 'editar' ? 'Editar Credito' : mode === 'payment' ? `Pago de Credito para ${selectedCredit.cliente.nombre}` : ''}
+						modalDescription={mode === 'ver' ? 'Información completa de la transacción' : mode === 'editar' ? 'Editar Credito' : mode === 'payment' ? `Deuda actual del credito: C$${selectedCredit.deudaActual}` : ''}
+						isForm={mode === 'editar' || mode === 'payment' ? true : false}
 					>
 						{mode === 'ver' && <CreditosView creditData={selectedCredit} onClose={() => setIsActiveModal(false)} />}
 						{mode === 'editar' && <CreditosEdit creditData={selectedCredit} onClose={() => setIsActiveModal(false)} />}
+						{mode === 'payment' && <CreditosPayment creditData={selectedCredit} onClose={() => setIsActiveModal(false)} />}
 					</ModalContainer>
 				)
 			}

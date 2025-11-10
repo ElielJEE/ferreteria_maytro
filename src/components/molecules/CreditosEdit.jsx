@@ -1,3 +1,4 @@
+'use client'
 import React, { useEffect, useState } from 'react'
 import Input from './Input';
 import { ProductService } from '@/services';
