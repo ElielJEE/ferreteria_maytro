@@ -16,3 +16,5 @@ export { default as ReturnEdit } from './ReturnEdit';
 export { default as ReturnView } from './ReturnView';
 export { default as CreditosView } from './CreditosView';
 export { default as CreditosEdit } from './CreditosEdit';
+export { default as DescuentoCard } from './DescuentoCard';
+export { default as CreditosPayment } from './CreditosPayment';
