@@ -561,17 +561,3 @@ INSERT INTO CLIENTES (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE)
 SELECT 'Consumidor Final', 'N/A', ''
 WHERE NOT EXISTS (SELECT 1 FROM CLIENTES WHERE NOMBRE_CLIENTE = 'Consumidor Final' LIMIT 1);
 
--- (Opcional) Trigger para asignar automáticamente el cliente "Consumidor Final" en nuevas devoluciones cuando no se especifique
-DELIMITER $$
-CREATE TRIGGER bi_devolucion_default_cliente
-BEFORE INSERT ON DEVOLUCION
-FOR EACH ROW
-BEGIN
-  IF NEW.ID_CLIENTES IS NULL THEN
-    DECLARE v_cli INT;
-    SELECT ID_CLIENTES INTO v_cli FROM CLIENTES WHERE NOMBRE_CLIENTE = 'Consumidor Final' ORDER BY ID_CLIENTES ASC LIMIT 1;
-    SET NEW.ID_CLIENTES = v_cli;
-  END IF;
-END$$
-DELIMITER ;
-
