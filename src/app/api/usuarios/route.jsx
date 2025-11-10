@@ -17,6 +17,8 @@ export async function GET(req) {
     u.NOMBRE_USUARIO AS nombreUsuario,
     u.CORREO AS correo,
     u.ESTATUS AS estado,
+		u.ID_ROL as idRol,
+		u.ID_SUCURSAL as idSucursal,
     r.ROL_NAME AS ROL,
 		s.NOMBRE_SUCURSAL AS SUCURSAL
 FROM USUARIOS u
@@ -39,7 +41,9 @@ LEFT JOIN SUCURSAL s ON u.ID_SUCURSAL = s.ID_SUCURSAL
 			correo: r.correo || '',
 			estado: r.estado || '',
 			rol: r.ROL || '',
-			sucursal: r.SUCURSAL || ''
+			idRol: r.idRol || '',
+			sucursal: r.SUCURSAL || '',
+			idSucursal: r.idSucursal || '',
 		}));
 		return NextResponse.json({ usuarios });
 	} catch (e) {
@@ -113,6 +117,121 @@ export async function POST(req) {
 		});
 	} catch (e) {
 		console.error("Error al crear usuario:", e);
+		return NextResponse.json(
+			{ error: e.message || "Error interno del servidor." },
+			{ status: 500 }
+		);
+	}
+}
+
+export async function PUT(req) {
+	try {
+		const body = await req.json();
+		const {
+			id, // ID del usuario a actualizar
+			nombre,
+			nombreUsuario,
+			correo,
+			contrasenia,
+			confirmarContrasenia,
+			idRol,
+			idSucursal,
+		} = body;
+
+		// Validaciones básicas
+		if (!id) {
+			return NextResponse.json({ error: "El ID del usuario es obligatorio." }, { status: 400 });
+		}
+
+		if (!nombre || !nombreUsuario || !correo) {
+			return NextResponse.json({ error: "Nombre, usuario y correo son obligatorios." }, { status: 400 });
+		}
+
+		// Verificar si el usuario existe
+		const [userRows] = await pool.query("SELECT * FROM USUARIOS WHERE ID = ?", [id]);
+		if (userRows.length === 0) {
+			return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
+		}
+
+		// Verificar si el nuevo nombreUsuario o correo ya están registrados en otro usuario
+		const [existing] = await pool.query(
+			"SELECT ID FROM USUARIOS WHERE (NOMBRE_USUARIO = ? OR CORREO = ?) AND ID != ?",
+			[nombreUsuario, correo, id]
+		);
+		if (existing.length > 0) {
+			return NextResponse.json(
+				{ error: "El nombre de usuario o correo ya están registrados por otro usuario." },
+				{ status: 409 }
+			);
+		}
+
+		// Si se proporciona una contraseña, verificar que coincida la confirmación
+		let hashedPassword = null;
+		if (contrasenia || confirmarContrasenia) {
+			if (contrasenia !== confirmarContrasenia) {
+				return NextResponse.json({ error: "Las contraseñas no coinciden." }, { status: 400 });
+			}
+			hashedPassword = await bcrypt.hash(contrasenia, 10);
+		}
+
+		// Construir la consulta dinámica
+		let sql = `UPDATE USUARIOS SET 
+			NOMBRE = ?, 
+			NOMBRE_USUARIO = ?, 
+			CORREO = ?, 
+			ID_ROL = ?, 
+			ID_SUCURSAL = ?`;
+
+		const params = [nombre, nombreUsuario, correo, idRol || null, idSucursal || null];
+
+		// Agregar la contraseña si se cambió
+		if (hashedPassword) {
+			sql += `, CONTRASENA = ?`;
+			params.push(hashedPassword);
+		}
+
+		sql += ` WHERE ID = ?`;
+		params.push(id);
+
+		await pool.query(sql, params);
+
+		return NextResponse.json({ message: "Usuario actualizado correctamente." });
+	} catch (e) {
+		console.error("Error al actualizar usuario:", e);
+		return NextResponse.json(
+			{ error: e.message || "Error interno del servidor." },
+			{ status: 500 }
+		);
+	}
+}
+
+export async function DELETE(req) {
+	try {
+		const url = req.nextUrl;
+		const id = url.searchParams.get('id');
+
+		if (!id) {
+			return NextResponse.json(
+				{ error: "El ID del usuario es obligatorio." },
+				{ status: 400 }
+			);
+		}
+
+		// Verificar si el usuario existe
+		const [userRows] = await pool.query("SELECT * FROM USUARIOS WHERE ID = ?", [id]);
+		if (userRows.length === 0) {
+			return NextResponse.json(
+				{ error: "Usuario no encontrado." },
+				{ status: 404 }
+			);
+		}
+
+		// Cambiar estado a INACTIVO
+		await pool.query("UPDATE USUARIOS SET ESTATUS = 'INACTIVO' WHERE ID = ?", [id]);
+
+		return NextResponse.json({ message: "Usuario desactivado correctamente." });
+	} catch (e) {
+		console.error("Error al desactivar usuario:", e);
 		return NextResponse.json(
 			{ error: e.message || "Error interno del servidor." },
 			{ status: 500 }
