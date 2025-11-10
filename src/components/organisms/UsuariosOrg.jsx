@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { Button, InfoCard, ModalContainer } from '../atoms'
+import { Button, InfoCard, ModalContainer, SwitchButton } from '../atoms'
 import { CustomerService, RolesService, SucursalesService, UsuarioService } from '@/services';
 import { FiEdit, FiPlus, FiSearch, FiTrash2, FiUsers } from 'react-icons/fi';
 import { Card, DropdownMenu, Input } from '../molecules';
@@ -30,7 +30,22 @@ export default function UsuariosOrg() {
 		correo: '',
 		contrasenia: '',
 		confirmarContrasenia: '',
+		rol: '',
+		sucursal: '',
 	});
+	const [editUsuario, setEditUsuario] = useState({
+		id: '',
+		nombre: '',
+		nombreUsuario: '',
+		correo: '',
+		idRol: '',
+		rol: '',
+		idSucursal: '',
+		sucursal: '',
+		contrasenia: '',
+		confirmarContrasenia: '',
+	});
+	const [showDeactives, setShowDeactives] = useState(false);
 
 	useEffect(() => {
 		const fetchUsuarios = async () => {
@@ -71,6 +86,19 @@ export default function UsuariosOrg() {
 			setIsActiveModal(true)
 		} else if (type === 'edit') {
 			setUsuario(itemData);
+			console.log(itemData);
+			setEditUsuario({
+				id: itemData.id,
+				nombre: itemData.nombre || '',
+				nombreUsuario: itemData.nombreUsuario || '',
+				correo: itemData.correo || '',
+				idRol: itemData.idRol || '',
+				idSucursal: itemData.idSucursal || '',
+				rol: itemData.rol || '',
+				sucursal: itemData.sucursal || '',
+				contrasenia: '',
+				confirmarContrasenia: '',
+			});
 			setIsActiveModal(true);
 		} else if (type === 'delete') {
 			setUsuario(itemData);
@@ -83,36 +111,61 @@ export default function UsuariosOrg() {
 		setNewUsuario(prev => ({ ...prev, [name]: value }));
 	};
 
-	const validate = () => {
+	const handleEditChange = (e) => {
+		const { name, value } = e.target;
+		setEditUsuario((prev) => ({ ...prev, [name]: value }));
+	};
+
+	const validate = (mode = 'create') => {
 		let isValid = true;
+		const newErrors = {};
 
-		const newErrors = {}
+		const fieldLabels = {
+			nombre: 'nombre',
+			nombreUsuario: 'nombre de usuario',
+			correo: 'correo',
+			...(mode === 'create' ? { contrasenia: 'contraseña', confirmarContrasenia: 'confirmar contraseña' } : {}),
+		};
 
-		const requiredFields = ['nombre', 'nombreUsuario', 'correo', 'contrasenia', 'confirmarContrasenia'];
-		requiredFields.forEach(field => {
-			if (!usuario[field]?.trim()) {
-				newErrors[field] = `El ${field} es obligatorio`;
+		const data = mode === 'create' ? newUsuario : editUsuario; // Elegir el objeto correcto
+
+		Object.keys(fieldLabels).forEach(field => {
+			if (!data[field]?.trim()) {
+				newErrors[field] = `El campo ${fieldLabels[field]} es obligatorio`;
 				isValid = false;
 			} else {
-				newErrors[field] = ''
+				newErrors[field] = '';
 			}
-		})
+		});
+
+		if (!data.idRol) {
+			newErrors.rol = 'Debes seleccionar un rol';
+			isValid = false;
+		} else {
+			newErrors.rol = '';
+		}
+
+		if (!data.idSucursal) {
+			newErrors.sucursal = 'Debes seleccionar una sucursal';
+			isValid = false;
+		} else {
+			newErrors.sucursal = '';
+		}
 
 		setError(newErrors);
 		return isValid;
-	}
+	};
+
 
 	const handleSubmitCreate = async (e) => {
 		e.preventDefault();
 
-		// Validación básica
-		if (!validate()) {
+		if (!validate('create')) {
 			return;
 		}
-		console.log(newUsuario);
 
 		if (newUsuario.contrasenia !== newUsuario.confirmarContrasenia) {
-			alert("Las contraseñas no coinciden.");
+			setError({ confirmarContrasenia: "Las contraseñas no coinciden." });
 			return;
 		}
 
@@ -120,11 +173,9 @@ export default function UsuariosOrg() {
 			const res = await UsuarioService.createUsuario(newUsuario);
 			alert(res.message || "Usuario creado correctamente.");
 
-			// Refrescar lista
 			const usuariosActualizados = await UsuarioService.getUsuarios();
 			setUsuarios(usuariosActualizados.usuarios);
 
-			// Cerrar modal
 			setIsActiveModal(false);
 			setNewUsuario({
 				nombre: '',
@@ -136,19 +187,55 @@ export default function UsuariosOrg() {
 				confirmarContrasenia: '',
 			});
 		} catch (error) {
-			alert(error.message || "Error al crear el usuario.");
+			setError({ general: error.message || "Error al crear el usuario." });
 		}
 	};
 
-	const handleEditSubmit = (e) => {
+	const handleEditSubmit = async (e) => {
 		e.preventDefault();
 
-		setIsActiveModal(false)
-	}
+		if (!editUsuario.id) {
+			setError({ general: "No se puede actualizar: ID de usuario no válido." });
+			return;
+		}
 
-	const confirmDelete = () => {
-		setIsActiveModal(false)
-	}
+		if (!validate('edit')) {
+			return;
+		}
+
+		if (editUsuario.contrasenia !== editUsuario.confirmarContrasenia) {
+			setError({ confirmarContrasenia: "Las contraseñas no coinciden." });
+			return;
+		}
+
+		try {
+			const res = await UsuarioService.updateUsuario(editUsuario);
+
+			const usuariosActualizados = await UsuarioService.getUsuarios();
+			setUsuarios(usuariosActualizados.usuarios);
+
+			setIsActiveModal(false);
+		} catch (error) {
+			setError({ general: error.message || "Error al actualizar el usuario." });
+		}
+	};
+
+
+	const confirmDelete = async () => {
+		try {
+			if (!usuario.id) return;
+
+			const res = await UsuarioService.deleteUsuario(usuario.id);
+
+			const usuariosActualizados = await UsuarioService.getUsuarios();
+			setUsuarios(usuariosActualizados.usuarios);
+
+			setIsActiveModal(false);
+		} catch (error) {
+			setError({ general: error.message || "Error al inactivar el usuario." });
+		}
+	};
+
 
 	return (
 		<>
@@ -167,12 +254,16 @@ export default function UsuariosOrg() {
 							<h2 className='md:text-2xl font-semibold'>Lista de Usuarios</h2>
 							<span className='text-sm md:text-medium text-dark/50'>Gestiona y administra la lista de Usuarios</span>
 						</div>
-						<div>
+						<div className='flex flex-col gap-4'>
 							<Button
 								text={'Agregar Usuario'}
 								className={'primary'}
 								icon={<FiPlus />}
 								func={() => toggleModalType('create')}
+							/>
+							<SwitchButton
+								text={'Mostrar Usuarios Inactivos'}
+								onToggle={setShowDeactives}
 							/>
 						</div>
 					</div>
@@ -203,7 +294,7 @@ export default function UsuariosOrg() {
 									</thead>
 									<tbody className='w-full'>
 										{filteredUsuarios.map((item, index) => (
-											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
+											<tr key={index} className={`${!showDeactives ? item.estado !== 'ACTIVO' && 'hidden' : ''} text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3`}>
 												<td className='p-2 text-start'>{index + 1}</td>
 												<td className='p-2 text-start'>{item.nombre}</td>
 												<td className='p-2 text-start'>{item.nombreUsuario}</td>
@@ -275,63 +366,96 @@ export default function UsuariosOrg() {
 										placeholder={'Ingrese nombre del personal...'}
 										inputClass={'no icon'}
 										value={newUsuario.nombre}
-										onChange={handleChange}
+										onChange={(e) => {
+											handleChange(e);
+											setError({ ...error, nombre: '' });
+										}}
 										error={error.nombre && error.nombre}
-										/>
+									/>
 									<Input
 										name={'nombreUsuario'}
 										label={'Nombre de usuario'}
 										placeholder={'Ingrese un nombre de usuario unico...'}
 										inputClass={'no icon'}
 										value={newUsuario.nombreUsuario}
-										onChange={handleChange}
+										onChange={(e) => {
+											handleChange(e);
+											setError({ ...error, nombreUsuario: '' });
+										}}
 										error={error.nombreUsuario && error.nombreUsuario}
-										/>
+									/>
 									<Input
 										name={'correo'}
 										label={'Correo'}
 										placeholder={'ej. usuario@correo.com'}
 										inputClass={'no icon'}
 										value={newUsuario.correo}
-										onChange={handleChange}
+										onChange={(e) => {
+											handleChange(e);
+											setError({ ...error, correo: '' });
+										}}
 										error={error.correo && error.correo}
-										/>
+									/>
 									<DropdownMenu
 										label={'Rol del Usuario'}
 										defaultValue={"Selecciona un rol"}
 										options={roles}
-										onChange={(selected) => setNewUsuario(prev => ({ ...prev, idRol: selected.value }))}
-										/>
+										onChange={(selected) => {
+											setNewUsuario(prev => ({ ...prev, idRol: selected.value }));
+											setError({ ...error, rol: '' })
+										}}
+										error={error.rol && error.rol}
+									/>
 									<DropdownMenu
 										label={'Sucursal del Usuario'}
 										defaultValue={"Selecciona una sucursal"}
 										options={sucursales}
-										onChange={(selected) => setNewUsuario(prev => ({ ...prev, idSucursal: selected.value }))}
-										/>
+										onChange={(selected) => {
+											setNewUsuario(prev => ({ ...prev, idSucursal: selected.value }));
+											setError({ ...error, sucursal: '' })
+										}}
+										error={error.sucursal && error.sucursal}
+									/>
 									<Input
 										name={'contrasenia'}
+										type={'password'}
 										label={'Contraseña'}
 										placeholder={'•••••••••••'}
-										inputClass={'no icon'}
 										value={newUsuario.contrasenia}
-										onChange={handleChange}
+										onChange={(e) => {
+											handleChange(e);
+											setError({ ...error, contrasenia: '' });
+										}}
 										error={error.contrasenia && error.contrasenia}
-										/>
+									/>
 									<Input
 										name={'confirmarContrasenia'}
+										type={'password'}
 										label={'Confrimar contraseña'}
 										placeholder={'•••••••••••'}
-										inputClass={'no icon'}
 										value={newUsuario.confirmarContrasenia}
-										onChange={handleChange}
+										onChange={(e) => {
+											handleChange(e);
+											setError({ ...error, confirmarContrasenia: '' });
+										}}
 										error={error.confirmarContrasenia && error.confirmarContrasenia}
-										/>
+									/>
 								</div>
 								<div className='flex gap-2 mt-4'>
 									<Button
 										text={'Cancelar'}
 										className={'secondary'}
-										func={() => setIsActiveModal(false)}
+										func={() => {
+											setIsActiveModal(false)
+											setNewUsuario({
+												nombre: '',
+												nombreUsuario: '',
+												correo: '',
+												contrasenia: '',
+												confirmarContrasenia: '',
+											})
+											setError({})
+										}}
 									/>
 									<Button
 										text={'Guardar'}
@@ -343,47 +467,92 @@ export default function UsuariosOrg() {
 							<form className='w-full' onSubmit={handleEditSubmit}>
 								<div className='w-full grid grid-cols-3 gap-4'>
 									<Input
+										name={'nombre'}
 										label={'Nombre'}
 										placeholder={'Ingrese nombre del personal...'}
 										inputClass={'no icon'}
-										value={usuario.nombre}
+										value={editUsuario.nombre}
+										onChange={(e) => {
+											handleEditChange(e)
+											setError({ ...error, nombre: '' })
+										}}
+										error={error.nombre && error.nombre}
 									/>
 									<Input
+										name={'nombreUsuario'}
 										label={'Nombre de usuario'}
 										placeholder={'Ingrese un nombre de usuario unico...'}
 										inputClass={'no icon'}
-										value={usuario.nombreUsuario}
+										value={editUsuario.nombreUsuario}
+										onChange={(e) => {
+											handleEditChange(e)
+											setError({ ...error, nombreUsuario: '' })
+										}}
+										error={error.nombreUsuario && error.nombreUsuario}
 									/>
 									<Input
+										name={'correo'}
 										label={'Correo'}
 										placeholder={'ej. usuario@correo.com'}
 										inputClass={'no icon'}
-										value={usuario.correo}
+										value={editUsuario.correo}
+										onChange={(e) => {
+											handleEditChange(e)
+											setError({ ...error, correo: '' })
+										}}
+										error={error.correo && error.correo}
 									/>
 									<DropdownMenu
 										label={'Rol del Usuario'}
-										value={usuario.rol}
+										defaultValue={editUsuario.rol}
+										options={roles}
+										onChange={(selected) =>
+											setEditUsuario((prev) => ({ ...prev, idRol: selected.value }))
+										}
+										error={error.rol && error.rol}
 									/>
 									<DropdownMenu
 										label={'Sucursal del Usuario'}
-										value={usuario.sucursal}
+										defaultValue={editUsuario.sucursal}
+										options={sucursales}
+										onChange={(selected) =>
+											setEditUsuario((prev) => ({ ...prev, idSucursal: selected.value }))
+										}
+										error={error.sucursal && error.sucursal}
 									/>
 									<Input
+										name={'contrasenia'}
+										type={'password'}
 										label={'Nueva contraseña'}
 										placeholder={'•••••••••••'}
-										inputClass={'no icon'}
+										value={editUsuario.contrasenia}
+										onChange={(e) => {
+											handleEditChange(e)
+											setError({ ...error, contrasenia: '' })
+										}}
+										error={error.contrasenia && error.contrasenia}
 									/>
 									<Input
+										name={'confirmarContrasenia'}
+										type={'password'}
 										label={'Confrimar nueva contraseña'}
 										placeholder={'•••••••••••'}
-										inputClass={'no icon'}
+										value={editUsuario.confirmarContrasenia}
+										onChange={(e) => {
+											handleEditChange(e)
+											setError({ ...error, confirmarContrasenia: '' })
+										}}
+										error={error.confirmarContrasenia && error.confirmarContrasenia}
 									/>
 								</div>
 								<div className='flex gap-2 mt-4'>
 									<Button
 										text={'Cancelar'}
 										className={'secondary'}
-										func={() => setIsActiveModal(false)}
+										func={() => {
+											setIsActiveModal(false)
+											setError({});
+										}}
 									/>
 									<Button
 										text={'Guardar'}
@@ -401,7 +570,7 @@ export default function UsuariosOrg() {
 								<Button
 									text={'Confirmar'}
 									className={'success'}
-									func={() => confirmDelete()}
+									func={confirmDelete}
 								/>
 							</div>
 						))}
