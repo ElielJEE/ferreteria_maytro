@@ -6,7 +6,7 @@ import { BsEye } from "react-icons/bs";
 import { BsEyeSlash } from "react-icons/bs";
 import { HiOutlineUser } from "react-icons/hi2";
 
-export default function Input({ min, max, type, placeholder, iconInput, value = "", onChange, label, inputClass, isTextarea, error = "", isLastElement }) {
+export default function Input({ name, min, max, type, placeholder, iconInput, value = "", onChange, label, inputClass, isTextarea, error = "", isLastElement }) {
 	const [showPassword, setShowPassword] = useState(false);
 
 	return (
@@ -30,6 +30,7 @@ export default function Input({ min, max, type, placeholder, iconInput, value = 
 					{isTextarea ?
 						<div className='w-full flex flex-col'>
 							<textarea
+								name={name}
 								placeholder={placeholder}
 								{...(onChange ? { value, onChange } : { defaultValue: value })}
 								id={type}
@@ -41,6 +42,7 @@ export default function Input({ min, max, type, placeholder, iconInput, value = 
 						:
 						<div className='w-full flex flex-col'>
 							<input
+								name={name}
 								type={type === 'password' ? showPassword ? 'text' : 'password' : type}
 								placeholder={placeholder}
 								{...(onChange ? { value, onChange } : { defaultValue: value })}

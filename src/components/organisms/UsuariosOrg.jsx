@@ -17,13 +17,20 @@ export default function UsuariosOrg() {
 		nombre: '',
 		nombreUsuario: '',
 		correo: '',
-		rol: '',
-		sucursal: '',
+		idRol: '',
+		idSucursal: '',
 		contrasenia: '',
 		confirmarContrasenia: '',
 	});
 	const [roles, setRoles] = useState([]);
 	const [sucursales, setSucursales] = useState([]);
+	const [error, setError] = useState({
+		nombre: '',
+		nombreUsuario: '',
+		correo: '',
+		contrasenia: '',
+		confirmarContrasenia: '',
+	});
 
 	useEffect(() => {
 		const fetchUsuarios = async () => {
@@ -36,7 +43,7 @@ export default function UsuariosOrg() {
 	useEffect(() => {
 		const fetchRoles = async () => {
 			const res = await RolesService.getRoles();
-			const opts = res.roles.map(rol => ({ label: `${rol.rol}`, value: rol }));
+			const opts = res.roles.map(rol => ({ label: `${rol.rol}`, value: rol.id }));
 			setRoles(opts);
 		}
 		fetchRoles();
@@ -76,20 +83,33 @@ export default function UsuariosOrg() {
 		setNewUsuario(prev => ({ ...prev, [name]: value }));
 	};
 
+	const validate = () => {
+		let isValid = true;
+
+		const newErrors = {}
+
+		const requiredFields = ['nombre', 'nombreUsuario', 'correo', 'contrasenia', 'confirmarContrasenia'];
+		requiredFields.forEach(field => {
+			if (!usuario[field]?.trim()) {
+				newErrors[field] = `El ${field} es obligatorio`;
+				isValid = false;
+			} else {
+				newErrors[field] = ''
+			}
+		})
+
+		setError(newErrors);
+		return isValid;
+	}
+
 	const handleSubmitCreate = async (e) => {
 		e.preventDefault();
 
 		// Validación básica
-		if (
-			!newUsuario.nombre ||
-			!newUsuario.nombreUsuario ||
-			!newUsuario.correo ||
-			!newUsuario.contrasenia ||
-			!newUsuario.confirmarContrasenia
-		) {
-			alert("Por favor completa todos los campos.");
+		if (!validate()) {
 			return;
 		}
+		console.log(newUsuario);
 
 		if (newUsuario.contrasenia !== newUsuario.confirmarContrasenia) {
 			alert("Las contraseñas no coinciden.");
@@ -250,49 +270,62 @@ export default function UsuariosOrg() {
 							<form className='w-full' onSubmit={handleSubmitCreate}>
 								<div className='w-full grid grid-cols-3 gap-4'>
 									<Input
+										name={'nombre'}
 										label={'Nombre'}
 										placeholder={'Ingrese nombre del personal...'}
 										inputClass={'no icon'}
 										value={newUsuario.nombre}
 										onChange={handleChange}
-									/>
+										error={error.nombre && error.nombre}
+										/>
 									<Input
+										name={'nombreUsuario'}
 										label={'Nombre de usuario'}
 										placeholder={'Ingrese un nombre de usuario unico...'}
 										inputClass={'no icon'}
 										value={newUsuario.nombreUsuario}
 										onChange={handleChange}
-									/>
+										error={error.nombreUsuario && error.nombreUsuario}
+										/>
 									<Input
+										name={'correo'}
 										label={'Correo'}
 										placeholder={'ej. usuario@correo.com'}
 										inputClass={'no icon'}
 										value={newUsuario.correo}
-									/>
+										onChange={handleChange}
+										error={error.correo && error.correo}
+										/>
 									<DropdownMenu
 										label={'Rol del Usuario'}
 										defaultValue={"Selecciona un rol"}
 										options={roles}
-									/>
+										onChange={(selected) => setNewUsuario(prev => ({ ...prev, idRol: selected.value }))}
+										/>
 									<DropdownMenu
 										label={'Sucursal del Usuario'}
 										defaultValue={"Selecciona una sucursal"}
 										options={sucursales}
-									/>
+										onChange={(selected) => setNewUsuario(prev => ({ ...prev, idSucursal: selected.value }))}
+										/>
 									<Input
+										name={'contrasenia'}
 										label={'Contraseña'}
 										placeholder={'•••••••••••'}
 										inputClass={'no icon'}
 										value={newUsuario.contrasenia}
 										onChange={handleChange}
-									/>
+										error={error.contrasenia && error.contrasenia}
+										/>
 									<Input
+										name={'confirmarContrasenia'}
 										label={'Confrimar contraseña'}
 										placeholder={'•••••••••••'}
 										inputClass={'no icon'}
 										value={newUsuario.confirmarContrasenia}
 										onChange={handleChange}
-									/>
+										error={error.confirmarContrasenia && error.confirmarContrasenia}
+										/>
 								</div>
 								<div className='flex gap-2 mt-4'>
 									<Button
