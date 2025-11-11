@@ -4,7 +4,7 @@ import { Button, InfoCard, ModalContainer } from '../atoms'
 import { BsUnity } from 'react-icons/bs'
 import { Card, Input } from '../molecules'
 import { useActive, useFilter, useIsMobile } from '@/hooks'
-import { FiEdit, FiSearch, FiTrash2 } from 'react-icons/fi'
+import { FiEdit, FiPlus, FiSearch, FiTrash2 } from 'react-icons/fi'
 
 export default function UnidadesMedidasOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
@@ -31,7 +31,10 @@ export default function UnidadesMedidasOrg() {
 	const toggleModalType = (type, itemData) => {
 		setMode(type);
 
-		if (type === 'edit') {
+		if (type === 'create') {
+			setIsActiveModal(true)
+
+		} else if (type === 'edit') {
 			setUnidad(itemData)
 			setIsActiveModal(true)
 
@@ -39,6 +42,11 @@ export default function UnidadesMedidasOrg() {
 			setUnidad(itemData)
 			setIsActiveModal(true)
 		}
+	}
+
+	const handleSubmitCreate = (e) => {
+		e.preventDefault()
+		setIsActiveModal(false)
 	}
 
 	const handleEditSubmit = (e) => {
@@ -66,6 +74,14 @@ export default function UnidadesMedidasOrg() {
 						<div className='flex flex-col'>
 							<h2 className='md:text-2xl font-semibold'>Lista de Unidades de Medida</h2>
 							<span className='text-sm md:text-medium text-dark/50'>Gestiona y administra la lista de unidades de medida</span>
+						</div>
+						<div>
+							<Button
+								text={"Nueva Unidad"}
+								className={"primary"}
+								icon={<FiPlus />}
+								func={() => toggleModalType('create')}
+							/>
 						</div>
 					</div>
 					<div className='w-full flex flex-col gap-1 sticky top-20 bg-light pt-4'>
@@ -136,12 +152,31 @@ export default function UnidadesMedidasOrg() {
 				isActiveModal && (
 					<ModalContainer
 						setIsActiveModal={setIsActiveModal}
-						modalTitle={mode === 'edit' ? 'Editar Unidad' : `¿Estas seguro que deseas eliminar a ${unidad.unidad} de la lista de Unidades?`}
-						modalDescription={mode === 'edit' ? 'Edita la informacion de la unidad de medida' : 'Esta accion no se puede deshacer.'}
+						modalTitle={mode === 'create' ? 'Crear nueva Unidad de medida' : mode === 'edit' ? 'Editar Unidad' : `¿Estas seguro que deseas eliminar a ${unidad.unidad} de la lista de Unidades?`}
+						modalDescription={mode === 'create' ? 'Crear una nueva unidad de medida atravez de su nombre' : mode === 'edit' ? 'Edita la informacion de la unidad de medida' : 'Esta accion no se puede deshacer.'}
 						isForm={mode === 'edit' ? true : false}
 					>
 						{
-							mode === 'edit' ? (
+							mode === 'create' ? (
+								<form className='w-full' onSubmit={handleSubmitCreate}>
+									<Input
+										label={'Nombre de la unidad de medida'}
+										placeholder={'Ingrese nombre de la unidad de medida...'}
+										inputClass={'no icon'}
+									/>
+									<div className='flex gap-2 mt-2'>
+										<Button
+											text={'Cancelar'}
+											className={'secondary'}
+											func={() => setIsActiveModal(false)}
+										/>
+										<Button
+											text={'Guardar'}
+											className={'success'}
+										/>
+									</div>
+								</form>
+							) : (mode === 'edit' ? (
 								<form className='w-full' onSubmit={handleEditSubmit}>
 									<Input
 										label={'Nombre de la unidad de medida'}
@@ -174,6 +209,8 @@ export default function UnidadesMedidasOrg() {
 										func={() => confirmDelete()}
 									/>
 								</div>
+							)
+
 							)
 						}
 					</ModalContainer>
