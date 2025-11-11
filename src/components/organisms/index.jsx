@@ -16,3 +16,4 @@ export { default as UnidadesMedidasOrg } from './UnidadesMedidasOrg';
 export { default as CreditosOrg } from './CreditosOrg';
 export { default as DescuentosOrg } from './DescuentosOrg';
 export { default as UsuariosOrg } from './UsuariosOrg';
+export { default as RolesOrg } from './RolesOrg';
