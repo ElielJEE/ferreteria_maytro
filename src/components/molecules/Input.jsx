@@ -6,7 +6,7 @@ import { BsEye } from "react-icons/bs";
 import { BsEyeSlash } from "react-icons/bs";
 import { HiOutlineUser } from "react-icons/hi2";
 
-export default function Input({ name, min, max, type, placeholder, iconInput, value = "", onChange, label, inputClass, isTextarea, error = "", isLastElement }) {
+export default function Input({ checked, name, min, max, type, placeholder, iconInput, value = "", onChange, label, inputClass, isTextarea, error = "", isLastElement }) {
 	const [showPassword, setShowPassword] = useState(false);
 
 	return (
@@ -41,17 +41,37 @@ export default function Input({ name, min, max, type, placeholder, iconInput, va
 						</div>
 						:
 						<div className='w-full flex flex-col'>
-							<input
-								name={name}
-								type={type === 'password' ? showPassword ? 'text' : 'password' : type}
-								placeholder={placeholder}
-								{...(onChange ? { value, onChange } : { defaultValue: value })}
-								id={type}
-								className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
-								min={min || null}
-								max={max || null}
-							/>
-							{error && <span className='text-danger text-sm'>{error}</span>}
+							{
+								type === 'checkbox' ? (
+									<div>
+										<input
+											name={name}
+											type={type}
+											placeholder={placeholder}
+											id={type}
+											value={value}
+											className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
+											checked={checked}
+											onChange={onChange}
+										/>
+										{error && <span className='text-danger text-sm'>{error}</span>}
+									</div>
+								) : (
+									<div>
+										<input
+											name={name}
+											type={type === 'password' ? showPassword ? 'text' : 'password' : type}
+											placeholder={placeholder}
+											{...(onChange ? { value, onChange } : { defaultValue: value })}
+											id={type}
+											className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
+											min={min || null}
+											max={max || null}
+										/>
+										{error && <span className='text-danger text-sm'>{error}</span>}
+									</div>
+								)
+							}
 						</div>
 					}
 					{

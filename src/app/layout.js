@@ -35,6 +35,20 @@ export default function RootLayout({ children }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  console.log(`
+      .-"      "-.
+     /            \\
+    |,  .-.  .-.  ,|
+    | )(_o/  \\o_)( |
+    |/     /\\     \\|
+    (_     ^^     _)
+     \\__|IIIIII|__/
+      | \\IIIIII/ |
+      \\          /
+       \`--------\`
+By Sr. Fantasma 👻
+`);
+
   return (
     <html lang="en">
       <body
