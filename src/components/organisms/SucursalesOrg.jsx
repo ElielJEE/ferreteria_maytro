@@ -46,6 +46,8 @@ export default function SucursalesOrg() {
 			item.label.toLowerCase().includes(term.toLowerCase())
 	});
 
+	console.log(sucursales);
+
 	const resetForm = () => {
 		setNombre('');
 		setCodigo('');
@@ -179,6 +181,8 @@ export default function SucursalesOrg() {
 											<th className='text-start text-dark/50 font-semibold p-2'>#</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Codigo</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Nombre</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Direccion</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Telefono</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
 										</tr>
 									</thead>
@@ -188,6 +192,8 @@ export default function SucursalesOrg() {
 												<td className='p-2 text-start'>{index + 1}</td>
 												<td className='p-2 text-start'>{item.value}</td>
 												<td className='p-2 text-start'>{item.label}</td>
+												<td className='p-2 text-start'>{item.direccion}</td>
+												<td className='p-2 text-start'>{item.telefono}</td>
 												<td className='p-2 text-center'>
 													<div className='flex gap-2 justify-center'>
 														<Button
@@ -273,8 +279,8 @@ export default function SucursalesOrg() {
 										type={'text'}
 										value={codigo}
 										onChange={(e) => setCodigo(e.target.value)}
-										// En edición, el código/ID no debe cambiarse
-										// Se muestra como read-only
+									// En edición, el código/ID no debe cambiarse
+									// Se muestra como read-only
 									/>
 									<Input
 										label={'Dirección (opcional)'}

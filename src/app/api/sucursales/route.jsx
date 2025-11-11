@@ -9,7 +9,7 @@ export async function GET(request) {
     const [rows] = await pool.query('SELECT ID_SUCURSAL, NOMBRE_SUCURSAL, DIRECCION, TELEFONO FROM SUCURSAL');
     if (format === 'raw') return Response.json(rows);
     // Default: label/value pair for selectors
-    return Response.json({ sucursales: rows.map(r => ({ label: r.NOMBRE_SUCURSAL, value: r.ID_SUCURSAL })) });
+    return Response.json({ sucursales: rows.map(r => ({ label: r.NOMBRE_SUCURSAL, value: r.ID_SUCURSAL, direccion: r.DIRECCION, telefono: r.TELEFONO })) });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }
