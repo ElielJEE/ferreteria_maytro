@@ -1,11 +1,14 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { pool } from "@/lib/db";
 
 export async function middleware(req) {
 	const token = req.cookies.get("token")?.value;
 	const url = req.nextUrl;
 
-	const publicRoutes = ["/login"];
+	const publicRoutes = ["/login", "/unauthorized"];
 
 	if (publicRoutes.includes(url.pathname)) {
 		return NextResponse.next();
@@ -22,8 +25,30 @@ export async function middleware(req) {
 
 	try {
 		const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+		const { payload } = await jwtVerify(token, secret);
 
-		await jwtVerify(token, secret);
+		const roleId = payload.role;
+
+		const res = await fetch(`${req.nextUrl.origin}/api/auth/check-access`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				roleId,
+				path: url.pathname,
+			}),
+		});
+
+		if (!res.ok) {
+			return NextResponse.redirect(new URL("/unauthorized", req.url));
+		}
+
+		const data = await res.json();
+
+		if (!data.allowed) {
+			return NextResponse.redirect(new URL("/unauthorized", req.url));
+		}
 
 		return NextResponse.next();
 	} catch (error) {

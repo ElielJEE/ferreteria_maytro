@@ -21,7 +21,10 @@ export default function ProductsOrg() {
 		nombre: '',
 		subcategoria: '',
 		precio_venta: '',
-		cantidad: ''
+		cantidad: '',
+		unidades: [
+			{ unidad: 'Pzs', precio_venta: '', cantidad_unidad: '' }
+		]
 	});
 	const [editMode, setEditMode] = useState(false);
 	const [errors, setErrors] = useState({});
@@ -55,7 +58,16 @@ export default function ProductsOrg() {
 
 			const data = await ProductService.getProducts();
 			setProducts(data);
-			setForm({ id: '', codigo: '', nombre: '', subcategoria: '', precio_venta: '', cantidad: '' });
+			setForm({
+				id: '',
+				codigo: '',
+				nombre: '',
+				subcategoria: '',
+				cantidad: '',
+				unidades: [
+					{ unidad: 'Pzs', precio_venta: '', cantidad_unidad: '' }
+				]
+			});
 			setErrors({});
 		} catch (err) {
 			console.error('Error saving product:', err);
@@ -81,7 +93,16 @@ export default function ProductsOrg() {
 	const toggleModalType = (action, item = null) => {
 		if (action === 'create') {
 			setEditMode(false);
-			setForm({ id: '', codigo: '', nombre: '', subcategoria: '', precio_venta: '', cantidad: '' });
+			setForm({
+				id: '',
+				codigo: '',
+				nombre: '',
+				subcategoria: '',
+				cantidad: '',
+				unidades: [
+					{ unidad: 'Pzs', precio_venta: '', cantidad_unidad: '' }
+				]
+			});
 			setIsActiveModal(true);
 			return;
 		}
@@ -137,6 +158,29 @@ export default function ProductsOrg() {
 		setConfirmDelete(null)
 		setIsActiveModal(false);
 	}
+
+	const addUnidad = () => {
+		setForm((prev) => ({
+			...prev,
+			unidades: [...prev.unidades, { unidad: 'Pzs', precio_venta: '', cantidad_unidad: '' }]
+		}));
+	};
+
+	const removeUnidad = (index) => {
+		setForm((prev) => ({
+			...prev,
+			unidades: prev.unidades.filter((_, i) => i !== index)
+		}));
+	};
+
+	const handleUnidadChange = (index, field, value) => {
+		setForm((prev) => {
+			const updated = [...prev.unidades];
+			updated[index][field] = value;
+			return { ...prev, unidades: updated };
+		});
+	};
+
 
 	return (
 		<>
@@ -335,15 +379,52 @@ export default function ProductsOrg() {
 									onChange={e => { setForm({ ...form, cantidad: e.target.value }); setErrors(prev => ({ ...prev, cantidad: undefined })); }}
 									error={errors.cantidad}
 								/>
-								<Input
-									label={"Precio de venta"}
-									placeholder={"EJ: 180"}
-									type={"number"}
-									inputClass={"no icon"}
-									value={form.precio_venta}
-									onChange={e => { setForm({ ...form, precio_venta: e.target.value }); setErrors(prev => ({ ...prev, precio_venta: undefined })); }}
-									error={errors.precio_venta}
-								/>
+								<div className='col-span-2 max-h-[250px] overflow-y-auto'>
+									{form.unidades.map((u, index) => (
+										<div key={index} className='flex items-end col-span-2 gap-2'>
+											<div>
+												<DropdownMenu
+													label={"Unidad"}
+													options={["Pzs", "Mts", "Lata"]}
+													defaultValue={u.unidad}
+													onChange={(value) => handleUnidadChange(index, 'unidad', value)}
+												/>
+											</div>
+											<Input
+												label={"Precio de venta"}
+												placeholder={"EJ: C$180"}
+												type={"number"}
+												inputClass={"no icon"}
+												value={u.precio_venta}
+												onChange={(e) => handleUnidadChange(index, 'precio_venta', e.target.value)}
+											/>
+											<Input
+												label={"Cantidad por unidad"}
+												placeholder={"EJ: 0.5 (lata) o 1 (mts)"}
+												type={"number"}
+												inputClass={"no icon"}
+												value={u.cantidad_unidad}
+												onChange={(e) => handleUnidadChange(index, 'cantidad_unidad', e.target.value)}
+											/>
+											{index === form.unidades.length - 1 && (
+												<div className='flex gap-2'>
+													<Button
+														icon={<FiPlus />}
+														className={'primary'}
+														func={addUnidad}
+													/>
+													{form.unidades.length > 1 && (
+														<Button
+															icon={<FiTrash />}
+															className={'danger'}
+															func={() => removeUnidad(index)}
+														/>
+													)}
+												</div>
+											)}
+										</div>
+									))}
+								</div>
 								<div className='col-span-2 flex gap-2 mt-2'>
 									<Button
 										className={'danger'}
