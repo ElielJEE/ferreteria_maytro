@@ -30,6 +30,10 @@ export default function PuntoVentaOrg() {
 	const [clienteTelefono, setClienteTelefono] = useState('');
 	const [processing, setProcessing] = useState(false);
 	const [savingQuote, setSavingQuote] = useState(false);
+	// Unidad modal: opciones y producto objetivo
+	const [unitOptions, setUnitOptions] = useState([]);
+	const [unitProduct, setUnitProduct] = useState(null);
+	const [selectedUnitOption, setSelectedUnitOption] = useState(null);
 	const [fechaVencimiento, setFechaVencimiento] = useState('');
 	const isMobile = useIsMobile({ breakpoint: 1024 })
 	const [clientes, setClientes] = useState([]);
@@ -173,8 +177,34 @@ export default function PuntoVentaOrg() {
 	const descuento = 0; // o podrías usar un estado si más adelante aplicas descuentos
 	const total = subtotal - descuento;
 
-	const toggleModalType = (type) => {
+	const toggleModalType = async (type, product = null) => {
 		setMode(type);
+		// Abrir modal de unidad -> cargar unidades del producto si se pasa
+		if (type === 'unit' && product) {
+			setUnitProduct(product);
+			setIsActiveModal(true);
+			try {
+				const unidades = await ProductService.getProductUnits(product.ID_PRODUCT);
+				const opts = (unidades || []).map(u => ({
+					label: u.NOMBRE || u.nombre || String(u.UNIDAD_ID),
+					value: u.UNIDAD_ID || u.UNIDAD_ID,
+					precio: u.PRECIO,
+					cantidad_por_unidad: Number(u.CANTIDAD_POR_UNIDAD ?? u.cantidad_por_unidad ?? 1) || 1
+				}));
+				setUnitOptions(opts);
+				// Preseleccionar si producto tiene unidad
+				const existing = opts.find(o => o.label === product.unit || o.value === product.unit_id);
+				if (existing) setSelectedUnitOption(existing);
+				else setSelectedUnitOption(null);
+			} catch (e) {
+				console.error('Error cargando unidades del producto:', e);
+				setUnitOptions([]);
+				setSelectedUnitOption(null);
+			}
+			return;
+		}
+
+		// Casos previos sin carga extra
 		if (type === 'venta' && productList.length > 0) {
 			setIsActiveModal(true);
 
@@ -187,9 +217,6 @@ export default function PuntoVentaOrg() {
 		} else if (type === 'confirmar venta' && productList.length > 0) {
 			setIsActiveModal(false);
 			handleSubmitVenta();
-
-		} else if (type === 'unit') {
-			setIsActiveModal(true);
 
 		} else if (type === 'price') {
 			setIsActiveModal(true);
@@ -260,6 +287,9 @@ export default function PuntoVentaOrg() {
 				PRODUCT_NAME: p.PRODUCT_NAME,
 				PRECIO: Number(p.PRECIO || 0),
 				quantity: Number(p.quantity || 0),
+				unit_id: p.unit_id ?? p.UNIDAD_ID ?? null,
+				unit_name: p.unit ?? p.UNIDAD_NOMBRE ?? null,
+				cantidad_por_unidad: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1
 			}));
 			const payload = {
 				items,
@@ -303,6 +333,10 @@ export default function PuntoVentaOrg() {
 			fecha: '',
 			general: '',
 		});
+		// limpiar estado de unidad
+		setUnitOptions([]);
+		setUnitProduct(null);
+		setSelectedUnitOption(null);
 	};
 
 	const handleDone = () => {
@@ -409,6 +443,9 @@ export default function PuntoVentaOrg() {
 			ID_PRODUCT: p.ID_PRODUCT,
 			cantidad: Number(p.quantity || 0),
 			PRECIO: Number(p.PRECIO || 0),
+			unit_id: p.unit_id ?? p.UNIDAD_ID ?? null,
+			unit_name: p.unit ?? p.UNIDAD_NOMBRE ?? null,
+			cantidad_por_unidad: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1
 		}));
 
 		const payload = {
@@ -446,7 +483,29 @@ export default function PuntoVentaOrg() {
 	}, [isAdmin, selectedSucursal]);
 
 	const handleUnitSubmit = () => {
+		if (unitProduct && selectedUnitOption) {
+			setProductList((prev) => prev.map(p => {
+				if (p.ID_PRODUCT === unitProduct.ID_PRODUCT) {
+					const updated = {
+						...p,
+						unit: selectedUnitOption.label,
+						unit_id: selectedUnitOption.value,
+						cantidad_por_unidad: selectedUnitOption.cantidad_por_unidad ?? 1
+					};
+					// Si la unidad tiene precio asociado, actualizar PRECIO
+					if (selectedUnitOption.precio !== undefined && selectedUnitOption.precio !== null) {
+						updated.PRECIO = Number(selectedUnitOption.precio) || updated.PRECIO;
+					}
+					return updated;
+				}
+				return p;
+			}));
+		}
+		// cerrar modal y limpiar estado de unidad
 		setIsActiveModal(false);
+		setUnitProduct(null);
+		setUnitOptions([]);
+		setSelectedUnitOption(null);
 	}
 
 	const handleCustomPrice = () => {
@@ -657,7 +716,7 @@ export default function PuntoVentaOrg() {
 														<Button
 															icon={<BsRulers />}
 															className={'noneTwo'}
-															func={() => toggleModalType('unit')}
+															func={() => toggleModalType('unit', product)}
 														/>
 														<Button
 															icon={<BsWrench />}
@@ -837,14 +896,15 @@ export default function PuntoVentaOrg() {
 							<div className='flex flex-col gap-2'>
 								<DropdownMenu
 									label={"Unidad de Medida para este producto"}
-									options={["mts", "lts", "lbrs", "pzs"]}
-									defaultValue={"mts"}
+									options={unitOptions}
+									defaultValue={selectedUnitOption ? selectedUnitOption.label : 'Selecciona una unidad'}
+									onChange={(opt) => setSelectedUnitOption(opt)}
 								/>
 								<div className='flex gap-2'>
 									<Button
 										text={"Cancelar"}
 										className={'secondary'}
-										func={() => setIsActiveModal(false)}
+										func={() => handleModalClose()}
 									/>
 									<Button
 										className={'success'}
