@@ -14,3 +14,4 @@ export * as CajaService from './CajaService';
 export * as UsuarioService from './UsuarioService';
 export * as RolesService from './RolesService';
 export * as PermisosService from './PermisosService';
+export * as UnidadesService from './UnidadesService';
