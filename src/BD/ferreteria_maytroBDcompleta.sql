@@ -409,6 +409,9 @@ CREATE TABLE `factura_detalles` (
   `AMOUNT` int NOT NULL,
   `PRECIO_UNIT` decimal(12,2) NOT NULL DEFAULT '0.00',
   `SUB_TOTAL` decimal(12,2) NOT NULL,
+  `UNIDAD_ID` int DEFAULT NULL,
+  `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
+  `UNIDAD_NOMBRE` varchar(100) DEFAULT NULL,
   `ID_USUARIO` int DEFAULT NULL,
   PRIMARY KEY (`ID_DETALLES_FACTURA`),
   KEY `idx_factdet_factura` (`ID_FACTURA`),
@@ -426,7 +429,8 @@ CREATE TABLE `factura_detalles` (
 
 LOCK TABLES `factura_detalles` WRITE;
 /*!40000 ALTER TABLE `factura_detalles` DISABLE KEYS */;
-INSERT INTO `factura_detalles` VALUES (1,1,2,4,3500.00,14000.00,1);
+INSERT INTO `factura_detalles` (ID_DETALLES_FACTURA, ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE, ID_USUARIO)
+VALUES (1,1,2, 4, 3500.00, 14000.00, NULL, 1.0000, NULL, 1);
 /*!40000 ALTER TABLE `factura_detalles` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -475,12 +479,12 @@ CREATE TABLE `movimientos_inventario` (
   `sucursal_id` varchar(10) DEFAULT NULL,
   `usuario_id` int DEFAULT NULL,
   `tipo_movimiento` enum('entrada','salida','danado','transferencia','reservado') NOT NULL,
-  `cantidad` int NOT NULL,
+  `cantidad` decimal(12,2) NOT NULL,
   `motivo` varchar(255) DEFAULT NULL,
   `fecha` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `referencia_id` varchar(50) DEFAULT NULL,
-  `stock_anterior` int DEFAULT NULL,
-  `stock_nuevo` int DEFAULT NULL,
+  `stock_anterior` decimal(12,2) DEFAULT NULL,
+  `stock_nuevo` decimal(12,2) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_mov_prod` (`producto_id`),
   KEY `idx_mov_suc` (`sucursal_id`),
@@ -511,8 +515,8 @@ DROP TABLE IF EXISTS `nivelacion`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `nivelacion` (
   `ID_NIVELACION` int NOT NULL AUTO_INCREMENT,
-  `CANTIDAD` varchar(50) DEFAULT NULL,
-  `CANTIDAD_MAX` varchar(50) DEFAULT NULL,
+  `CANTIDAD` decimal(12,2) DEFAULT NULL,
+  `CANTIDAD_MAX` decimal(12,2) DEFAULT NULL,
   `ID_PRODUCT` int DEFAULT NULL,
   `ID_SUCURSAL` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`ID_NIVELACION`),
@@ -571,17 +575,12 @@ CREATE TABLE `productos` (
   `ID_PRODUCT` int NOT NULL AUTO_INCREMENT,
   `CODIGO_PRODUCTO` varchar(50) DEFAULT NULL,
   `PRODUCT_NAME` varchar(255) NOT NULL,
-  `CANTIDAD` int NOT NULL,
-  `CANTIDAD_STOCK` varchar(50) DEFAULT NULL,
-  `PRECIO` decimal(12,2) DEFAULT NULL,
+  `CANTIDAD` decimal(12,2) DEFAULT NULL,
   `ID_SUBCATEGORIAS` varchar(10) DEFAULT NULL,
-  `ID_SUCURSAL` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`ID_PRODUCT`),
-  KEY `idx_productos_idsub` (`ID_SUBCATEGORIAS`),
-  KEY `idx_productos_idsucursal` (`ID_SUCURSAL`),
-  CONSTRAINT `fk_productos_subcat` FOREIGN KEY (`ID_SUBCATEGORIAS`) REFERENCES `subcategorias` (`ID_SUBCATEGORIAS`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_productos_sucursal` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `idx_productos_idsub` (`ID_SUBCATEGORIAS`)
+  -- ID_SUCURSAL removed: per-sucursal info should live in STOCK_SUCURSAL
+ ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -590,9 +589,43 @@ CREATE TABLE `productos` (
 
 LOCK TABLES `productos` WRITE;
 /*!40000 ALTER TABLE `productos` DISABLE KEYS */;
-INSERT INTO `productos` VALUES (1,'HER001','Martillo 16oz',50,'50',150.00,'SC1','S1'),(2,'HER002','Taladro Eléctrico 12V',20,'20',3500.00,'SC2','S2'),(3,'FER001','Juego de Tornillos 100u',200,'200',120.00,'SC3','S1');
+INSERT INTO `productos` VALUES (1,'HER001','Martillo 16oz',50,'SC1'),(2,'HER002','Taladro Eléctrico 12V',20,'SC2'),(3,'FER001','Juego de Tornillos 100u',200,'SC3');
 /*!40000 ALTER TABLE `productos` ENABLE KEYS */;
 UNLOCK TABLES;
+
+-- Table structure for table `unidades_medidas`
+--
+DROP TABLE IF EXISTS `unidades_medidas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `unidades_medidas` (
+  `ID_UNIDAD` int NOT NULL AUTO_INCREMENT,
+  `NOMBRE` varchar(100) NOT NULL,
+  PRIMARY KEY (`ID_UNIDAD`),
+  UNIQUE KEY `uk_unidad_nombre` (`NOMBRE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- Table structure for table `producto_unidades` (precio por unidad y cantidad por unidad)
+--
+DROP TABLE IF EXISTS `producto_unidades`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `producto_unidades` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `PRODUCT_ID` int NOT NULL,
+  `UNIDAD_ID` int NOT NULL,
+  `PRECIO` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
+  `ES_POR_DEFECTO` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`ID`),
+  KEY `idx_pu_product` (`PRODUCT_ID`),
+  KEY `idx_pu_unidad` (`UNIDAD_ID`),
+  CONSTRAINT `fk_pu_product` FOREIGN KEY (`PRODUCT_ID`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_pu_unidad` FOREIGN KEY (`UNIDAD_ID`) REFERENCES `unidades_medidas` (`ID_UNIDAD`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 
 --
 -- Table structure for table `proveedor`
@@ -683,7 +716,7 @@ CREATE TABLE `stock_danados` (
   `ID_DANADO` int NOT NULL AUTO_INCREMENT,
   `ID_PRODUCT` int NOT NULL,
   `ID_SUCURSAL` varchar(20) DEFAULT NULL,
-  `CANTIDAD` int NOT NULL DEFAULT '0',
+  `CANTIDAD` decimal(12,2) NOT NULL DEFAULT '0.00',
   `TIPO_DANO` varchar(100) DEFAULT NULL,
   `ESTADO` varchar(100) DEFAULT NULL,
   `DESCRIPCION` text,
@@ -718,7 +751,7 @@ DROP TABLE IF EXISTS `stock_sucursal`;
 CREATE TABLE `stock_sucursal` (
   `ID_PRODUCT` int NOT NULL,
   `ID_SUCURSAL` varchar(10) NOT NULL,
-  `CANTIDAD` int NOT NULL,
+  `CANTIDAD` decimal(12,2) NOT NULL,
   `STATUS` varchar(10) DEFAULT 'ACTIVO',
   PRIMARY KEY (`ID_PRODUCT`,`ID_SUCURSAL`),
   KEY `fk_stock_sucursal` (`ID_SUCURSAL`),

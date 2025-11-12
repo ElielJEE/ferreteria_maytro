@@ -58,7 +58,19 @@ export async function POST(req) {
 
     await conn.beginTransaction();
 
-    // Validate and compute
+    // Detectar si FACTURA_DETALLES contiene columnas de unidad para trabajar de forma compatible
+    let hasUnidadCols = { UNIDAD_ID: false, CANTIDAD_POR_UNIDAD: false, UNIDAD_NOMBRE: false };
+    try {
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES'`);
+      const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
+      hasUnidadCols.UNIDAD_ID = colset.has('UNIDAD_ID');
+      hasUnidadCols.CANTIDAD_POR_UNIDAD = colset.has('CANTIDAD_POR_UNIDAD');
+      hasUnidadCols.UNIDAD_NOMBRE = colset.has('UNIDAD_NOMBRE');
+    } catch (e) {
+      // si falla la comprobación, asumimos compatibilidad mínima
+    }
+
+    // Validate and compute. Validación ahora considera multiplicador cantidad_por_unidad por item
     let computedSubtotal = 0;
     for (const it of items) {
       const idProd = Number(it.ID_PRODUCT || it.producto_id || it.id);
@@ -66,18 +78,24 @@ export async function POST(req) {
       const precio = Number(it.PRECIO || it.precio_unit || it.precio || 0);
       if (!idProd || qty <= 0) throw new Error('Item inválido');
       computedSubtotal += precio * qty;
+
       // Ensure stock exists in STOCK_SUCURSAL and lock it
       if (!sucursalId && body.sucursal) {
         const [suc] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
         if (suc?.length) sucursalId = suc[0].ID_SUCURSAL;
       }
       if (!sucursalId) throw new Error('Sucursal no definida');
+
+      // cantidad_por_unidad puede venir del cliente o asumirse 1
+      const cantidadPorUnidad = Number(it.cantidad_por_unidad ?? it.CANTIDAD_POR_UNIDAD ?? 1) || 1;
+      const totalARestar = qty * cantidadPorUnidad;
+
       const [stockRows] = await conn.query(
         'SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
         [idProd, sucursalId]
       );
       const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
-      if (qty > cantidadEnSucursal) throw new Error('Stock insuficiente para el producto ' + idProd);
+      if (totalARestar > cantidadEnSucursal) throw new Error('Stock insuficiente para el producto ' + idProd);
     }
 
     const subtotalOk = Number.isFinite(Number(subtotal)) ? Number(subtotal) : computedSubtotal;
@@ -143,33 +161,53 @@ export async function POST(req) {
     const [factRes] = await conn.query(facturaSql, facturaParams);
     const facturaId = factRes.insertId;
 
-    // Insert details and update stocks per item
+    // Insert details and update stocks per item (considerando cantidad_por_unidad)
     for (const it of items) {
       const idProd = Number(it.ID_PRODUCT || it.producto_id || it.id);
       const qty = Number(it.quantity || it.cantidad || 0);
       const precio = Number(it.PRECIO || it.precio_unit || it.precio || 0);
       const sub = Number((precio * qty).toFixed(2));
 
-      await conn.query(
-        'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
-        [facturaId, idProd, qty, precio, sub, usuarioId || null]
-      );
+      const unidadId = it.unit_id ?? it.UNIDAD_ID ?? null;
+      const unidadNombre = it.unit_name ?? it.UNIDAD_NOMBRE ?? null;
+      const cantidadPorUnidad = Number(it.cantidad_por_unidad ?? it.CANTIDAD_POR_UNIDAD ?? 1) || 1;
+      const totalARestar = qty * cantidadPorUnidad;
 
-      // Update stock in sucursal
-      const [stockRows] = await conn.query(
-        'SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
-        [idProd, sucursalId]
-      );
+      // Insert details including unidad columns si existen
+      if (hasUnidadCols.UNIDAD_ID || hasUnidadCols.CANTIDAD_POR_UNIDAD || hasUnidadCols.UNIDAD_NOMBRE) {
+        await conn.query(
+          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
+          + (hasUnidadCols.UNIDAD_ID ? ', UNIDAD_ID' : '')
+          + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : '')
+          + (hasUnidadCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : '')
+          + ') VALUES (?, ?, ?, ?, ?, ?'
+          + (hasUnidadCols.UNIDAD_ID ? ', ?' : '')
+          + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', ?' : '')
+          + (hasUnidadCols.UNIDAD_NOMBRE ? ', ?' : '')
+          + ')',
+          [facturaId, idProd, qty, precio, sub, usuarioId || null]
+            .concat(hasUnidadCols.UNIDAD_ID ? [unidadId] : [])
+            .concat(hasUnidadCols.CANTIDAD_POR_UNIDAD ? [cantidadPorUnidad] : [])
+            .concat(hasUnidadCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
+        );
+      } else {
+        await conn.query(
+          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
+          [facturaId, idProd, qty, precio, sub, usuarioId || null]
+        );
+      }
+
+      const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProd, sucursalId]);
       const stockAnterior = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
-      const stockNuevo = stockAnterior - qty;
+      const stockNuevo = stockAnterior - totalARestar;
       await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProd, sucursalId]);
 
-      // Log movement as 'salida'
+      // Log movement as 'salida' with la cantidad real descontada
       try {
         await conn.query(
           `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`,
-          [idProd, sucursalId, usuarioId || null, qty, 'Venta', facturaId, stockAnterior, stockNuevo]
+          [idProd, sucursalId, usuarioId || null, totalARestar, 'Venta', facturaId, stockAnterior, stockNuevo]
         );
       } catch { }
     }
@@ -254,6 +292,7 @@ export async function GET(req) {
         // items
         const [itemsRows] = await pool.query(`
           SELECT fd.ID_DETALLES_FACTURA, fd.ID_PRODUCT, fd.AMOUNT AS cantidad, fd.PRECIO_UNIT AS precio_unit, fd.SUB_TOTAL AS subtotal,
+                 fd.UNIDAD_ID AS unidad_id, fd.CANTIDAD_POR_UNIDAD AS cantidad_por_unidad, fd.UNIDAD_NOMBRE AS unidad_nombre,
                  p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
           FROM FACTURA_DETALLES fd
           LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = fd.ID_PRODUCT
@@ -271,14 +310,17 @@ export async function GET(req) {
             cliente,
             sucursal,
             usuario,
-            items: (itemsRows || []).map(it => ({
+              items: (itemsRows || []).map(it => ({
               detalle_id: it.ID_DETALLES_FACTURA,
               producto_id: it.ID_PRODUCT,
               producto_nombre: it.producto_nombre,
               producto_codigo: it.producto_codigo,
               cantidad: Number(it.cantidad || 0),
               precio_unit: Number(it.precio_unit || 0),
-              subtotal: Number(it.subtotal || 0)
+              subtotal: Number(it.subtotal || 0),
+              unidad_id: it.unidad_id ?? null,
+              cantidad_por_unidad: Number(it.cantidad_por_unidad || 1),
+              unidad_nombre: it.unidad_nombre || null
             }))
           }
         });
@@ -343,27 +385,49 @@ export async function PUT(req) {
     const factura = factRows[0];
     const sucursalId = factura.ID_SUCURSAL || null;
 
-    // Revert previous detalles: add back quantities to stock
-    const [prevDetalles] = await conn.query('SELECT ID_PRODUCT, AMOUNT, ID_USUARIO FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [id]);
+    // Detectar si FACTURA_DETALLES tiene columna CANTIDAD_POR_UNIDAD para revertir correctamente
+    let detalleHasCantidadPorUnidad = false;
+    try {
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD'`);
+      detalleHasCantidadPorUnidad = (cols && cols.length > 0);
+    } catch { detalleHasCantidadPorUnidad = false; }
+
+    // Revert previous detalles: add back cantidades multiplicadas por CANTIDAD_POR_UNIDAD
+    const selectPrevCols = detalleHasCantidadPorUnidad
+      ? 'SELECT ID_PRODUCT, AMOUNT, IFNULL(CANTIDAD_POR_UNIDAD,1) AS CANTIDAD_POR_UNIDAD, ID_USUARIO FROM FACTURA_DETALLES WHERE ID_FACTURA = ?'
+      : 'SELECT ID_PRODUCT, AMOUNT, ID_USUARIO FROM FACTURA_DETALLES WHERE ID_FACTURA = ?';
+    const [prevDetalles] = await conn.query(selectPrevCols, [id]);
     const defaultUsuarioId = prevDetalles && prevDetalles[0] ? (prevDetalles[0].ID_USUARIO || null) : null;
     for (const pd of (prevDetalles || [])) {
       const prodId = Number(pd.ID_PRODUCT);
       const prevQty = Number(pd.AMOUNT || 0);
+      const mult = Number(pd.CANTIDAD_POR_UNIDAD ?? 1) || 1;
+      const restoreQty = prevQty * mult;
       if (!prodId) continue;
       // Increase stock
-      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = CANTIDAD + ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [prevQty, prodId, sucursalId]);
+      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = CANTIDAD + ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [restoreQty, prodId, sucursalId]);
       // Log movimento as entrada (restock due to edit) and preserve usuario if available
       try {
         await conn.query(
           `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, 'entrada', ?, ?, ?, NULL, NULL)`,
-          [prodId, sucursalId, defaultUsuarioId, prevQty, 'Reversión por edición de venta', id]
+          [prodId, sucursalId, defaultUsuarioId, restoreQty, 'Reversión por edición de venta', id]
         );
       } catch { }
     }
 
     // Remove old detalles
     await conn.query('DELETE FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [id]);
+
+    // Detectar columnas de unidad para insertar detalles con compatibilidad
+    let hasUnidadCols = { UNIDAD_ID: false, CANTIDAD_POR_UNIDAD: false, UNIDAD_NOMBRE: false };
+    try {
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES'`);
+      const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
+      hasUnidadCols.UNIDAD_ID = colset.has('UNIDAD_ID');
+      hasUnidadCols.CANTIDAD_POR_UNIDAD = colset.has('CANTIDAD_POR_UNIDAD');
+      hasUnidadCols.UNIDAD_NOMBRE = colset.has('UNIDAD_NOMBRE');
+    } catch (e) { }
 
     // Prepare new detalles: validate stock availability (after revert)
     let computedSubtotal = 0;
@@ -388,7 +452,9 @@ export async function PUT(req) {
       );
       const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
       const nombreSucursal = stockRows.length ? stockRows[0].NOMBRE_SUCURSAL : 'Sucursal desconocida';
-      if (qty > cantidadEnSucursal) {
+      const cantidadPorUnidad = Number(it.cantidad_por_unidad ?? it.CANTIDAD_POR_UNIDAD ?? 1) || 1;
+      const totalARestar = qty * cantidadPorUnidad;
+      if (totalARestar > cantidadEnSucursal) {
         await conn.rollback();
         return Response.json({ error: `Stock insuficiente para producto ${nombreSucursal}` }, { status: 400 });
       }
@@ -406,21 +472,43 @@ export async function PUT(req) {
       const precio = Number(it.PRECIO || it.precio_unit || it.precio || 0);
       const sub = Number((precio * qty).toFixed(2));
 
+      const unidadId = it.unit_id ?? it.UNIDAD_ID ?? null;
+      const unidadNombre = it.unit_name ?? it.UNIDAD_NOMBRE ?? null;
+      const cantidadPorUnidad = Number(it.cantidad_por_unidad ?? it.CANTIDAD_POR_UNIDAD ?? 1) || 1;
+      const totalARestar = qty * cantidadPorUnidad;
 
-      await conn.query(
-        'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, prodId, qty, precio, sub, defaultUsuarioId]
-      );
+      if (hasUnidadCols.UNIDAD_ID || hasUnidadCols.CANTIDAD_POR_UNIDAD || hasUnidadCols.UNIDAD_NOMBRE) {
+        await conn.query(
+          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
+          + (hasUnidadCols.UNIDAD_ID ? ', UNIDAD_ID' : '')
+          + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : '')
+          + (hasUnidadCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : '')
+          + ') VALUES (?, ?, ?, ?, ?, ?'
+          + (hasUnidadCols.UNIDAD_ID ? ', ?' : '')
+          + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', ?' : '')
+          + (hasUnidadCols.UNIDAD_NOMBRE ? ', ?' : '')
+          + ')',
+          [id, prodId, qty, precio, sub, defaultUsuarioId]
+            .concat(hasUnidadCols.UNIDAD_ID ? [unidadId] : [])
+            .concat(hasUnidadCols.CANTIDAD_POR_UNIDAD ? [cantidadPorUnidad] : [])
+            .concat(hasUnidadCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
+        );
+      } else {
+        await conn.query(
+          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
+          [id, prodId, qty, precio, sub, defaultUsuarioId]
+        );
+      }
 
       const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [prodId, sucursalId]);
       const stockAnterior = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
-      const stockNuevo = stockAnterior - qty;
+      const stockNuevo = stockAnterior - totalARestar;
       await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, prodId, sucursalId]);
       try {
         await conn.query(
           `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`,
-          [prodId, sucursalId, defaultUsuarioId, qty, 'Edición venta', id, stockAnterior, stockNuevo]
+          [prodId, sucursalId, defaultUsuarioId, totalARestar, 'Edición venta', id, stockAnterior, stockNuevo]
         );
       } catch { }
     }
@@ -464,17 +552,28 @@ export async function DELETE(req) {
     const factura = factRows[0];
     const sucursalId = factura.ID_SUCURSAL || null;
 
-    // Restore stock from detalles
-    const [detalles] = await conn.query('SELECT ID_PRODUCT, AMOUNT FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [id]);
+    // Restore stock from detalles (consider CANTIDAD_POR_UNIDAD if existe)
+    let detalleHasCantidadPorUnidad = false;
+    try {
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD'`);
+      detalleHasCantidadPorUnidad = (cols && cols.length > 0);
+    } catch { detalleHasCantidadPorUnidad = false; }
+
+    const selectDetalleCols = detalleHasCantidadPorUnidad
+      ? 'SELECT ID_PRODUCT, AMOUNT, IFNULL(CANTIDAD_POR_UNIDAD,1) AS CANTIDAD_POR_UNIDAD FROM FACTURA_DETALLES WHERE ID_FACTURA = ?'
+      : 'SELECT ID_PRODUCT, AMOUNT FROM FACTURA_DETALLES WHERE ID_FACTURA = ?';
+    const [detalles] = await conn.query(selectDetalleCols, [id]);
     for (const d of (detalles || [])) {
       const prodId = Number(d.ID_PRODUCT);
       const qty = Number(d.AMOUNT || 0);
-      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = CANTIDAD + ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [qty, prodId, sucursalId]);
+      const mult = Number(d.CANTIDAD_POR_UNIDAD ?? 1) || 1;
+      const restoreQty = qty * mult;
+      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = CANTIDAD + ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [restoreQty, prodId, sucursalId]);
       try {
         await conn.query(
           `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, NULL, 'entrada', ?, ?, ?, NULL, NULL)`,
-          [prodId, sucursalId, qty, 'Reversión por eliminación de venta', id]
+          [prodId, sucursalId, restoreQty, 'Reversión por eliminación de venta', id]
         );
       } catch { }
     }

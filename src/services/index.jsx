@@ -15,3 +15,4 @@ export * as UsuarioService from './UsuarioService';
 export * as RolesService from './RolesService';
 export * as PermisosService from './PermisosService';
 export * as DescuentoService from './DescuentoService';
+export * as UnidadesService from './UnidadesService';

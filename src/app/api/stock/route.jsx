@@ -148,22 +148,22 @@ async function getResumen({ sucursal }) {
   const hasStatus = colCheck?.[0] && Number(colCheck[0].CNT || 0) > 0;
   const statusSelect = hasStatus ? "IFNULL(st.STATUS, 'ACTIVO') AS STATUS" : "'ACTIVO' AS STATUS";
   const { where, params } = buildSucursalWhere(sucursal, 's');
-  const [rows] = await pool.query(`
+    const [rows] = await pool.query(`
     SELECT 
       p.ID_PRODUCT,
       p.CODIGO_PRODUCTO,
       p.PRODUCT_NAME,
-      p.PRECIO AS PRECIO_UNIT,
+      COALESCE(pu.PRECIO, 0) AS PRECIO_UNIT,
       p.ID_SUBCATEGORIAS,
       sc.NOMBRE_SUBCATEGORIA AS SUBCATEGORY,
       s.ID_SUCURSAL,
       s.NOMBRE_SUCURSAL,
       IFNULL(st.CANTIDAD, 0) AS STOCK_SUCURSAL,
-      p.CANTIDAD AS STOCK_BODEGA,
+  p.CANTIDAD AS STOCK_BODEGA,
       ${statusSelect},
       IFNULL(nv.CANTIDAD, '') AS MINIMO,
       IFNULL(nv.CANTIDAD_MAX, '') AS MAXIMO,
-      (IFNULL(st.CANTIDAD, 0) * IFNULL(p.PRECIO, 0)) AS VALOR_TOTAL,
+      (IFNULL(st.CANTIDAD, 0) * COALESCE(pu.PRECIO, 0)) AS VALOR_TOTAL,
       (
         SELECT IFNULL(SUM(sd.CANTIDAD), 0) FROM STOCK_DANADOS sd
         WHERE sd.ID_PRODUCT = p.ID_PRODUCT AND sd.ID_SUCURSAL = s.ID_SUCURSAL
@@ -174,7 +174,8 @@ async function getResumen({ sucursal }) {
       ) AS RESERVADOS,
       '' AS CRITICOS,
       '' AS AGOTADOS
-    FROM PRODUCTOS p
+  FROM PRODUCTOS p
+  LEFT JOIN producto_unidades pu ON pu.PRODUCT_ID = p.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
     CROSS JOIN SUCURSAL s
     LEFT JOIN STOCK_SUCURSAL st ON st.ID_PRODUCT = p.ID_PRODUCT AND st.ID_SUCURSAL = s.ID_SUCURSAL
     LEFT JOIN SUBCATEGORIAS sc ON sc.ID_SUBCATEGORIAS = p.ID_SUBCATEGORIAS
@@ -255,7 +256,7 @@ async function getAlertas({ sucursal }) {
     SELECT 
       p.ID_PRODUCT,
       p.PRODUCT_NAME,
-      p.CANTIDAD AS STOCK_BODEGA,
+  p.CANTIDAD AS STOCK_BODEGA,
       s.ID_SUCURSAL,
       s.NOMBRE_SUCURSAL,
       IFNULL(st.CANTIDAD, 0) AS STOCK_SUCURSAL,
@@ -574,8 +575,13 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
     try {
       let precioUnitario = 0;
       try {
-        const [prodPriceRows] = await conn.query('SELECT PRECIO FROM PRODUCTOS WHERE ID_PRODUCT = ?', [idProduct]);
-        if (prodPriceRows?.length) precioUnitario = Number(prodPriceRows[0].PRECIO || 0);
+        // Try to get default unit price from producto_unidades
+        const [pp] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [idProduct]);
+        if (pp?.length) { precioUnitario = Number(pp[0].PRECIO || 0); }
+        else {
+          const [pp2] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [idProduct]);
+          if (pp2?.length) precioUnitario = Number(pp2[0].PRECIO || 0);
+        }
       } catch { }
       const perdidaCalculada = Number(cantidad || 0) * Number(precioUnitario || 0);
       const [colsRes] = await conn.query(
@@ -1095,8 +1101,12 @@ export async function PUT(req) {
         // Ajustar el registro de dañados: restar cantidad y actualizar estado/perdida si aplica
         let precioUnit = 0;
         try {
-          const [pRows] = await conn.query('SELECT PRECIO FROM PRODUCTOS WHERE ID_PRODUCT = ?', [idProduct]);
-          if (pRows?.length) precioUnit = Number(pRows[0].PRECIO || 0);
+          const [pp] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [idProduct]);
+          if (pp?.length) { precioUnit = Number(pp[0].PRECIO || 0); }
+          else {
+            const [pp2] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [idProduct]);
+            if (pp2?.length) precioUnit = Number(pp2[0].PRECIO || 0);
+          }
         } catch { precioUnit = 0; }
 
         const [colsRes] = await conn.query(
