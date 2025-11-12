@@ -5,7 +5,7 @@ import { FiCheck, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiSearch, FiSho
 import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, CotizacionesService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
-import { BsCalculator, BsCashCoin } from 'react-icons/bs';
+import { BsCalculator, BsCashCoin, BsKey, BsRulers, BsScrewdriver, BsWrench } from 'react-icons/bs';
 import { useRouter } from 'next/navigation';
 
 export default function PuntoVentaOrg() {
@@ -65,7 +65,7 @@ export default function PuntoVentaOrg() {
 				const res = await fetch('/api/tasa-cambio', { cache: 'no-store' });
 				const data = await res.json();
 				if (res.ok && data?.tasa) setTasaCambio(Number(data.tasa));
-			} catch {}
+			} catch { }
 		};
 		loadTasa();
 	}, []);
@@ -174,22 +174,32 @@ export default function PuntoVentaOrg() {
 	const total = subtotal - descuento;
 
 	const toggleModalType = (type) => {
+		setMode(type);
 		if (type === 'venta' && productList.length > 0) {
-			setMode(type);
 			setIsActiveModal(true);
 
 		} else if (type === 'cotizacion' && productList.length > 0) {
-			setMode(type);
 			handleCotizacion();
 
 		} else if (type === 'credito' && productList.length > 0) {
-			setMode(type);
 			setIsActiveModal(true);
 
 		} else if (type === 'confirmar venta' && productList.length > 0) {
-			setMode(type);
 			setIsActiveModal(false);
 			handleSubmitVenta();
+
+		} else if (type === 'unit') {
+			setIsActiveModal(true);
+
+		} else if (type === 'price') {
+			setIsActiveModal(true);
+
+		} else if (type === 'credito') {
+			setIsActiveModal(true);
+
+		} else if (type === 'discount') {
+			setIsActiveModal(true);
+
 		} else {
 			setMode('error');
 			setIsActiveModal(true)
@@ -435,6 +445,23 @@ export default function PuntoVentaOrg() {
 		}
 	}, [isAdmin, selectedSucursal]);
 
+	const handleUnitSubmit = () => {
+		setIsActiveModal(false);
+	}
+
+	const handleCustomPrice = () => {
+		setIsActiveModal(false);
+	}
+
+	const confirmCredito = () => {
+		setIsActiveModal(false)
+		router.push('/clientes/creditos');
+	}
+
+	const handelApplyDiscount = () => {
+		setIsActiveModal(false)
+	}
+
 	return (
 		<>
 			{isAdmin &&
@@ -578,6 +605,7 @@ export default function PuntoVentaOrg() {
 							<Button
 								text={'Aplicar Descuento'}
 								className={'blue'}
+								func={() => toggleModalType('discount')}
 							/>
 						</div>
 					</div>
@@ -625,8 +653,18 @@ export default function PuntoVentaOrg() {
 													<span className='font-semibold text-primary text-lg'>
 														${(product.PRECIO * product.quantity).toFixed(2)}
 													</span>
-													<span className='text-dark/70 text-sm'>
-														${product.PRECIO} c/u
+													<span className='text-dark/70 text-sm flex gap-2'>
+														<Button
+															icon={<BsRulers />}
+															className={'noneTwo'}
+															func={() => toggleModalType('unit')}
+														/>
+														<Button
+															icon={<BsWrench />}
+															className={'noneTwo'}
+															func={() => toggleModalType('price')}
+														/>
+														${product.PRECIO} {product.unit || 'c/u'}
 													</span>
 												</div>
 											</div>
@@ -672,6 +710,7 @@ export default function PuntoVentaOrg() {
 								className={'danger'}
 								text={'Credito'}
 								icon={<FiFile className='h-5 w-5' />}
+								func={() => toggleModalType('credito')}
 							/>
 						</div>
 					</div>
@@ -689,7 +728,19 @@ export default function PuntoVentaOrg() {
 									? 'Gestionar Credito'
 									: (mode === 'error'
 										? 'Lista de productos vacia'
-										: 'Cambio Total: C$' + cambio
+										: (mode === 'unit'
+											? ''
+											: (mode === 'price'
+												? ''
+												: (mode === 'credito'
+													? 'Confirmar esta venta como Credito'
+													: (mode === 'discount'
+														? 'Aplicar un descuento'
+														: 'Cambio Total: C$' + cambio
+													)
+												)
+											)
+										)
 									)
 								)
 							)
@@ -702,7 +753,13 @@ export default function PuntoVentaOrg() {
 									? 'Gestiona el crédito para el cliente.'
 									: (mode === 'error'
 										? 'Agrega al menos un producto a la lista para realiar una venta.'
-										: ''
+										: (mode === 'credito'
+											? '¿Esta seguro que desea crear un credito apartir de esta venta?'
+											: (mode === 'discount'
+												? 'Aplica un descuento a esta venta'
+												: ''
+											)
+										)
 									)
 								)
 							)
@@ -746,25 +803,25 @@ export default function PuntoVentaOrg() {
 									label={'Fecha Valida Hasta:'}
 									type={'date'}
 									inputClass={'no icon'}
-										value={fechaVencimiento}
-										onChange={(e) => {
-											setFechaVencimiento(e.target.value);
-											setError(prev => ({ ...(prev || {}), fecha: '' }));
-										}}
-										error={error && error.fecha}
+									value={fechaVencimiento}
+									onChange={(e) => {
+										setFechaVencimiento(e.target.value);
+										setError(prev => ({ ...(prev || {}), fecha: '' }));
+									}}
+									error={error && error.fecha}
 								/>
-									{error?.general && <span className='text-danger text-sm'>{error.general}</span>}
+								{error?.general && <span className='text-danger text-sm'>{error.general}</span>}
 								<div className='flex gap-2 w-full'>
 									<Button
 										text={'Cancelar Cotizacion'}
 										className={'secondary'}
 										func={() => setIsActiveModal(false)}
 									/>
-										<Button
-											text={savingQuote ? 'Guardando…' : 'Confirmar Cotizacion'}
-											className={'success'}
-											func={savingQuote ? undefined : confirmCotizacion}
-										/>
+									<Button
+										text={savingQuote ? 'Guardando…' : 'Confirmar Cotizacion'}
+										className={'success'}
+										func={savingQuote ? undefined : confirmCotizacion}
+									/>
 								</div>
 							</div>
 						) : mode === 'error' ? (
@@ -776,6 +833,79 @@ export default function PuntoVentaOrg() {
 									func={() => setIsActiveModal(false)}
 								/>
 							</div>
+						) : (mode === 'unit' ? (
+							<div className='flex flex-col gap-2'>
+								<DropdownMenu
+									label={"Unidad de Medida para este producto"}
+									options={["mts", "lts", "lbrs", "pzs"]}
+									defaultValue={"mts"}
+								/>
+								<div className='flex gap-2'>
+									<Button
+										text={"Cancelar"}
+										className={'secondary'}
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										className={'success'}
+										text={"Guardar"}
+										func={() => handleUnitSubmit()}
+									/>
+								</div>
+							</div>
+						) : (mode === 'price' ? (
+							<div className='flex flex-col gap-2'>
+								<Input
+									label={"Agrega un precio personalizado"}
+									type={'number'}
+									inputClass={'no icon'}
+									placeholder={"ej: C$300.00"}
+								/>
+								<div className='flex gap-2'>
+									<Button
+										text={"Cancelar"}
+										className={'secondary'}
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										className={'success'}
+										text={"Guardar"}
+										func={() => handleCustomPrice()}
+									/>
+								</div>
+							</div>
+						) : (mode === "credito" ? (
+							<div className='flex gap-2 mt-2'>
+								<Button
+									text={"Cancelar"}
+									className={"secondary"}
+									func={() => setIsActiveModal(false)}
+								/>
+								<Button
+									className={'success'}
+									text={"Confirmar credito"}
+									func={() => confirmCredito()}
+								/>
+							</div>
+						) : (mode === "discount" ? (
+							<div className='flex flex-col gap-2 mt-2'>
+								<DropdownMenu
+									options={['Descuento por Antiguedad', 'Descuento por Misericordia']}
+									defaultValue={'Selecciona un descuento'}
+								/>
+								<div className='flex gap-2'>
+									<Button
+										text={"Cancelar"}
+										className={"secondary"}
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										className={'success'}
+										text={"Aplicar"}
+										func={() => handelApplyDiscount()}
+									/>
+								</div>
+							</div>
 						) : (
 							<div className='flex mt-2'>
 								<Button
@@ -785,9 +915,7 @@ export default function PuntoVentaOrg() {
 									func={handleDone}
 								/>
 							</div>
-						)
-
-						}
+						)))))}
 					</ModalContainer >
 				)
 			}

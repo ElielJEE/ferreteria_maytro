@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+import React, { use, useEffect, useState } from 'react'
 import sidebarData from '@/data/sidebar'
 import Link from 'next/link'
 import { IoIosArrowForward } from "react-icons/io";
@@ -36,6 +36,8 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 		fetchUser();
 	}, [])
 
+	console.log(user);
+
 	return (
 		<>
 			{openSidebar && (
@@ -60,53 +62,83 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 					<ul className='mt-2 flex flex-col gap-1'>
 						{
 							sidebarData
+								// Filtramos los módulos según permisos
+								.filter(item => {
+									const hasSubModules = item.subModules && item.subModules.length > 0;
+
+									// Si el módulo tiene submódulos, verificamos si alguno es accesible
+									if (hasSubModules) {
+										const allowedSubModules = item.subModules.filter(sub =>
+											user?.role?.permisos?.some(p => p.path === sub.path)
+										);
+										return allowedSubModules.length > 0;
+									}
+
+									// Si el módulo tiene link directo, lo mostramos solo si el path está permitido
+									return user?.role?.permisos?.some(p => p.path === item.link);
+								})
 								.map((item, index) => {
 									const hasSubModules = item.subModules && item.subModules.length > 0;
+
+									// Submódulos visibles según permisos
+									const visibleSubModules = item.subModules?.filter(sub =>
+										user?.role?.permisos?.some(p => p.path === sub.path)
+									);
+
 									return (
 										<li key={index} className='w-[94%]'>
-											<div className={`flex justify-center items-center ${openIndex === index ? "bg-dark/5 rounded-md" : ""} px-3 py-1 cursor-pointer hover:bg-dark/5 rounded-md`}>
-												{
-													hasSubModules ? (
-														<>
-															<h3
-																onClick={() => toggleDropdown(index)}
-																className='cursor-pointer flex items-center gap-1 text-medium w-full'>
-																{item.icon}
-																{item.title}
-															</h3>
-															<span className='transition-transform duration-400'
-																style={{
-																	transform: openIndex === index ? "rotate(90deg)" : "rotate(0deg)",
-																}}
-															>
-																<IoIosArrowForward />
-															</span>
-														</>
-
-													) : (
-														<Link href={item.link} className='cursor-pointer flex items-center gap-1 text-medium w-full'>
+											<div
+												className={`flex justify-center items-center ${openIndex === index ? "bg-dark/5 rounded-md" : ""
+													} px-3 py-1 cursor-pointer hover:bg-dark/5 rounded-md`}
+											>
+												{hasSubModules ? (
+													<>
+														<h3
+															onClick={() => toggleDropdown(index)}
+															className='cursor-pointer flex items-center gap-1 text-medium w-full'
+														>
 															{item.icon}
 															{item.title}
-														</Link>
-													)
-												}
+														</h3>
+														<span
+															className='transition-transform duration-400'
+															style={{
+																transform: openIndex === index ? "rotate(90deg)" : "rotate(0deg)",
+															}}
+														>
+															<IoIosArrowForward />
+														</span>
+													</>
+												) : (
+													<Link
+														href={item.link}
+														className='cursor-pointer flex items-center gap-1 text-medium w-full'
+													>
+														{item.icon}
+														{item.title}
+													</Link>
+												)}
 											</div>
-											<ul
-												className={`border-l border-dark/10 ml-5 mt-1 transition-all duration-400 overflow-hidden 
-											${openIndex === index ? "max-h-96 opacity-100" : "max-h-0 opacity-0"} w-[78%]`}
-											>
-												{
-													item.subModules?.map((subItem, subIndex) => (
+
+											{/* Submódulos filtrados */}
+											{visibleSubModules && visibleSubModules.length > 0 && (
+												<ul
+													className={`border-l border-dark/10 ml-5 mt-1 transition-all duration-400 overflow-hidden ${openIndex === index ? "max-h-96 opacity-100" : "max-h-0 opacity-0"} w-[78%]`}
+												>
+													{visibleSubModules.map((subItem, subIndex) => (
 														<li key={subIndex}>
-															<Link href={subItem.path} className='block px-2 py-1 rounded-md hover:bg-dark/5'>
+															<Link
+																href={subItem.path}
+																className='block px-2 py-1 rounded-md hover:bg-dark/5'
+															>
 																{subItem.name}
 															</Link>
 														</li>
-													))
-												}
-											</ul>
+													))}
+												</ul>
+											)}
 										</li>
-									)
+									);
 								})
 						}
 					</ul>
