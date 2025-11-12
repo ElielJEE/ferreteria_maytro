@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
-import { SucursalesService, CajaService } from '@/services';
+import { SucursalesService, CajaService, SalesService } from '@/services';
 import { Input } from '../molecules';
 import { Button } from '../atoms';
 import { FiLock, FiTrash2, FiUnlock } from 'react-icons/fi';
@@ -9,8 +9,10 @@ export default function CajaOrg() {
 	const [sucursales, setSucursales] = useState([]);
 	const [cajas, setCajas] = useState({}); // por sucursal: { status, montoInicial, horaApertura, sesionId }
 	const [cerrarCaja, setCerrarCaja] = useState({}); // flags por sucursal
-	const [diferencia, setDiferencia] = useState(0)
+	const [diferenciaMap, setDiferenciaMap] = useState({});
 	const [historial, setHistorial] = useState([]);
+	const [totalVentas, setTotalVentas] = useState({}); // map sucursalId -> total ventas hoy
+	const [esperadoMap, setEsperadoMap] = useState({});
 	console.log(sucursales);
 
 	useEffect(() => {
@@ -25,12 +27,13 @@ export default function CajaOrg() {
 					const est = await CajaService.getEstado(s.value);
 					const abierta = est?.abierta;
 					if (abierta) {
-						initialState[s.value] = {
-							status: 'Abierta',
-							montoInicial: Number(abierta.MONTO_INICIAL || 0),
-							horaApertura: new Date(abierta.FECHA_APERTURA).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-							sesionId: abierta.ID_SESION,
-						};
+								initialState[s.value] = {
+									status: 'Abierta',
+									montoInicial: Number(abierta.MONTO_INICIAL || 0),
+									horaApertura: new Date(abierta.FECHA_APERTURA).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+									fechaApertura: abierta.FECHA_APERTURA,
+									sesionId: abierta.ID_SESION,
+								};
 					} else {
 						initialState[s.value] = { status: 'Cerrada', montoInicial: 0, horaApertura: null, sesionId: null };
 					}
@@ -47,6 +50,50 @@ export default function CajaOrg() {
 		}
 		fetchData();
 	}, [])
+
+	// Cuando se abre el panel de cierre para una sucursal, cargar total de ventas del dia y calcular esperado
+	useEffect(() => {
+		const keys = Object.keys(cerrarCaja).filter(k => cerrarCaja[k]);
+		if (!keys.length) return;
+		for (const sucId of keys) {
+			(async () => {
+				try {
+					// pedir historial de ventas para la sucursal (ruta /api/ventas?sucursal=...)
+					const res = await SalesService.getSalesHistory(sucId);
+					let ventas = [];
+					if (!res) ventas = [];
+					else if (Array.isArray(res)) ventas = res;
+					else if (Array.isArray(res.ventas)) ventas = res.ventas;
+					// sumar solo las ventas de hoy (la API devuelve campo fecha en 'YYYY-MM-DD')
+					const today = new Date();
+					const y = today.getFullYear();
+					const m = String(today.getMonth() + 1).padStart(2, '0');
+					const d = String(today.getDate()).padStart(2, '0');
+					const todayStr = `${y}-${m}-${d}`;
+					const totalHoy = (ventas || []).reduce((acc, v) => {
+						const vFecha = (v.fecha || '').toString();
+						if (vFecha === todayStr) return acc + Number(v.total || 0);
+						return acc;
+					}, 0);
+					setTotalVentas(prev => ({ ...prev, [sucId]: Number(totalHoy.toFixed(2)) }));
+					const inicial = Number(cajas?.[sucId]?.montoInicial || 0);
+					setEsperadoMap(prev => ({ ...prev, [sucId]: Number((inicial + totalHoy).toFixed(2)) }));
+				} catch (err) {
+					console.error('Error cargando ventas para cierre de caja:', err);
+				}
+			})();
+		}
+	}, [cerrarCaja]);
+
+	// Recalcular diferencias cuando cambia el esperado (ventas cargadas) o montoFinal en cajas
+	useEffect(() => {
+		const open = Object.keys(cerrarCaja).filter(k => cerrarCaja[k]);
+		for (const sucId of open) {
+			const esperado = Number(esperadoMap[sucId] || 0);
+			const montoFinal = Number(cajas?.[sucId]?.montoFinal || 0);
+			setDiferenciaMap(prev => ({ ...prev, [sucId]: Number((montoFinal - esperado).toFixed(2)) }));
+		}
+	}, [esperadoMap, cajas, cerrarCaja]);
 
 	const handleOpenCaja = async (id, monto) => {
 		try {
@@ -70,9 +117,16 @@ export default function CajaOrg() {
 			const res = await CajaService.cerrarCaja({ sesion_id: sesionId, sucursal_id: id, monto_final: Number(montoFinal || 0) });
 			setCajas(prev => ({ ...prev, [id]: { status: 'Cerrada', montoInicial: 0, horaApertura: null, sesionId: null } }));
 			setCerrarCaja(prev => ({ ...prev, [id]: false }));
-			// refrescar historial
+			// refrescar historial y aplicar la diferencia calculada localmente para que se muestre inmediatamente
 			const h = await CajaService.getHistorial({ limit: 20 });
-			setHistorial(h?.historial || []);
+			const rawHist = h?.historial || [];
+			let updatedHist = rawHist;
+			// Si tenemos el id de sesión cerrado, actualizar su DIFERENCIA con el valor calculado en diferenciaMap
+			if (sesionId) {
+				const diffVal = Number(diferenciaMap[id] || 0);
+				updatedHist = rawHist.map(item => (item.ID_SESION === sesionId ? { ...item, DIFERENCIA: diffVal } : item));
+			}
+			setHistorial(updatedHist);
 		} catch (e) {
 			console.error('Cerrar caja error:', e);
 		}
@@ -161,41 +215,50 @@ export default function CajaOrg() {
 															placeholder={'0.00'}
 															inputClass={'no icon'}
 															type={'number'}
-															value={cajas?.[sucursal.value]?.montoFinal || ''}
-															onChange={(e) => setCajas(prev => ({ ...prev, [sucursal.value]: { ...prev[sucursal.value], montoFinal: e.target.value } }))}
-														/>
+															value={cajas?.[sucursal.value]?.montoFinal ?? ''}
+															onChange={(e) => {
+																const val = Number(e.target.value || 0);
+																setCajas(prev => ({ ...prev, [sucursal.value]: { ...prev[sucursal.value], montoFinal: val } }));
+																// calcular diferencia usando esperadoMap (si no existe, calcular con montoInicial + totalVentas)
+																const inicial = Number(cajas?.[sucursal.value]?.montoInicial || 0);
+																const ventas = Number(totalVentas[sucursal.value] || 0);
+																const esperado = Number((esperadoMap[sucursal.value] ?? (inicial + ventas)).toFixed(2));
+																setEsperadoMap(prev => ({ ...prev, [sucursal.value]: esperado }));
+																setDiferenciaMap(prev => ({ ...prev, [sucursal.value]: Number((val - esperado).toFixed(2)) }));
+															}}
+															/>
 														<Input
 															label={'Total de Ventas (C$)'}
 															placeholder={'0.00'}
 															inputClass={'no icon'}
-															value={''}
+															value={Number(totalVentas[sucursal.value] || 0).toFixed(2)}
 															onChange={() => {}}
 														/>
 														<div className='p-2 bg-dark/10 rounded-md flex flex-col w-full gap-2'>
 															<div className='flex flex-col'>
 																<div className='flex justify-between'>
 																	<span>Monto Inicial:</span>
-																	<span className='font-semibold'>C$1000</span>
+																	<span className='font-semibold'>C${Number(cajas[sucursal.value]?.montoInicial || 0).toFixed(2)}</span>
 																</div>
 																<div className='flex justify-between'>
 																	<span>Ventas:</span>
-																	<span className='font-semibold'>C$1000</span>
+																	<span className='font-semibold'>C${Number(totalVentas[sucursal.value] || 0).toFixed(2)}</span>
 																</div>
 															</div>
 															<div className='flex flex-col py-1 border-y border-light/50'>
 																<div className='flex justify-between'>
 																	<span>Esperado:</span>
-																	<span className='font-semibold text-primary'>C$1000</span>
+																	<span className='font-semibold text-primary'>C${Number(esperadoMap[sucursal.value] || 0).toFixed(2)}</span>
 																</div>
 																<div className='flex justify-between'>
 																	<span>Real:</span>
-																	<span className='font-semibold text-primary'>C$1000</span>
+																	<span className='font-semibold text-primary'>C${Number(cajas?.[sucursal.value]?.montoFinal || 0).toFixed(2)}</span>
 																</div>
 															</div>
 															<div className='flex flex-col'>
-																<div className={`flex justify-between ${diferencia === 0 ? 'text-success' : diferencia > 0 ? 'text-blue' : 'text-danger'}`}>
+																<div className={`flex justify-between ${((diferenciaMap[sucursal.value] || 0) === 0) ? 'text-success' : (diferenciaMap[sucursal.value] || 0) > 0 ? 'text-blue' : 'text-danger'}`}>
 																	<span>Diferencia:</span>
-																	<span className='font-semibold'>C$0</span>
+																	<span className='font-semibold'>C${Number(diferenciaMap[sucursal.value] || 0).toFixed(2)}</span>
 																</div>
 															</div>
 														</div>
