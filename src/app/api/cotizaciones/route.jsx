@@ -48,9 +48,8 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
 
     // Devolver stock por cada detalle
     const [detRows] = await conn.query(
-      `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, p.PRECIO
+      `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad
        FROM COTIZACION_DETALLES d
-       LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
        WHERE d.ID_COTIZACION = ?`,
       [cotizacionId]
     );

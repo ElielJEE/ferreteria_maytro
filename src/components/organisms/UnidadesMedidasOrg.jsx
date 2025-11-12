@@ -1,9 +1,10 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button, InfoCard, ModalContainer } from '../atoms'
 import { BsUnity } from 'react-icons/bs'
 import { Card, Input } from '../molecules'
 import { useActive, useFilter, useIsMobile } from '@/hooks'
+import UnidadesService from '@/services/UnidadesService'
 import { FiEdit, FiPlus, FiSearch, FiTrash2 } from 'react-icons/fi'
 
 export default function UnidadesMedidasOrg() {
@@ -12,50 +13,89 @@ export default function UnidadesMedidasOrg() {
 	const { isActiveModal, setIsActiveModal } = useActive();
 	const [mode, setMode] = useState();
 	const [unidad, setUnidad] = useState();
+	const [unidades, setUnidades] = useState([]);
+	const [loading, setLoading] = useState(false);
+	const [formName, setFormName] = useState('');
 
-	const unidadesEjemplos = [
-		{ id: 1, unidad: 'pzs' },
-		{ id: 2, unidad: 'mts' },
-		{ id: 3, unidad: 'lts' },
-		{ id: 4, unidad: 'lbs' },
-		{ id: 5, unidad: 'latas' },
-	]
+	useEffect(() => {
+		let mounted = true;
+		const fetchUnidades = async () => {
+			setLoading(true);
+			try {
+				const data = await UnidadesService.getUnidades();
+				if (mounted) setUnidades(data.map(u => ({ id: u.id, unidad: u.unidad })));
+			} catch (err) {
+				console.error('Error cargando unidades', err);
+			} finally {
+				if (mounted) setLoading(false);
+			}
+		}
+		fetchUnidades();
+		return () => { mounted = false };
+	}, []);
 
 	const filteredUnidades = useFilter({
-		data: unidadesEjemplos,
+		data: unidades,
 		searchTerm,
-		matcher: (item, term) =>
-			item.unidad.toLowerCase().includes(term.toLowerCase())
+		matcher: (item, term) => item.unidad.toLowerCase().includes(term.toLowerCase())
 	});
 
 	const toggleModalType = (type, itemData) => {
 		setMode(type);
 
 		if (type === 'create') {
-			setIsActiveModal(true)
+			setFormName('');
+			setUnidad(undefined);
+			setIsActiveModal(true);
 
 		} else if (type === 'edit') {
-			setUnidad(itemData)
-			setIsActiveModal(true)
+			setUnidad(itemData);
+			setFormName(itemData?.unidad || '');
+			setIsActiveModal(true);
 
 		} else if (type === 'delete') {
-			setUnidad(itemData)
-			setIsActiveModal(true)
+			setUnidad(itemData);
+			setIsActiveModal(true);
 		}
 	}
 
-	const handleSubmitCreate = (e) => {
-		e.preventDefault()
-		setIsActiveModal(false)
-	}
-
-	const handleEditSubmit = (e) => {
+	const handleSubmitCreate = async (e) => {
 		e.preventDefault();
-		setIsActiveModal(false);
+		if (!formName || !formName.trim()) return;
+		try {
+			const res = await UnidadesService.createUnidad({ nombre: formName.trim() });
+			// Añadir al state local para reflejar cambios inmediatamente
+			setUnidades((prev) => [...prev, { id: res.id, unidad: formName.trim() }]);
+			setIsActiveModal(false);
+		} catch (err) {
+			console.error('Error creando unidad', err);
+			// Mantener modal abierto para mostrar error en futuro
+		}
 	}
 
-	const confirmDelete = () => {
-		setIsActiveModal(false);
+	const handleEditSubmit = async (e) => {
+		e.preventDefault();
+		if (!unidad || !unidad.id) return;
+		if (!formName || !formName.trim()) return;
+		try {
+			await UnidadesService.editUnidad({ id: unidad.id, nombre: formName.trim() });
+			setUnidades((prev) => prev.map(u => u.id === unidad.id ? { ...u, unidad: formName.trim() } : u));
+			setIsActiveModal(false);
+		} catch (err) {
+			console.error('Error actualizando unidad', err);
+		}
+	}
+
+	const confirmDelete = async () => {
+		if (!unidad || !unidad.id) return setIsActiveModal(false);
+		try {
+			await UnidadesService.deleteUnidad({ id: unidad.id });
+			setUnidades((prev) => prev.filter(u => u.id !== unidad.id));
+			setIsActiveModal(false);
+		} catch (err) {
+			console.error('Error eliminando unidad', err);
+			setIsActiveModal(false);
+		}
 	}
 
 	return (
@@ -64,7 +104,7 @@ export default function UnidadesMedidasOrg() {
 				<section className='grid grid-cols-1 md:grid-cols-4'>
 					<InfoCard
 						CardTitle={"Total Unidades"}
-						cardValue={unidadesEjemplos.length || 0}
+						cardValue={unidades.length || 0}
 						cardIconColor={"primary"}
 						cardIcon={<BsUnity className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
 					/>
@@ -163,6 +203,8 @@ export default function UnidadesMedidasOrg() {
 										label={'Nombre de la unidad de medida'}
 										placeholder={'Ingrese nombre de la unidad de medida...'}
 										inputClass={'no icon'}
+										value={formName}
+										onChange={(e) => setFormName(e.target.value)}
 									/>
 									<div className='flex gap-2 mt-2'>
 										<Button
@@ -182,7 +224,8 @@ export default function UnidadesMedidasOrg() {
 										label={'Nombre de la unidad de medida'}
 										placeholder={'Ingrese nombre de la unidad de medida...'}
 										inputClass={'no icon'}
-										value={unidad.unidad}
+										value={formName}
+										onChange={(e) => setFormName(e.target.value)}
 									/>
 									<div className='flex gap-2 mt-2'>
 										<Button

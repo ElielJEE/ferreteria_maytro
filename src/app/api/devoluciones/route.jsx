@@ -217,8 +217,12 @@ export async function POST(req) {
           // Obtener precio para calcular pérdida
           let precioUnitario = 0;
           try {
-            const [pRows2] = await conn.query('SELECT PRECIO FROM PRODUCTOS WHERE ID_PRODUCT = ? LIMIT 1', [producto_id]);
-            if (pRows2?.length) precioUnitario = Number(pRows2[0].PRECIO || 0);
+            const [pp] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [producto_id]);
+            if (pp?.length) { precioUnitario = Number(pp[0].PRECIO || 0); }
+            else {
+              const [pp2] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [producto_id]);
+              if (pp2?.length) precioUnitario = Number(pp2[0].PRECIO || 0);
+            }
           } catch {}
           const perdida = Number(cantidad || 0) * Number(precioUnitario || 0);
           const [colsRes] = await conn.query(
@@ -319,8 +323,13 @@ export async function POST(req) {
         const [d] = await conn.query('SELECT ID_FACTURA FROM FACTURA_DETALLES WHERE ID_DETALLES_FACTURA = ? LIMIT 1', [detalle_id]);
         if (d?.length) facId = d[0].ID_FACTURA;
       }
-      const [pRows] = await conn.query('SELECT PRECIO FROM PRODUCTOS WHERE ID_PRODUCT = ? LIMIT 1', [nuevoProdId]);
-      const precioNuevo = pRows?.length ? Number(pRows[0].PRECIO || 0) : 0;
+      const [ppn] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [nuevoProdId]);
+      let precioNuevo = 0;
+      if (ppn?.length) precioNuevo = Number(ppn[0].PRECIO || 0);
+      else {
+        const [ppn2] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [nuevoProdId]);
+        if (ppn2?.length) precioNuevo = Number(ppn2[0].PRECIO || 0);
+      }
       const subNuevo = Number((precioNuevo * qtyReemp).toFixed(2));
       if (facId) {
         await conn.query(

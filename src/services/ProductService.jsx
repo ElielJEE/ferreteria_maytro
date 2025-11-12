@@ -8,7 +8,17 @@ export const getProducts = async () => {
 		})
 
 		if (!res.ok) {
-			throw new Error("Error al obtener	productos")
+			// Try to parse JSON error body for a better message
+			let body;
+			try {
+				body = await res.json();
+			} catch (e) {
+				body = await res.text().catch(() => null);
+			}
+			const msg = body && (body.error || body.message) ? (body.error || body.message) : (typeof body === 'string' ? body : null);
+			const err = new Error(msg ? `API /api/productos error: ${msg}` : `API /api/productos returned status ${res.status}`);
+			err.status = res.status;
+			throw err;
 		}
 
 		return await res.json();
@@ -94,6 +104,24 @@ export const deleteProduct = async (id) => {
 		return data;
 	} catch (error) {
 		console.error('deleteProduct error:', error);
+		throw error;
+	}
+}
+
+export const getProductUnits = async (productId) => {
+	try {
+		const res = await fetch(`${API_URL}?type=unidades&id=${encodeURIComponent(productId)}`, {
+			method: 'GET',
+			headers: { "Content-Type": "application/json" },
+		});
+
+		if (!res.ok) {
+			throw new Error('Error al obtener unidades del producto');
+		}
+
+		return await res.json();
+	} catch (error) {
+		console.error('getProductUnits error:', error);
 		throw error;
 	}
 }

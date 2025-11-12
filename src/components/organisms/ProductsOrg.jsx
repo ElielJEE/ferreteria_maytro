@@ -5,7 +5,7 @@ import { FiAlertTriangle, FiBox, FiDelete, FiEdit, FiPlus, FiSearch, FiTrash, Fi
 import { BsBoxSeam, BsFillBoxFill } from 'react-icons/bs'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { useActive, useFilter, useIsMobile, useLoadMore, useMessage } from '@/hooks'
-import { ProductService } from '@/services'
+import { ProductService, UnidadesService } from '@/services'
 
 export default function ProductsOrg() {
 	const [selectedCategory, setSelectedCategory] = useState('Todas las categorias');
@@ -20,12 +20,10 @@ export default function ProductsOrg() {
 		codigo: '',
 		nombre: '',
 		subcategoria: '',
-		precio_venta: '',
 		cantidad: '',
-		unidades: [
-			{ unidad: 'Pzs', precio_venta: '', cantidad_unidad: '' }
-		]
+		unidades: []
 	});
+	const [unitsOptions, setUnitsOptions] = useState([]);
 	const [editMode, setEditMode] = useState(false);
 	const [errors, setErrors] = useState({});
 	const { message, setMessage } = useMessage();
@@ -33,7 +31,7 @@ export default function ProductsOrg() {
 
 	const validateForm = () => {
 		const newErrors = {};
-		const required = ['codigo', 'nombre', 'subcategoria', 'precio_venta', 'cantidad'];
+		const required = ['codigo', 'nombre', 'subcategoria', 'cantidad'];
 		required.map((field) => {
 			const value = form[field];
 			if (value === null || value === undefined || String(value).trim() === '') {
@@ -65,7 +63,7 @@ export default function ProductsOrg() {
 				subcategoria: '',
 				cantidad: '',
 				unidades: [
-					{ unidad: 'Pzs', precio_venta: '', cantidad_unidad: '' }
+					{ unidad: unitsOptions.length ? { value: unitsOptions[0].ID_UNIDAD, label: unitsOptions[0].NOMBRE } : null, precio_venta: '', cantidad_unidad: '' }
 				]
 			});
 			setErrors({});
@@ -77,12 +75,19 @@ export default function ProductsOrg() {
 	useEffect(() => {
 		const fetchAll = async () => {
 			try {
-				const [productsData, subcats] = await Promise.all([
+				const [productsData, subcats, unidades] = await Promise.all([
 					ProductService.getProducts(),
-					ProductService.getSubcategories()
+					ProductService.getSubcategories(),
+					UnidadesService.getUnidades()
 				]);
 				setProducts(productsData);
 				setSubcategories(subcats);
+				// Normalizar la forma de las unidades (la API de unidades devuelve {id, unidad})
+				const normalized = (unidades || []).map(u => ({
+					ID_UNIDAD: u.ID_UNIDAD ?? u.id ?? u.ID,
+					NOMBRE: u.NOMBRE ?? u.unidad ?? u.nombre
+				}));
+				setUnitsOptions(normalized);
 			} catch (error) {
 				console.error(error)
 			}
@@ -90,17 +95,32 @@ export default function ProductsOrg() {
 		fetchAll();
 	}, []);
 
-	const toggleModalType = (action, item = null) => {
+	const toggleModalType = async (action, item = null) => {
 		if (action === 'create') {
 			setEditMode(false);
-			setForm({
+					// ensure units loaded before opening modal so dropdown has options
+					let availableUnits = unitsOptions || [];
+					if (!availableUnits.length) {
+						try {
+							const unidades = await UnidadesService.getUnidades();
+							const normalized = (unidades || []).map(u => ({
+								ID_UNIDAD: u.ID_UNIDAD ?? u.id ?? u.ID,
+								NOMBRE: u.NOMBRE ?? u.unidad ?? u.nombre
+							}));
+							setUnitsOptions(normalized);
+							availableUnits = normalized;
+						} catch (e) {
+							console.error('Error loading unidades before opening modal', e);
+						}
+					}
+					setForm({
 				id: '',
 				codigo: '',
 				nombre: '',
 				subcategoria: '',
 				cantidad: '',
 				unidades: [
-					{ unidad: 'Pzs', precio_venta: '', cantidad_unidad: '' }
+						{ unidad: availableUnits.length ? { value: availableUnits[0].ID_UNIDAD, label: availableUnits[0].NOMBRE } : null, precio_venta: '', cantidad_unidad: '1' }
 				]
 			});
 			setIsActiveModal(true);
@@ -113,9 +133,16 @@ export default function ProductsOrg() {
 				codigo: item.CODIGO_PRODUCTO,
 				nombre: item.PRODUCT_NAME,
 				subcategoria: item.ID_SUBCATEGORIAS,
-				precio_venta: item.PRECIO,
-				cantidad: item.CANTIDAD
+				cantidad: item.CANTIDAD,
+				unidades: []
 			});
+			// cargar unidades del producto
+			ProductService.getProductUnits(item.ID_PRODUCT).then((urows) => {
+				if (Array.isArray(urows)) {
+					const mapped = urows.map(u => ({ unidad: { value: u.UNIDAD_ID, label: u.NOMBRE }, precio_venta: String(u.PRECIO), cantidad_unidad: String(u.CANTIDAD_POR_UNIDAD), es_por_defecto: u.ES_POR_DEFECTO }));
+					setForm(prev => ({ ...prev, unidades: mapped }));
+				}
+			}).catch(err => console.error('Error fetching product unidades', err));
 			setEditMode(true);
 			setErrors({});
 			setIsActiveModal(true);
@@ -152,7 +179,7 @@ export default function ProductsOrg() {
 	});
 
 	const handleModalClose = () => {
-		setForm({ id: '', codigo: '', nombre: '', subcategoria: '', precio_venta: '', cantidad: '' });
+		setForm({ id: '', codigo: '', nombre: '', subcategoria: '', cantidad: '', unidades: [] });
 		setErrors({});
 		setMessage("");
 		setConfirmDelete(null)
@@ -162,7 +189,7 @@ export default function ProductsOrg() {
 	const addUnidad = () => {
 		setForm((prev) => ({
 			...prev,
-			unidades: [...prev.unidades, { unidad: 'Pzs', precio_venta: '', cantidad_unidad: '' }]
+			unidades: [...prev.unidades, { unidad: unitsOptions.length ? { value: unitsOptions[0].ID_UNIDAD, label: unitsOptions[0].NOMBRE } : null, precio_venta: '', cantidad_unidad: '1' }]
 		}));
 	};
 
@@ -244,7 +271,6 @@ export default function ProductsOrg() {
 											<th className='text-center text-dark/50 font-semibold p-2'>Producto</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Categoría</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Cantidad</th>
-											<th className='text-center text-dark/50 font-semibold p-2'>Precio Venta</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
 										</tr>
 									</thead>
@@ -260,7 +286,6 @@ export default function ProductsOrg() {
 													</span>
 												</td>
 												<td className='p-2 text-center'>{item.CANTIDAD}</td>
-												<td className='p-2 text-center'>C${item.PRECIO}</td>
 												<td className='p-2 text-center'>
 													<div className='flex gap-2 justify-center'>
 														<Button
@@ -293,10 +318,6 @@ export default function ProductsOrg() {
 											<div className='flex flex-col'>
 												<span className='text-sm text-dark/70'>Cantidad</span>
 												<span className='text-lg font-semibold'>{item.CANTIDAD}</span>
-											</div>
-											<div className='flex flex-col'>
-												<span className='text-sm text-dark/70'>Cantidad</span>
-												<span className='text-lg font-semibold'>{item.PRECIO}</span>
 											</div>
 											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
 												<Button className={"none"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('edit', item)} />
@@ -385,8 +406,8 @@ export default function ProductsOrg() {
 											<div>
 												<DropdownMenu
 													label={"Unidad"}
-													options={["Pzs", "Mts", "Lata"]}
-													defaultValue={u.unidad}
+													options={unitsOptions.map(uo => ({ value: uo.ID_UNIDAD, label: uo.NOMBRE }))}
+													defaultValue={u.unidad ? (u.unidad.label || u.unidad) : 'Selecciona la unidad'}
 													onChange={(value) => handleUnidadChange(index, 'unidad', value)}
 												/>
 											</div>
@@ -429,7 +450,7 @@ export default function ProductsOrg() {
 									<Button
 										className={'danger'}
 										text={'Cancelar'}
-										func={() => { setIsActiveModal(false); setForm({ id: '', codigo: '', nombre: '', subcategoria: '', precio_venta: '', cantidad: '' }); setEditMode(false); }}
+										func={() => { setIsActiveModal(false); setForm({ id: '', codigo: '', nombre: '', subcategoria: '', cantidad: '', unidades: [] }); setEditMode(false); }}
 									/>
 									<Button
 										className={'success'}
