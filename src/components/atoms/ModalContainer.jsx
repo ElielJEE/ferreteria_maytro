@@ -11,7 +11,7 @@ export default function ModalContainer({ setIsActiveModal, modalTitle, modalDesc
 			onClick={isForm ? () => setOnClose(true) : () => setIsActiveModal(false)}
 		>
 			<div
-				className='bg-light rounded-lg p-4 mx-h-[100vh - 10px]'
+				className='bg-light rounded-lg p-4 max-h-[100vh - 10px] min-w-[300px]'
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className='w-full'>
