@@ -32,15 +32,18 @@ export default function Card({ productName, status, sucursal, id, category, chil
 								{status}
 							</span>
 						}
-						{price &&
+						{/* Mostrar precio solo si es numérico y distinto de 0 (evita renderizar "0") */}
+						{(price !== undefined && price !== null && Number(price) !== 0) && (
 							<span className='text-primary font-semibold'>C${price}</span>
-						}
-						{UnitMeasure &&
+						)}
+						{/* Evitar mostrar UnitMeasure si es vacío o '0' */}
+						{(UnitMeasure !== undefined && UnitMeasure !== null && String(UnitMeasure).trim() !== '' && String(UnitMeasure) !== '0') && (
 							<span className='text-dark/70 font-semibold'>{UnitMeasure}</span>
-						}
+						)}
+						{/* Mostrar 'Agotado' cuando stock === 0 para evitar 'Stock: 0' y mantener Stock: X cuando > 0 */}
 						{(stock !== undefined && stock !== null) && (
 							<span className={`${Number(stock) <= 0 ? 'text-dark/40' : 'text-dark/70'} font-semibold`}>
-								Stock: {stock}
+								{Number(stock) <= 0 ? 'Agotado' : `Stock: ${stock}`}
 							</span>
 						)}
 					</div>
