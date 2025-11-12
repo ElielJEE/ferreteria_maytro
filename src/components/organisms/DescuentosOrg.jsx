@@ -1,44 +1,55 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { DescuentoCard, Input } from '../molecules'
 import { FiActivity, FiEdit, FiPlus, FiPower, FiTag, FiTrash2 } from 'react-icons/fi'
 import { Button, ModalContainer } from '../atoms'
 import { BsStop } from 'react-icons/bs'
-import { MdBlock, MdStop } from 'react-icons/md'
+import { MdBlock, MdCheck, MdStop } from 'react-icons/md'
 import { useActive } from '@/hooks'
 import { COMPILER_INDEXES } from 'next/dist/shared/lib/constants'
+import { DescuentoService } from '@/services'
 
 export default function DescuentosOrg() {
 	const [mode, setMode] = useState('');
 	const [selectedDiscount, setSelectedDiscount] = useState('');
 	const { isActiveModal, setIsActiveModal } = useActive();
+	const [descuentos, setDescuentos] = useState([]);
+	const [error, setError] = useState({
+		nombre: '',
+		codigo: '',
+		descripcion: '',
+		valor_porcentaje: '',
+		general: '',
+	});
+	const [newDiscount, setNewDiscount] = useState({
+		codigo_descuento: "",
+		nombre_descuento: "",
+		valor_porcentaje: 0,
+		descripcion: "",
+		estado: "Activo"
+	});
+	const [editDiscount, setEditDiscount] = useState({
+		id: "",
+		codigo_descuento: "",
+		nombre_descuento: "",
+		valor_porcentaje: 0,
+		descripcion: "",
+		estado: "Activo"
+	});
 
-	const discountDataEjemplo = [
-		{
-			name: 'Decuento por Antiguedad',
-			description: 'Descuento para los clientes con muchas ventas',
-			codigo: 'ANTIGCLI123',
-			porcentaje: '15',
-			estado: 'activo',
-		},
-		{
-			name: 'Decuento por Algo',
-			description: 'Descuento para los clientes con muchas ventas',
-			codigo: 'ANTIGCLI123',
-			porcentaje: '15',
-			estado: 'inactivo',
-		},
-		{
-			name: 'Decuento por alguna otra cosa',
-			description: 'Descuento para los clientes con muchas ventas',
-			codigo: 'ANTIGCLI123',
-			porcentaje: '15',
-			estado: 'activo',
+
+	useEffect(() => {
+		const fetchDescuentos = async () => {
+			const res = await DescuentoService.getDescuentos();
+			setDescuentos(res)
 		}
-	]
+		fetchDescuentos();
+	}, [])
 
-	const activeDiscounts = discountDataEjemplo.filter(d => d.estado === 'activo');
-	const deactivatedDiscounts = discountDataEjemplo.filter(d => d.estado === 'inactivo');
+	console.log(descuentos);
+
+	const activeDiscounts = descuentos.filter(d => d.ESTADO === 'Activo');
+	const deactivatedDiscounts = descuentos.filter(d => d.ESTADO === 'Inactivo');
 
 	const toggleTypeModal = (type, itemData) => {
 		setMode(type);
@@ -47,7 +58,14 @@ export default function DescuentosOrg() {
 			setIsActiveModal(true);
 
 		} else if (type === 'edit') {
-			setSelectedDiscount(itemData);
+			setEditDiscount({
+				id: itemData.ID_DESCUENTO,
+				codigo_descuento: itemData.CODIGO_DESCUENTO || '',
+				nombre_descuento: itemData.NOMBRE_DESCUENTO || '',
+				valor_porcentaje: itemData.VALOR_PORCENTAJE || '',
+				descripcion: itemData.DESCRIPCION || '',
+				estado: 'Activo',
+			})
 			setIsActiveModal(true)
 
 		} else if (type === 'delete') {
@@ -56,22 +74,81 @@ export default function DescuentosOrg() {
 		}
 	}
 
-	const handleSubmitCreation = (e) => {
+	const handleSubmitCreation = async (e) => {
 		e.preventDefault();
-		setIsActiveModal(false)
+
+		try {
+			const dataDiscount = await DescuentoService.createDescuento(newDiscount);
+
+			setDescuentos([dataDiscount, ...descuentos]);
+
+			setIsActiveModal(false)
+
+			setNewDiscount({
+				codigo_descuento: "",
+				nombre_descuento: "",
+				valor_porcentaje: 0,
+				descripcion: "",
+				estado: "Activo"
+			});
+		} catch (error) {
+			console.error("Error creando descuento:", error)
+			setError({ general: 'Ocurrio un Error al crear el descuenot.' });
+		}
 	}
 
-	const handleSubmitEdit = (e) => {
+	const handleSubmitEdit = async (e) => {
 		e.preventDefault();
+
+		try {
+			const dataDiscount = await DescuentoService.updateDescuento(editDiscount);
+
+			setDescuentos([dataDiscount, ...descuentos]);
+
+			setEditDiscount({
+				codigo_descuento: "",
+				nombre_descuento: "",
+				valor_porcentaje: 0,
+				descripcion: "",
+				estado: "Activo"
+			})
+			setIsActiveModal(false)
+		} catch (error) {
+			console.error("Error actulizando descuento:", error)
+			setError({ general: 'Ocurrio un Error al actulizar el descuento.' });
+		}
 	}
 
-	const handleDeactiveDiscount = () => {
+	const toggleActiveDiscount = async (discountData, status) => {
+		try {
+			const dataDiscount = await DescuentoService.changeEstadoDescuento(discountData.ID_DESCUENTO, status);
 
+			setDescuentos((prevDescuentos) =>
+				prevDescuentos.map((d) =>
+					d.ID_DESCUENTO === dataDiscount.ID_DESCUENTO
+						? { ...d, ESTADO: status } // actualiza solo el estado del que cambió
+						: d
+				)
+			);
+		} catch (error) {
+			console.error("Error actulizando descuento:", error)
+			setError({ general: 'Ocurrio un Error al desactivar o activar el descuento.' });
+		}
 	}
 
-	const handleDelete = () => {
-		setIsActiveModal(false)
+	const handleDelete = async () => {
+		try {
+			await DescuentoService.deleteDescuento(selectedDiscount.ID_DESCUENTO);
+
+			setDescuentos((prev) => prev.filter((c) => c.ID_DESCUENTO !== selectedDiscount.ID_DESCUENTO));
+			setIsActiveModal(false)
+		} catch (error) {
+			console.error("Error eliminando descuento:", error)
+			setError({ general: 'Ocurrio un Error al eliminar el descuento.' });
+		}
 	}
+
+	console.log(selectedDiscount);
 
 	return (
 		<>
@@ -95,10 +172,13 @@ export default function DescuentosOrg() {
 						<div className='grid grid-cols-2 gap-4'>
 							{activeDiscounts.map((discount, index) => (
 								<DescuentoCard
-									title={discount.name}
-									code={discount.codigo}
-									description={discount.description}
-									percentValue={discount.porcentaje}
+									title={discount.NOMBRE_DESCUENTO}
+									code={discount.CODIGO_DESCUENTO}
+									description={discount.DESCRIPCION}
+									percentValue={discount.VALOR_PORCENTAJE}
+									fecha={new Date(discount.FECHA_CREACION).toLocaleString('es-NI', {
+										timeZone: 'America/Managua'
+									})}
 									key={index}
 								>
 									<Button
@@ -111,6 +191,7 @@ export default function DescuentosOrg() {
 										text={"Desactivar"}
 										className={"secondary"}
 										icon={<MdBlock />}
+										func={() => toggleActiveDiscount(discount, 'Inactivo')}
 									/>
 									<Button
 										text={"Eliminar"}
@@ -139,10 +220,13 @@ export default function DescuentosOrg() {
 						<div className='grid grid-cols-2 gap-4 opacity-60'>
 							{deactivatedDiscounts.map((discount, index) => (
 								<DescuentoCard
-									title={discount.name}
-									code={discount.codigo}
-									description={discount.description}
-									percentValue={discount.porcentaje}
+									title={discount.NOMBRE_DESCUENTO}
+									code={discount.CODIGO_DESCUENTO}
+									description={discount.DESCRIPCION}
+									percentValue={discount.VALOR_PORCENTAJE}
+									fecha={new Date(discount.FECHA_CREACION).toLocaleString('es-NI', {
+										timeZone: 'America/Managua'
+									})}
 									key={index}
 								>
 									<Button
@@ -152,9 +236,10 @@ export default function DescuentosOrg() {
 										func={() => toggleTypeModal('edit', discount)}
 									/>
 									<Button
-										text={"Desactivar"}
-										className={"secondary"}
-										icon={<MdBlock />}
+										text={"Activar"}
+										className={"success"}
+										icon={<MdCheck />}
+										func={() => toggleActiveDiscount(discount, 'Activo')}
 									/>
 									<Button
 										text={"Eliminar"}
@@ -173,7 +258,7 @@ export default function DescuentosOrg() {
 				isActiveModal && (
 					<ModalContainer
 						setIsActiveModal={setIsActiveModal}
-						modalTitle={mode === 'create' ? "Crear nuevo descuento" : mode === 'edit' ? "Editar Descuento" : `¿Esta seguro que desea eliminar ${selectedDiscount.name}`}
+						modalTitle={mode === 'create' ? "Crear nuevo descuento" : mode === 'edit' ? "Editar Descuento" : `¿Esta seguro que desea eliminar ${selectedDiscount.NOMBRE_DESCUENTO}`}
 						modalDescription={mode === 'create' ? "completa los datos para crear un nuevo descuento" : mode === 'edit' ? "Actualiza los datos del descuento." : "Esta accion no se puede deshacer ¿Desea continuar?"}
 						isForm={mode === 'create' || mode === 'edit' ? true : false}
 					>
@@ -185,17 +270,23 @@ export default function DescuentosOrg() {
 										label={"Codigo de Descuento"}
 										inputClass={"no icon"}
 										placeholder={"ej: ANTIGUO2025"}
+										value={newDiscount.codigo_descuento}
+										onChange={(e) => setNewDiscount({ ...newDiscount, codigo_descuento: e.target.value })}
 									/>
 									<Input
 										label={"Nombre"}
 										inputClass={"no icon"}
 										placeholder={"ej: Descuendo de Antiguedad"}
+										value={newDiscount.nombre_descuento}
+										onChange={(e) => setNewDiscount({ ...newDiscount, nombre_descuento: e.target.value })}
 									/>
 									<Input
 										label={"Valor del Descuento (%)"}
 										inputClass={"no icon"}
 										type={"number"}
 										placeholder={0}
+										value={newDiscount.valor_porcentaje}
+										onChange={(e) => setNewDiscount({ ...newDiscount, valor_porcentaje: e.target.value })}
 									/>
 									<div className='col-span-3'>
 										<Input
@@ -203,6 +294,8 @@ export default function DescuentosOrg() {
 											label={"Descripcion"}
 											placeholder={"Describe el descuento..."}
 											inputClass={'no icon'}
+											value={newDiscount.descripcion}
+											onChange={(e) => setNewDiscount({ ...newDiscount, descripcion: e.target.value })}
 										/>
 									</div>
 								</div>
@@ -215,6 +308,7 @@ export default function DescuentosOrg() {
 									<Button
 										text={'Crear Descuento'}
 										className={'success'}
+										type={'submit'}
 									/>
 								</div>
 							</form>
@@ -225,20 +319,32 @@ export default function DescuentosOrg() {
 										label={"Codigo de Descuento"}
 										inputClass={"no icon"}
 										placeholder={"ej: ANTIGUO2025"}
-										value={selectedDiscount.codigo}
+										value={editDiscount.codigo_descuento}
+										onChange={(e) => {
+											setEditDiscount({ ...editDiscount, codigo_descuento: e.target.value })
+											setError({ ...error, codigo: '' })
+										}}
 									/>
 									<Input
 										label={"Nombre"}
 										inputClass={"no icon"}
 										placeholder={"ej: Descuendo de Antiguedad"}
-										value={selectedDiscount.name}
+										value={editDiscount.nombre_descuento}
+										onChange={(e) => {
+											setEditDiscount({ ...editDiscount, nombre_descuento: e.target.value })
+											setError({ ...error, nombre: '' })
+										}}
 									/>
 									<Input
 										label={"Valor del Descuento (%)"}
 										inputClass={"no icon"}
 										type={"number"}
 										placeholder={0}
-										value={selectedDiscount.porcentaje}
+										value={editDiscount.valor_porcentaje}
+										onChange={(e) => {
+											setEditDiscount({ ...editDiscount, valor_porcentaje: e.target.value })
+											setError({ ...error, descripcion: '' })
+										}}
 									/>
 									<div className='col-span-3'>
 										<Input
@@ -246,7 +352,11 @@ export default function DescuentosOrg() {
 											label={"Descripcion"}
 											placeholder={"Describe el descuento..."}
 											inputClass={'no icon'}
-											value={selectedDiscount.description}
+											value={editDiscount.descripcion}
+											onChange={(e) => {
+												setEditDiscount({ ...editDiscount, descripcion: e.target.value })
+												setError({ ...error, descripcion: '' })
+											}}
 										/>
 									</div>
 								</div>
@@ -263,7 +373,7 @@ export default function DescuentosOrg() {
 								</div>
 							</form>
 						) : (
-							<div className='flex gap-2'>
+							<div className='flex gap-2 mt-4'>
 								<Button
 									text={"Cancelar"}
 									className={'danger'}

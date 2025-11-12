@@ -1,13 +1,14 @@
 import React from 'react'
 
-export default function DescuentoCard({ title, description, code, percentValue, children }) {
+export default function DescuentoCard({ title, description, fecha, code, percentValue, children }) {
 	return (
 		<>
 			<div className='p-6 flex flex-col border border-primary gap-4 rounded-lg w-full'>
 				<div className='flex justify-between items-start'>
-					<div>
+					<div className='flex flex-col'>
 						<h2 className='md:text-2xl font-semibold'>{title || "Texto de prueba."}</h2>
 						<span className='text-dark/70'>{description || "Texto de prueba descripcion."}</span>
+						<span className='text-dark/70 text-sm'>Creacion: {fecha || "10/10/10"}</span>
 					</div>
 					<div className='px-4 border border-primary rounded-full bg-primary/10 font-semibold md:text-lg text-primary'>
 						{percentValue || "15"}%
