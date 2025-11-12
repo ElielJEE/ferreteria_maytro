@@ -55,6 +55,7 @@ export default function RolesOrg() {
 
 		if (type === 'create') {
 			setIsActiveModal(true);
+			setPermisosSeleccionados([]);
 
 		} else if (type === 'edit') {
 			setIsActiveModal(true);
@@ -375,6 +376,7 @@ export default function RolesOrg() {
 													decripcion: '',
 													general: '',
 												})
+												setPermisosSeleccionados([])
 											}}
 										/>
 										<Button
