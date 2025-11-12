@@ -67,7 +67,7 @@ export default function ControlStockOrg() {
 				if (selectedSucursal?.label && selectedProducto?.value != null) {
 					const resumenResp = await fetch(`/api/stock?tab=Resumen&sucursal=${encodeURIComponent(selectedSucursal.label)}`);
 					if (resumenResp.ok) {
-						const resumenJson = await resumenResp.json().catch(()=>({}));
+						const resumenJson = await resumenResp.json().catch(() => ({}));
 						const filas = resumenJson?.resumen || [];
 						const row = filas.find(r => (r.ID_PRODUCT === selectedProducto.value || r.ID_PRODUCT === selectedProducto?.ID_PRODUCT) && (r.NOMBRE_SUCURSAL === selectedSucursal.label));
 						if (row) {
@@ -657,6 +657,13 @@ export default function ControlStockOrg() {
 												setFormErrors(prev => ({ ...prev, estadoDano: '' }));
 											}}
 											error={formErrors.estadoDano}
+										/>
+
+										<DropdownMenu
+											label="Unidad de Medida"
+											options={["mts", "pzs", "lts"]}
+											defaultValue="Selecciona la unidad de medida"
+											error={formErrors.unidad}
 										/>
 
 										{/* Cantidad solo cuando es recuperable */}
