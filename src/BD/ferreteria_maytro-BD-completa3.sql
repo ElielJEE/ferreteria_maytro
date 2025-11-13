@@ -4,6 +4,9 @@
 -- ------------------------------------------------------
 -- Server version	9.2.0
 
+create database ferreteria_maytro;
+use ferreteria_maytro;
+
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
