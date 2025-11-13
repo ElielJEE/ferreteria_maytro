@@ -161,6 +161,33 @@ export async function POST(req) {
     const [factRes] = await conn.query(facturaSql, facturaParams);
     const facturaId = factRes.insertId;
 
+    // Si se envió información detallada del descuento, almacenarla en tabla auxiliar
+    try {
+      const discountPayload = body?.discount;
+      if (discountPayload) {
+        const discId = discountPayload?.id || null;
+        const percent = Number(discountPayload?.percent || 0) || 0;
+        const amount = Number(discountPayload?.amount || 0) || 0;
+        // Crear tabla si no existe (no asumimos migración previa)
+        await conn.query(`
+          CREATE TABLE IF NOT EXISTS FACTURA_DESCUENTO (
+            ID_DESCUENTO_FACTURA INT NOT NULL AUTO_INCREMENT,
+            ID_FACTURA INT NOT NULL,
+            ID_DESCUENTO INT DEFAULT NULL,
+            PERCENT DECIMAL(6,2) DEFAULT 0.00,
+            AMOUNT DECIMAL(12,2) DEFAULT 0.00,
+            PRIMARY KEY (ID_DESCUENTO_FACTURA),
+            KEY idx_fd_fact (ID_FACTURA),
+            CONSTRAINT fk_fd_fact FOREIGN KEY (ID_FACTURA) REFERENCES FACTURA(ID_FACTURA) ON DELETE CASCADE
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        `);
+        await conn.query('INSERT INTO FACTURA_DESCUENTO (ID_FACTURA, ID_DESCUENTO, PERCENT, AMOUNT) VALUES (?, ?, ?, ?)', [facturaId, discId, percent, amount]);
+      }
+    } catch (err) {
+      // No detener la venta por un fallo en el guardado adicional del descuento
+      console.error('Error guardando FACTURA_DESCUENTO:', err?.message || err);
+    }
+
     // Insert details and update stocks per item (considerando cantidad_por_unidad)
     for (const it of items) {
       const idProd = Number(it.ID_PRODUCT || it.producto_id || it.id);
@@ -299,31 +326,53 @@ export async function GET(req) {
           WHERE fd.ID_FACTURA = ?
         `, [id]);
 
-        return Response.json({
-          factura: {
-            id: f.ID_FACTURA,
-            numero: f.NUMERO_FACTURA || null,
-            fecha: f.FECHA,
-            subtotal: Number(f.SUBTOTAL || 0),
-            descuento: Number(f.DESCUENTO || 0),
-            total: Number(f.TOTAL || 0),
-            cliente,
-            sucursal,
-            usuario,
-              items: (itemsRows || []).map(it => ({
-              detalle_id: it.ID_DETALLES_FACTURA,
-              producto_id: it.ID_PRODUCT,
-              producto_nombre: it.producto_nombre,
-              producto_codigo: it.producto_codigo,
-              cantidad: Number(it.cantidad || 0),
-              precio_unit: Number(it.precio_unit || 0),
-              subtotal: Number(it.subtotal || 0),
-              unidad_id: it.unidad_id ?? null,
-              cantidad_por_unidad: Number(it.cantidad_por_unidad || 1),
-              unidad_nombre: it.unidad_nombre || null
-            }))
+        // Construir el objeto factura básico
+        const facturaObj = {
+          id: f.ID_FACTURA,
+          numero: f.NUMERO_FACTURA || null,
+          fecha: f.FECHA,
+          subtotal: Number(f.SUBTOTAL || 0),
+          descuento: Number(f.DESCUENTO || 0),
+          total: Number(f.TOTAL || 0),
+          cliente,
+          sucursal,
+          usuario,
+          items: (itemsRows || []).map(it => ({
+            detalle_id: it.ID_DETALLES_FACTURA,
+            producto_id: it.ID_PRODUCT,
+            producto_nombre: it.producto_nombre,
+            producto_codigo: it.producto_codigo,
+            cantidad: Number(it.cantidad || 0),
+            precio_unit: Number(it.precio_unit || 0),
+            subtotal: Number(it.subtotal || 0),
+            unidad_id: it.unidad_id ?? null,
+            cantidad_por_unidad: Number(it.cantidad_por_unidad || 1),
+            unidad_nombre: it.unidad_nombre || null
+          }))
+        };
+        // Intentar adjuntar info de descuento si existe
+        try {
+          // obtener info adicional del descuento (codigo/nombre) si existe
+          const [discRows] = await pool.query(
+            `SELECT fd.ID_DESCUENTO, fd.PERCENT, fd.AMOUNT, d.CODIGO_DESCUENTO, d.NOMBRE_DESCUENTO
+             FROM FACTURA_DESCUENTO fd
+             LEFT JOIN DESCUENTOS d ON fd.ID_DESCUENTO = d.ID_DESCUENTO
+             WHERE fd.ID_FACTURA = ?`,
+            [f.ID_FACTURA]
+          );
+          if (discRows && discRows[0]) {
+            const disc = discRows[0];
+            facturaObj.discount = {
+              id: disc.ID_DESCUENTO || null,
+              percent: Number(disc.PERCENT || 0),
+              amount: Number(disc.AMOUNT || 0),
+              codigo: disc.CODIGO_DESCUENTO || null,
+              nombre: disc.NOMBRE_DESCUENTO || null
+            };
           }
-        });
+        } catch (e) { /* ignore additional discount read errors */ }
+
+        return Response.json({ factura: facturaObj });
       } catch (e) {
         return Response.json({ error: e.message || 'Error al obtener detalle' }, { status: 500 });
       }
@@ -518,6 +567,36 @@ export async function PUT(req) {
   const clienteTelefono = (cliente?.telefono || cliente?.telefono_cliente || body?.telefono_cliente || '').toString();
   const clienteId = await getOrCreateCliente(conn, clienteNombre, clienteTelefono);
     await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, id]);
+
+    // Actualizar/insertar información de descuento asociada (si viene en payload)
+    try {
+      const discountPayload = body?.discount;
+      if (discountPayload) {
+        const discId = discountPayload?.id || null;
+        const percent = Number(discountPayload?.percent || 0) || 0;
+        const amount = Number(discountPayload?.amount || 0) || 0;
+        await conn.query(`
+          CREATE TABLE IF NOT EXISTS FACTURA_DESCUENTO (
+            ID_DESCUENTO_FACTURA INT NOT NULL AUTO_INCREMENT,
+            ID_FACTURA INT NOT NULL,
+            ID_DESCUENTO INT DEFAULT NULL,
+            PERCENT DECIMAL(6,2) DEFAULT 0.00,
+            AMOUNT DECIMAL(12,2) DEFAULT 0.00,
+            PRIMARY KEY (ID_DESCUENTO_FACTURA),
+            KEY idx_fd_fact (ID_FACTURA),
+            CONSTRAINT fk_fd_fact FOREIGN KEY (ID_FACTURA) REFERENCES FACTURA(ID_FACTURA) ON DELETE CASCADE
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        `);
+        // Eliminar registros previos y crear nuevo (mantener simple)
+        await conn.query('DELETE FROM FACTURA_DESCUENTO WHERE ID_FACTURA = ?', [id]);
+        await conn.query('INSERT INTO FACTURA_DESCUENTO (ID_FACTURA, ID_DESCUENTO, PERCENT, AMOUNT) VALUES (?, ?, ?, ?)', [id, discId, percent, amount]);
+      } else {
+        // Si no viene descuento en payload, eliminar cualquier registro previo
+        await conn.query('DELETE FROM FACTURA_DESCUENTO WHERE ID_FACTURA = ?', [id]);
+      }
+    } catch (err) {
+      console.error('Error actualizando FACTURA_DESCUENTO:', err?.message || err);
+    }
 
     await conn.commit();
     return Response.json({ ok: true, facturaId: id, total: totalOk });

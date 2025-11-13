@@ -1,8 +1,8 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { Card, DropdownMenu, Input } from '../molecules'
-import { FiCheck, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX } from 'react-icons/fi'
-import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, CotizacionesService } from '@/services';
+import { FiArrowLeftCircle, FiArrowRight, FiCheck, FiCornerUpLeft, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiRotateCcw, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX, FiXCircle } from 'react-icons/fi'
+import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, CotizacionesService, DescuentoService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin, BsKey, BsRulers, BsScrewdriver, BsWrench } from 'react-icons/bs';
@@ -42,7 +42,21 @@ export default function PuntoVentaOrg() {
 	const [sucursales, setSucursales] = useState([]);
 	// Admin-only: sucursal seleccionada (objeto { label, value }) o null para "Todas"
 	const [selectedSucursal, setSelectedSucursal] = useState(null);
+	const [descuentos, setDescuentos] = useState([])
+	const [selectedDiscountOpt, setSelectedDiscountOpt] = useState([]);
+	const [appliedDiscount, setAppliedDiscount] = useState(null); // descuento aplicado en la venta
 	const router = useRouter();
+	console.log(selectedDiscountOpt);
+
+	useEffect(() => {
+		const fetchDescuentos = async () => {
+			const descuentosData = await DescuentoService.getDescuentos();
+			const onlyActiveDiscounts = descuentosData.filter(discount => discount.ESTADO === 'Activo');
+			console.log(onlyActiveDiscounts);
+			setDescuentos(onlyActiveDiscounts);
+		}
+		fetchDescuentos();
+	}, [])
 
 	useEffect(() => {
 		const getCurrentUser = async () => {
@@ -174,8 +188,13 @@ export default function PuntoVentaOrg() {
 	};
 
 	const subtotal = productList.reduce((acc, item) => acc + item.PRECIO * item.quantity, 0);
-	const descuento = 0; // o podrías usar un estado si más adelante aplicas descuentos
-	const total = subtotal - descuento;
+	const discountAmount = React.useMemo(() => {
+		if (!appliedDiscount) return 0;
+		const pct = Number(appliedDiscount?.VALOR_PORCENTAJE ?? appliedDiscount?.valor_porcentaje ?? 0) || 0;
+		return Number(((subtotal * pct) / 100).toFixed(2));
+	}, [appliedDiscount, subtotal]);
+	const descuento = Number(discountAmount || 0);
+	const total = Number((subtotal - descuento).toFixed(2));
 
 	const toggleModalType = async (type, product = null) => {
 		setMode(type);
@@ -296,6 +315,13 @@ export default function PuntoVentaOrg() {
 				subtotal: Number(subtotal.toFixed(2)),
 				descuento: Number(descuento || 0),
 				total: Number(total.toFixed(2)),
+				// Información del descuento aplicado (si existe)
+				discount: appliedDiscount ? {
+					id: appliedDiscount.ID_DESCUENTO || appliedDiscount.id || appliedDiscount.value || null,
+					nombre: appliedDiscount.NOMBRE_DESCUENTO || appliedDiscount.nombre_descuento || null,
+					percent: Number(appliedDiscount.VALOR_PORCENTAJE ?? appliedDiscount.valor_porcentaje ?? 0) || 0,
+					amount: Number(descuento || 0)
+				} : null,
 				pago: {
 					cordobas: Number(montoCordobas || 0),
 					dolares: Number(montoDolares || 0),
@@ -351,6 +377,8 @@ export default function PuntoVentaOrg() {
 			fecha: '',
 			general: '',
 		});
+		setAppliedDiscount(null);
+		setSelectedDiscountOpt([]);
 	}
 
 	const [activeTab, setActiveTab] = useState("productos");
@@ -518,6 +546,10 @@ export default function PuntoVentaOrg() {
 	}
 
 	const handelApplyDiscount = () => {
+		// Aplicar el descuento seleccionado al resumen de la venta
+		if (selectedDiscountOpt && Object.keys(selectedDiscountOpt).length) {
+			setAppliedDiscount(selectedDiscountOpt);
+		}
 		setIsActiveModal(false)
 	}
 
@@ -597,7 +629,6 @@ export default function PuntoVentaOrg() {
 									id={"Codigo: " + item.CODIGO_PRODUCTO}
 									category={item.NOMBRE_SUBCATEGORIA}
 									sucursal={item.NOMBRE_SUCURSAL}
-									status={Number(item.CANTIDAD || 0) <= 0 && 'Agotado'}
 									bgColor={'secondary'}
 									price={item.PRECIO}
 									stock={item.CANTIDAD}
@@ -745,7 +776,17 @@ export default function PuntoVentaOrg() {
 							</div>
 							<div className='flex justify-between'>
 								<span className='text-dark/70'>Descuento:</span>
-								<span className='font-semibold'>${descuento.toFixed(2)}</span>
+								<div className='flex gap-1'>
+									{appliedDiscount && (
+										<Button
+											icon={<FiXCircle />}
+											iconRight={<FiArrowRight />}
+											className={'noneTwo'}
+											func={() => { setAppliedDiscount(null); setSelectedDiscountOpt([]); }}
+										/>
+									)}
+									<span className='font-semibold'>${descuento.toFixed(2)}</span>
+								</div>
 							</div>
 							<div className='flex justify-between'>
 								<span className='text-dark/70'>Total:</span>
@@ -950,8 +991,9 @@ export default function PuntoVentaOrg() {
 						) : (mode === "discount" ? (
 							<div className='flex flex-col gap-2 mt-2'>
 								<DropdownMenu
-									options={['Descuento por Antiguedad', 'Descuento por Misericordia']}
+									options={descuentos.map((discount) => ({ ...discount, label: discount.NOMBRE_DESCUENTO, value: discount.ID_DESCUENTO }))}
 									defaultValue={'Selecciona un descuento'}
+									onChange={(opt) => setSelectedDiscountOpt(opt)}
 								/>
 								<div className='flex gap-2'>
 									<Button
