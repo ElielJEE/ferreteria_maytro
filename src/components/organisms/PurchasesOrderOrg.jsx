@@ -68,11 +68,11 @@ export default function PurchasesOrderOrg() {
 			const d = new Date(v);
 			if (isNaN(d)) {
 				// fallback: take first 10 chars if it's an ISO-like string
-				return String(v).slice(0,10);
+				return String(v).slice(0, 10);
 			}
-			return d.toISOString().slice(0,10);
+			return d.toISOString().slice(0, 10);
 		} catch (e) {
-			return String(v).slice(0,10);
+			return String(v).slice(0, 10);
 		}
 	}
 
@@ -167,6 +167,9 @@ export default function PurchasesOrderOrg() {
 		}
 		fetchCompras();
 	}, [isActiveModal])
+
+	console.log(ordenesEjemplo);
+	console.log(purchaseData);
 
 	return (
 		<>
@@ -346,7 +349,7 @@ export default function PurchasesOrderOrg() {
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Estado</div>
-									<div className={`font-semibold ${String(purchaseData.estado).toLowerCase() === 'recibida' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 w-max`}>{purchaseData?.estado}</div>
+									<div className={`font-semibold ${purchaseData.estado === 'recibida' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 w-max`}>{purchaseData?.estado}</div>
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Codigo de Referencia</div>
@@ -411,7 +414,7 @@ export default function PurchasesOrderOrg() {
 															<td className='p-2 text-center'>{"C$ " + Number(it.precioUnitario || 0).toLocaleString()}</td>
 															<td className='p-2 text-center'>{"C$ " + Number(it.cantidad * (it.precioUnitario || 0)).toLocaleString()}</td>
 															{
-																String(purchaseData?.estado).toLowerCase() === 'recibida'
+																purchaseData?.estado === 'recibida'
 																	? <td className='p-2'>
 																		<span className={`${it.estado === 'Entregado' ? 'bg-success' : 'bg-yellow'} rounded-full text-light px-2`}>
 																			{it.estado || '-'}
@@ -424,26 +427,26 @@ export default function PurchasesOrderOrg() {
 																				icon={<FiTrash2 />}
 																				className={'danger'}
 																				func={async () => {
-																				try {
-																					const detId = it.ID_DETALLES_COMPRA || it.id;
-																					if (!detId) return;
-																					const res = await fetch(`/api/compras?detalleId=${encodeURIComponent(detId)}`, { method: 'DELETE' });
-																					const data = await res.json();
-																					if (!res.ok) throw new Error(data?.error || 'Error deleting detalle');
-													
-																					// Si la compra fue eliminada completamente, cerrar modal y remover de la lista
-																					if (data?.compraDeleted) {
-																						setIsActiveModal(false);
-																						setOrdenesEjemplo(prev => prev.filter(o => o.id !== data.deletedCompraId && o.id !== purchaseData?.id));
-																						setPurchaseData({});
-																						return;
+																					try {
+																						const detId = it.ID_DETALLES_COMPRA || it.id;
+																						if (!detId) return;
+																						const res = await fetch(`/api/compras?detalleId=${encodeURIComponent(detId)}`, { method: 'DELETE' });
+																						const data = await res.json();
+																						if (!res.ok) throw new Error(data?.error || 'Error deleting detalle');
+
+																						// Si la compra fue eliminada completamente, cerrar modal y remover de la lista
+																						if (data?.compraDeleted) {
+																							setIsActiveModal(false);
+																							setOrdenesEjemplo(prev => prev.filter(o => o.id !== data.deletedCompraId && o.id !== purchaseData?.id));
+																							setPurchaseData({});
+																							return;
+																						}
+
+																						// si no se eliminó la compra, recargar detalles de la compra
+																						await handleView({ id: purchaseData?.id });
+																					} catch (e) {
+																						console.error('Error eliminando detalle', e);
 																					}
-													
-																					// si no se eliminó la compra, recargar detalles de la compra
-																					await handleView({ id: purchaseData?.id });
-																				} catch (e) {
-																				console.error('Error eliminando detalle', e);
-																				}
 																				}}
 																			/>
 																		) : (
@@ -479,7 +482,7 @@ export default function PurchasesOrderOrg() {
 									}}
 								/>
 								{
-									purchaseData?.estado?.toLowerCase() !== 'recibida' &&
+									purchaseData?.estado !== 'recibida' &&
 									<Button
 										text={mode === 'recibir' ? 'Confirmar Recepción' : 'Guardar Cambios'}
 										icon={<FiShoppingBag />}
