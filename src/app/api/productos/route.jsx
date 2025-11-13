@@ -4,14 +4,43 @@ import { extractId } from '@/app/api/_utils/normalize';
 export async function PUT(request) {
 	try {
 		const body = await request.json();
-	const { id, codigo, nombre, subcategoria, cantidad } = body;
+	const { id, codigo, nombre, subcategoria, cantidad, precio_compra } = body;
 		const conn = await pool.getConnection();
 		try {
 			await conn.beginTransaction();
-				await conn.query(
-					'UPDATE PRODUCTOS SET CODIGO_PRODUCTO = ?, PRODUCT_NAME = ?, CANTIDAD = ?, ID_SUBCATEGORIAS = ? WHERE ID_PRODUCT = ?',
-					[codigo, nombre, cantidad ?? 0, subcategoria, id]
-				);
+				// Construir UPDATE dinámico solo con campos provistos para evitar sobrescribir con NULL
+				const updateFields = [];
+				const updateValues = [];
+
+				if (typeof codigo !== 'undefined') {
+					updateFields.push('CODIGO_PRODUCTO = ?');
+					updateValues.push(codigo);
+				}
+				if (typeof nombre !== 'undefined') {
+					updateFields.push('PRODUCT_NAME = ?');
+					updateValues.push(nombre);
+				}
+				if (typeof cantidad !== 'undefined') {
+					updateFields.push('CANTIDAD = ?');
+					updateValues.push(Number(cantidad) || 0);
+				}
+				if (typeof subcategoria !== 'undefined') {
+					updateFields.push('ID_SUBCATEGORIAS = ?');
+					updateValues.push(subcategoria);
+				}
+				if (typeof precio_compra !== 'undefined') {
+					updateFields.push('PRECIO_COMPRA = ?');
+					updateValues.push(Number(precio_compra) || 0);
+				}
+
+				if (updateFields.length === 0) {
+					// Nothing to update
+					conn.release();
+					return Response.json({ success: true });
+				}
+
+				updateValues.push(id);
+				await conn.query(`UPDATE PRODUCTOS SET ${updateFields.join(', ')} WHERE ID_PRODUCT = ?`, updateValues);
 			// actualizar unidades del producto (si vienen)
 			if (Array.isArray(body.unidades)) {
 				// eliminar las unidades existentes y volver a insertar las recibidas
@@ -118,10 +147,11 @@ export async function GET(request) {
 	// Obtener productos (PRECIO a nivel producto ya no se consulta)
 	try {
 		// Traer precio por defecto desde producto_unidades (si existe una fila con ES_POR_DEFECTO=1)
-				const [rows] = await pool.query(`
+			const [rows] = await pool.query(`
 			SELECT P.ID_PRODUCT, P.CODIGO_PRODUCTO, P.PRODUCT_NAME, P.CANTIDAD AS CANTIDAD,
-				   S.ID_SUBCATEGORIAS, S.NOMBRE_SUBCATEGORIA,
-				   pu.PRECIO AS PRECIO
+			       S.ID_SUBCATEGORIAS, S.NOMBRE_SUBCATEGORIA,
+			       pu.PRECIO AS PRECIO,
+			       P.PRECIO_COMPRA
 			FROM PRODUCTOS P
 			LEFT JOIN SUBCATEGORIAS S ON P.ID_SUBCATEGORIAS = S.ID_SUBCATEGORIAS
 			LEFT JOIN producto_unidades pu ON pu.PRODUCT_ID = P.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1

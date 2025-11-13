@@ -9,6 +9,7 @@ export { default as DashboardService } from './DashboardService';
 export * as CustomerService from './CustomerService';
 export * as SucursalesService from './SucursalesService';
 export * as ProveedorService from './ProveedorService';
+export * as ComprasService from './ComprasService';
 export * as ReturnsService from './ReturnsService';
 export * as CajaService from './CajaService';
 export * as UsuarioService from './UsuarioService';

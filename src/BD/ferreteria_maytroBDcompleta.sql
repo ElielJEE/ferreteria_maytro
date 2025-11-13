@@ -174,10 +174,14 @@ CREATE TABLE `compras` (
   `FECHA_PEDIDO` date NOT NULL,
   `FECHA_ENTREGA` date DEFAULT NULL,
   `TOTAL` decimal(12,2) NOT NULL,
-  `ID_DETALLES_COMPRA` int DEFAULT NULL,
+  `ID_PROVEEDOR` int DEFAULT NULL,
+  `ID_USUARIO` int DEFAULT NULL,
+  `ID_SUCURSAL` varchar(10) DEFAULT NULL,
+  `ESTADO` varchar(20) DEFAULT 'pendiente',
   PRIMARY KEY (`ID_COMPRA`),
-  KEY `idx_compras_detalles` (`ID_DETALLES_COMPRA`),
-  CONSTRAINT `fk_compras_detalles` FOREIGN KEY (`ID_DETALLES_COMPRA`) REFERENCES `detalles_compra` (`ID_DETALLES_COMPRA`) ON DELETE SET NULL ON UPDATE CASCADE
+  KEY `idx_compras_proveedor` (`ID_PROVEEDOR`),
+  KEY `idx_compras_sucursal` (`ID_SUCURSAL`),
+  CONSTRAINT `fk_compras_proveedor` FOREIGN KEY (`ID_PROVEEDOR`) REFERENCES `proveedor` (`ID_PROVEEDOR`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -297,15 +301,17 @@ DROP TABLE IF EXISTS `detalles_compra`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `detalles_compra` (
   `ID_DETALLES_COMPRA` int NOT NULL AUTO_INCREMENT,
+  `ID_COMPRA` int DEFAULT NULL,
   `ID_PRODUCT` int DEFAULT NULL,
-  `AMOUNT` int NOT NULL,
-  `TIPO_PAGO` varchar(50) DEFAULT NULL,
+  `CANTIDAD` decimal(12,2) NOT NULL,
+  `PRECIO_UNIT` decimal(12,2) NOT NULL DEFAULT '0.00',
   `SUB_TOTAL` decimal(12,2) NOT NULL,
-  `NUMERO_REFERENCIA` varchar(50) DEFAULT NULL,
   `ID_PROVEEDOR` int DEFAULT NULL,
   PRIMARY KEY (`ID_DETALLES_COMPRA`),
+  KEY `idx_detcomp_compra` (`ID_COMPRA`),
   KEY `idx_detcomp_product` (`ID_PRODUCT`),
   KEY `idx_detcomp_prov` (`ID_PROVEEDOR`),
+  CONSTRAINT `fk_detcomp_compra` FOREIGN KEY (`ID_COMPRA`) REFERENCES `compras` (`ID_COMPRA`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_detcomp_productos` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_detcomp_proveedor` FOREIGN KEY (`ID_PROVEEDOR`) REFERENCES `proveedor` (`ID_PROVEEDOR`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -987,3 +993,44 @@ PREPARE stmt_prod FROM @sql_stmt; EXECUTE stmt_prod; DEALLOCATE PREPARE stmt_pro
 -- Nota: si desea poblar valores por defecto distintos a 0.00, ejecutar UPDATE manual en staging
 
 -- Nota: revisar los resultados del backfill en staging antes de aplicarlo en producción.
+
+-- ------------------------------------------------------------------
+-- Extra: preparar tablas de compras (idempotente)
+-- 1) Si existe la columna `ID_DETALLES_COMPRA` en `compras`, eliminar su FK y la columna
+-- 2) Asegurar `ID_COMPRA` en `detalles_compra` + índice + FK hacia `compras`
+-- 3) Asegurar `PRECIO_UNIT` en `detalles_compra`
+-- ------------------------------------------------------------------
+
+-- 1) Si existe FK `fk_compras_detalles` en `compras`, drop FK
+SET @fk_exists := (SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'compras' AND CONSTRAINT_NAME = 'fk_compras_detalles');
+SET @sql_stmt := IF(@fk_exists = 1, 'ALTER TABLE `compras` DROP FOREIGN KEY fk_compras_detalles', 'SELECT 1');
+PREPARE stmt_fk FROM @sql_stmt; EXECUTE stmt_fk; DEALLOCATE PREPARE stmt_fk;
+
+-- 1b) Si existe la columna ID_DETALLES_COMPRA en compras, eliminarla
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'compras' AND COLUMN_NAME = 'ID_DETALLES_COMPRA');
+SET @sql_stmt := IF(@col_exists = 1, 'ALTER TABLE `compras` DROP COLUMN `ID_DETALLES_COMPRA`', 'SELECT 1');
+PREPARE stmt_dropcol FROM @sql_stmt; EXECUTE stmt_dropcol; DEALLOCATE PREPARE stmt_dropcol;
+
+-- 2) Asegurar columna ID_COMPRA en detalles_compra
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'detalles_compra' AND COLUMN_NAME = 'ID_COMPRA');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `detalles_compra` ADD COLUMN `ID_COMPRA` INT DEFAULT NULL', 'SELECT 1');
+PREPARE stmt_dc_col FROM @sql_stmt; EXECUTE stmt_dc_col; DEALLOCATE PREPARE stmt_dc_col;
+
+-- 2b) Asegurar índice sobre ID_COMPRA en detalles_compra
+SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'detalles_compra' AND INDEX_NAME = 'idx_detcomp_compra');
+SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_detcomp_compra ON detalles_compra (ID_COMPRA)', 'SELECT 1');
+PREPARE stmt_dc_idx FROM @sql_stmt; EXECUTE stmt_dc_idx; DEALLOCATE PREPARE stmt_dc_idx;
+
+-- 2c) Asegurar FK desde detalles_compra(ID_COMPRA) hacia compras(ID_COMPRA)
+SET @fk_exists := (SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'detalles_compra' AND CONSTRAINT_NAME = 'fk_detcomp_compra');
+SET @sql_stmt := IF(@fk_exists = 0, 'ALTER TABLE `detalles_compra` ADD CONSTRAINT fk_detcomp_compra FOREIGN KEY (ID_COMPRA) REFERENCES compras(ID_COMPRA) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt_dc_fk FROM @sql_stmt; EXECUTE stmt_dc_fk; DEALLOCATE PREPARE stmt_dc_fk;
+
+-- 3) Asegurar columna PRECIO_UNIT en detalles_compra
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'detalles_compra' AND COLUMN_NAME = 'PRECIO_UNIT');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `detalles_compra` ADD COLUMN `PRECIO_UNIT` DECIMAL(12,2) NOT NULL DEFAULT ''0.00''', 'SELECT 1');
+PREPARE stmt_dc_prec FROM @sql_stmt; EXECUTE stmt_dc_prec; DEALLOCATE PREPARE stmt_dc_prec;
+
+-- Nota: revisar las tablas `compras` y `detalles_compra` después de la importación para verificar que los datos
+-- históricos se migraron correctamente (si procede). No se crean migraciones formales aquí; estas sentencias
+-- son una ayuda idempotente incluida en el dump para facilitar la importación.
