@@ -24,6 +24,7 @@ export default function NewPurchase() {
 	const [proveedoresFiltrados, setProveedoresFiltrados] = useState({});
 	const router = useRouter();
 	const { isActiveModal, setIsActiveModal } = useActive();
+	const [mode, setMode] = useState('');
 
 	useEffect(() => {
 		const fetchAll = async () => {
@@ -70,7 +71,7 @@ export default function NewPurchase() {
 
 			if (precioActual <= 0) {
 				// abrir modal para pedir precio de compra
-				addPrice(product);
+				toggleModalType('addPrice', product);
 				return;
 			}
 
@@ -107,7 +108,6 @@ export default function NewPurchase() {
 		// initialize modal input with current precio if exists
 		setPrecioCompraInput(productData && productData.PRECIO_COMPRA ? String(productData.PRECIO_COMPRA) : '');
 	}
-	console.log(product);
 
 	const updateQuantity = (id, newQuantity) => {
 		setProductList((prevList) =>
@@ -242,6 +242,18 @@ export default function NewPurchase() {
 			setProveedorTelefono(proveedorExiste.telefono);
 		} else {
 			setProveedorTelefono("");
+		}
+	}
+
+	const toggleModalType = (type, productData) => {
+		setMode(type);
+
+		if (type === 'addPrice') {
+			addPrice(productData)
+
+		} else if (type === 'modifyPrice') {
+			setProduct(productData)
+			setIsActiveModal(true)
 		}
 	}
 
@@ -416,6 +428,7 @@ export default function NewPurchase() {
 														<Button
 															icon={<BsWrench />}
 															className={'none'}
+															func={() => toggleModalType('modifyPrice', product)}
 														/>
 														${product.PRECIO_COMPRA} c/u
 													</span>
@@ -451,10 +464,12 @@ export default function NewPurchase() {
 				isActiveModal && (
 					<ModalContainer
 						setIsActiveModal={setIsActiveModal}
-						modalTitle={`Agregar precio a "${product.PRODUCT_NAME}"`}
-						modalDescription={'Agrega el precio unitario de la compra para este producto. Solo la primera vez.'}
+						modalTitle={mode === 'addPrice' ? `Agregar precio a "${product.PRODUCT_NAME}"` : `Modificar precio a "${product.PRODUCT_NAME}"`}
+						modalDescription={mode === 'addPrice' ? 'Agrega el precio unitario de la compra para este producto. Solo la primera vez.' : 'Modifica el precio unitario de la compra para este producto. El anterior sera actualizado.'}
 						isForm={true}
 					>
+          {
+							mode === 'addPrice' ?
 						<form className='flex flex-col gap-2 mt-2' onSubmit={(e) => {e.preventDefault()}}>
 							<Input
 								label={'Precio unitario del producto'}
@@ -514,6 +529,27 @@ export default function NewPurchase() {
 								/>
 							</div>
 						</form>
+						
+								:
+								<form className='flex flex-col gap-2 mt-2' onSubmit={(e) => { e.preventDefault() }}>
+									<Input
+										label={'Precio unitario del producto'}
+										placeholder={'Ingresa el precio unitario de la compra...'}
+										inputClass={'no icon'}
+									/>
+									<div className='flex gap-2'>
+										<Button
+											text={'Cancelar'}
+											className={'secondary'}
+											func={() => setIsActiveModal(false)}
+										/>
+										<Button
+											text={'Agregar'}
+											className={'success'}
+										/>
+									</div>
+								</form>
+						}
 					</ModalContainer>
 				)
 			}
