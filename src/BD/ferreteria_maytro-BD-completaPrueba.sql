@@ -1,3 +1,5 @@
+CREATE DATABASE  IF NOT EXISTS `ferreteria_maytro` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `ferreteria_maytro`;
 -- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
 -- Host: localhost    Database: ferreteria_maytro
@@ -97,7 +99,7 @@ CREATE TABLE `caja_sesion` (
   CONSTRAINT `fk_caja_suc` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_caja_user_close` FOREIGN KEY (`USUARIO_CIERRE`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_caja_user_open` FOREIGN KEY (`USUARIO_APERTURA`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -106,6 +108,7 @@ CREATE TABLE `caja_sesion` (
 
 LOCK TABLES `caja_sesion` WRITE;
 /*!40000 ALTER TABLE `caja_sesion` DISABLE KEYS */;
+INSERT INTO `caja_sesion` VALUES (1,'S1',1,'2025-11-10 01:55:24',2000.00,'cerrada','2025-11-10 01:56:17',1,3000.00,0.00,1000.00,NULL),(2,'S1',1,'2025-11-10 01:57:23',2000.00,'cerrada','2025-11-10 01:57:38',1,0.00,0.00,-2000.00,NULL),(3,'S1',1,'2025-11-10 14:54:31',2000.00,'cerrada','2025-11-10 14:54:52',1,2500.00,0.00,500.00,NULL);
 /*!40000 ALTER TABLE `caja_sesion` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -129,6 +132,7 @@ CREATE TABLE `categorias` (
 
 LOCK TABLES `categorias` WRITE;
 /*!40000 ALTER TABLE `categorias` DISABLE KEYS */;
+INSERT INTO `categorias` VALUES ('C1','Herramientas'),('C2','Ferretería General');
 /*!40000 ALTER TABLE `categorias` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -145,7 +149,7 @@ CREATE TABLE `clientes` (
   `DIRECCION_CLIENTE` varchar(255) NOT NULL,
   `TELEFONO_CLIENTE` varchar(20) NOT NULL,
   PRIMARY KEY (`ID_CLIENTES`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -154,6 +158,7 @@ CREATE TABLE `clientes` (
 
 LOCK TABLES `clientes` WRITE;
 /*!40000 ALTER TABLE `clientes` DISABLE KEYS */;
+INSERT INTO `clientes` VALUES (2,'Eliel J E Escoto','Gas Central 1 cuadra y media al sur','84005907');
 /*!40000 ALTER TABLE `clientes` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -206,7 +211,7 @@ CREATE TABLE `config_tasa_cambio` (
 
 LOCK TABLES `config_tasa_cambio` WRITE;
 /*!40000 ALTER TABLE `config_tasa_cambio` DISABLE KEYS */;
-INSERT INTO `config_tasa_cambio` VALUES (1,36.5500,'2025-11-13 09:40:35');
+INSERT INTO `config_tasa_cambio` VALUES (1,36.5500,'2025-11-10 09:48:21');
 /*!40000 ALTER TABLE `config_tasa_cambio` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -262,9 +267,13 @@ CREATE TABLE `cotizacion_detalles` (
   `AMOUNT` decimal(12,2) NOT NULL DEFAULT '0.00',
   `PRECIO_UNIT` decimal(12,2) NOT NULL DEFAULT '0.00',
   `SUB_TOTAL` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `UNIDAD_ID` int DEFAULT NULL,
+  `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
+  `UNIDAD_NOMBRE` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`ID_DETALLE_COTIZACION`),
   KEY `idx_cotdet_cot` (`ID_COTIZACION`),
   KEY `idx_cotdet_prod` (`ID_PRODUCT`),
+  KEY `idx_cotdet_unidad` (`UNIDAD_ID`),
   CONSTRAINT `fk_cotdet_cot` FOREIGN KEY (`ID_COTIZACION`) REFERENCES `cotizacion` (`ID_COTIZACION`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_cotdet_prod` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -408,7 +417,7 @@ CREATE TABLE `factura` (
   CONSTRAINT `fk_factura_apertura` FOREIGN KEY (`D_APERTURA`) REFERENCES `apertura_caja` (`D_APERTURA`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_factura_clientes` FOREIGN KEY (`ID_CLIENTES`) REFERENCES `clientes` (`ID_CLIENTES`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_factura_sucursal` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -417,6 +426,7 @@ CREATE TABLE `factura` (
 
 LOCK TABLES `factura` WRITE;
 /*!40000 ALTER TABLE `factura` DISABLE KEYS */;
+INSERT INTO `factura` VALUES (1,'FAC-20251110-034904','2025-11-10',14000.00,0.00,14000.00,NULL,2,'S2');
 /*!40000 ALTER TABLE `factura` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -473,7 +483,7 @@ CREATE TABLE `factura_detalles` (
   CONSTRAINT `fk_factdet_factura` FOREIGN KEY (`ID_FACTURA`) REFERENCES `factura` (`ID_FACTURA`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_factdet_productos` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_factdet_usuarios` FOREIGN KEY (`ID_USUARIO`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -482,6 +492,8 @@ CREATE TABLE `factura_detalles` (
 
 LOCK TABLES `factura_detalles` WRITE;
 /*!40000 ALTER TABLE `factura_detalles` DISABLE KEYS */;
+INSERT INTO `factura_detalles` (ID_DETALLES_FACTURA, ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE, ID_USUARIO)
+VALUES (1,1,2, 4, 3500.00, 14000.00, NULL, 1.0000, NULL, 1);
 /*!40000 ALTER TABLE `factura_detalles` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -504,7 +516,7 @@ CREATE TABLE `factura_pagos` (
   PRIMARY KEY (`ID_PAGO`),
   KEY `idx_pag_factura` (`ID_FACTURA`),
   CONSTRAINT `fk_pago_factura` FOREIGN KEY (`ID_FACTURA`) REFERENCES `factura` (`ID_FACTURA`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -513,6 +525,7 @@ CREATE TABLE `factura_pagos` (
 
 LOCK TABLES `factura_pagos` WRITE;
 /*!40000 ALTER TABLE `factura_pagos` DISABLE KEYS */;
+INSERT INTO `factura_pagos` VALUES (1,1,15000.00,0.00,36.5500,'efectivo','2025-11-10 03:49:04',NULL);
 /*!40000 ALTER TABLE `factura_pagos` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -543,7 +556,7 @@ CREATE TABLE `movimientos_inventario` (
   CONSTRAINT `fk_mov_prod` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_mov_suc` FOREIGN KEY (`sucursal_id`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_mov_user` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -552,6 +565,7 @@ CREATE TABLE `movimientos_inventario` (
 
 LOCK TABLES `movimientos_inventario` WRITE;
 /*!40000 ALTER TABLE `movimientos_inventario` DISABLE KEYS */;
+INSERT INTO `movimientos_inventario` VALUES (1,1,'S1',3,'entrada',50,'Stock inicial','2025-11-10 05:47:14','INIT-S1-1',0,50),(2,2,'S2',4,'entrada',20,'Stock inicial','2025-11-10 05:47:14','INIT-S2-1',0,20),(3,3,'S1',3,'entrada',200,'Stock inicial','2025-11-10 05:47:14','INIT-S1-3',0,200),(4,2,'S2',1,'salida',4,'Venta','2025-11-10 09:49:04','1',20,16);
 /*!40000 ALTER TABLE `movimientos_inventario` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -574,7 +588,7 @@ CREATE TABLE `nivelacion` (
   KEY `idx_nivel_sucursal` (`ID_SUCURSAL`),
   CONSTRAINT `fk_nivelacion_productos` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_nivelacion_sucursal` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -614,37 +628,6 @@ INSERT INTO `permisos` VALUES (1,'Ver Dashboard','/dashboard','Dashboard'),(2,'V
 UNLOCK TABLES;
 
 --
--- Table structure for table `producto_unidades`
---
-
-DROP TABLE IF EXISTS `producto_unidades`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `producto_unidades` (
-  `ID` int NOT NULL AUTO_INCREMENT,
-  `PRODUCT_ID` int NOT NULL,
-  `UNIDAD_ID` int NOT NULL,
-  `PRECIO` decimal(12,2) NOT NULL DEFAULT '0.00',
-  `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
-  `ES_POR_DEFECTO` tinyint(1) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`ID`),
-  KEY `idx_pu_product` (`PRODUCT_ID`),
-  KEY `idx_pu_unidad` (`UNIDAD_ID`),
-  CONSTRAINT `fk_pu_product` FOREIGN KEY (`PRODUCT_ID`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_pu_unidad` FOREIGN KEY (`UNIDAD_ID`) REFERENCES `unidades_medidas` (`ID_UNIDAD`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `producto_unidades`
---
-
-LOCK TABLES `producto_unidades` WRITE;
-/*!40000 ALTER TABLE `producto_unidades` DISABLE KEYS */;
-/*!40000 ALTER TABLE `producto_unidades` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `productos`
 --
 
@@ -657,9 +640,11 @@ CREATE TABLE `productos` (
   `PRODUCT_NAME` varchar(255) NOT NULL,
   `CANTIDAD` decimal(12,2) DEFAULT NULL,
   `ID_SUBCATEGORIAS` varchar(10) DEFAULT NULL,
+  `PRECIO_COMPRA` decimal(12,2) NOT NULL DEFAULT '0.00',
   PRIMARY KEY (`ID_PRODUCT`),
   KEY `idx_productos_idsub` (`ID_SUBCATEGORIAS`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  -- ID_SUCURSAL removed: per-sucursal info should live in STOCK_SUCURSAL
+ ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -668,8 +653,74 @@ CREATE TABLE `productos` (
 
 LOCK TABLES `productos` WRITE;
 /*!40000 ALTER TABLE `productos` DISABLE KEYS */;
+INSERT INTO `productos` (`ID_PRODUCT`,`CODIGO_PRODUCTO`,`PRODUCT_NAME`,`CANTIDAD`,`ID_SUBCATEGORIAS`) VALUES
+(1,'HER001','Martillo 16oz',50,'SC1'),
+(2,'HER002','Taladro Eléctrico 12V',20,'SC2'),
+(3,'FER001','Juego de Tornillos 100u',200,'SC3');
 /*!40000 ALTER TABLE `productos` ENABLE KEYS */;
 UNLOCK TABLES;
+
+-- Table structure for table `unidades_medidas`
+--
+DROP TABLE IF EXISTS `unidades_medidas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `unidades_medidas` (
+  `ID_UNIDAD` int NOT NULL AUTO_INCREMENT,
+  `NOMBRE` varchar(100) NOT NULL,
+  PRIMARY KEY (`ID_UNIDAD`),
+  UNIQUE KEY `uk_unidad_nombre` (`NOMBRE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `unidades_medidas` (seeds añadidos)
+--
+
+LOCK TABLES `unidades_medidas` WRITE;
+/*!40000 ALTER TABLE `unidades_medidas` DISABLE KEYS */;
+INSERT INTO `unidades_medidas` (ID_UNIDAD, NOMBRE) VALUES
+(1,'Pieza'),
+(2,'Paquete 100u'),
+(3,'Unidad'),
+(4,'Juego'),
+(5,'Caja');
+/*!40000 ALTER TABLE `unidades_medidas` ENABLE KEYS */;
+UNLOCK TABLES;
+
+-- Table structure for table `producto_unidades` (precio por unidad y cantidad por unidad)
+--
+DROP TABLE IF EXISTS `producto_unidades`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `producto_unidades` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `PRODUCT_ID` int NOT NULL,
+  `UNIDAD_ID` int NOT NULL,
+  `PRECIO` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
+  `ES_POR_DEFECTO` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`ID`),
+  KEY `idx_pu_product` (`PRODUCT_ID`),
+  KEY `idx_pu_unidad` (`UNIDAD_ID`),
+  CONSTRAINT `fk_pu_product` FOREIGN KEY (`PRODUCT_ID`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_pu_unidad` FOREIGN KEY (`UNIDAD_ID`) REFERENCES `unidades_medidas` (`ID_UNIDAD`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `producto_unidades` (seeds añadidos)
+--
+
+LOCK TABLES `producto_unidades` WRITE;
+/*!40000 ALTER TABLE `producto_unidades` DISABLE KEYS */;
+INSERT INTO `producto_unidades` (ID, PRODUCT_ID, UNIDAD_ID, PRECIO, CANTIDAD_POR_UNIDAD, ES_POR_DEFECTO) VALUES
+(1,1,1,350.00,1.0000,1),
+(2,2,3,3500.00,1.0000,1),
+(3,3,2,1200.00,100.0000,1);
+/*!40000 ALTER TABLE `producto_unidades` ENABLE KEYS */;
+UNLOCK TABLES;
+
 
 --
 -- Table structure for table `proveedor`
@@ -779,7 +830,7 @@ CREATE TABLE `rol_permisos` (
   KEY `permiso_id` (`permiso_id`),
   CONSTRAINT `rol_permisos_ibfk_1` FOREIGN KEY (`rol_id`) REFERENCES `rol` (`ID_ROL`) ON DELETE CASCADE,
   CONSTRAINT `rol_permisos_ibfk_2` FOREIGN KEY (`permiso_id`) REFERENCES `permisos` (`idpermisos`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=69 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -816,7 +867,7 @@ CREATE TABLE `stock_danados` (
   KEY `idx_sd_suc` (`ID_SUCURSAL`),
   CONSTRAINT `fk_sd_prod` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_sd_suc` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -853,6 +904,7 @@ CREATE TABLE `stock_sucursal` (
 
 LOCK TABLES `stock_sucursal` WRITE;
 /*!40000 ALTER TABLE `stock_sucursal` DISABLE KEYS */;
+INSERT INTO `stock_sucursal` VALUES (1,'S1',50,'ACTIVO'),(2,'S2',16,'ACTIVO'),(3,'S1',200,'ACTIVO');
 /*!40000 ALTER TABLE `stock_sucursal` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -879,6 +931,7 @@ CREATE TABLE `subcategorias` (
 
 LOCK TABLES `subcategorias` WRITE;
 /*!40000 ALTER TABLE `subcategorias` DISABLE KEYS */;
+INSERT INTO `subcategorias` VALUES ('SC1','Manuales','C1'),('SC2','Eléctricas','C1'),('SC3','Tornillería','C2');
 /*!40000 ALTER TABLE `subcategorias` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -904,6 +957,7 @@ CREATE TABLE `sucursal` (
 
 LOCK TABLES `sucursal` WRITE;
 /*!40000 ALTER TABLE `sucursal` DISABLE KEYS */;
+INSERT INTO `sucursal` VALUES ('S1','Sucursal Centro','Calle Principal 123, Ciudad','2222-1111'),('S2','Sucursal Norte','Avenida Secundaria 45, Ciudad','3333-2222');
 /*!40000 ALTER TABLE `sucursal` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -952,7 +1006,7 @@ CREATE TABLE `usuarios` (
   KEY `idx_usuarios_idsucursal` (`ID_SUCURSAL`),
   CONSTRAINT `fk_usuarios_rol` FOREIGN KEY (`ID_ROL`) REFERENCES `rol` (`ID_ROL`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_usuarios_sucursal` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1002,3 +1056,61 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2025-11-13  3:42:54
+-- Dump completed on 2025-11-11  5:12:55
+
+-- ------------------------------------------------------------------
+-- Extra: garantizar columnas de unidad y backfill (seguro y idempotente)
+-- Estas sentencias se agregan al dump para que, al importar, la BD quede
+-- preparada para manejar UNIDAD_ID / CANTIDAD_POR_UNIDAD / UNIDAD_NOMBRE
+-- en `cotizacion_detalles` y para intentar poblar valores desde `producto_unidades`.
+-- No son migraciones formales, son pasos idempotentes incluidos en el dump.
+-- ------------------------------------------------------------------
+
+-- Asegurar columnas en `COTIZACION_DETALLES` de forma compatible
+-- (usuarios con MySQL < 8.0 no soportan ADD COLUMN IF NOT EXISTS)
+-- Para evitar fallos al importar, verificamos cada columna en information_schema
+-- y ejecutamos ALTER TABLE sólo si hace falta.
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND COLUMN_NAME = 'UNIDAD_ID');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `COTIZACION_DETALLES` ADD COLUMN `UNIDAD_ID` INT DEFAULT NULL', 'SELECT 1');
+PREPARE stmt FROM @sql_stmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `COTIZACION_DETALLES` ADD COLUMN `CANTIDAD_POR_UNIDAD` DECIMAL(12,4) NOT NULL DEFAULT ''1.0000''', 'SELECT 1');
+PREPARE stmt FROM @sql_stmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND COLUMN_NAME = 'UNIDAD_NOMBRE');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `COTIZACION_DETALLES` ADD COLUMN `UNIDAD_NOMBRE` VARCHAR(100) DEFAULT NULL', 'SELECT 1');
+PREPARE stmt FROM @sql_stmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Asegurar índice sobre UNIDAD_ID (CREATE INDEX IGNORE no existe en MySQL; usamos CREATE INDEX si no existe)
+SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND INDEX_NAME = 'idx_cotdet_unidad');
+SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_cotdet_unidad ON COTIZACION_DETALLES (UNIDAD_ID)', 'SELECT 1');
+PREPARE stmt_idx FROM @sql_stmt; EXECUTE stmt_idx; DEALLOCATE PREPARE stmt_idx;
+
+-- Backfill: copiar datos por defecto desde producto_unidades donde falten
+-- No sobrescribe valores existentes (uso COALESCE)
+UPDATE COTIZACION_DETALLES cd
+JOIN producto_unidades pu ON pu.PRODUCT_ID = cd.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
+LEFT JOIN unidades_medidas um ON um.ID_UNIDAD = pu.UNIDAD_ID
+SET cd.CANTIDAD_POR_UNIDAD = COALESCE(cd.CANTIDAD_POR_UNIDAD, pu.CANTIDAD_POR_UNIDAD, 1.0000),
+    cd.UNIDAD_ID = COALESCE(cd.UNIDAD_ID, pu.UNIDAD_ID),
+    cd.UNIDAD_NOMBRE = COALESCE(cd.UNIDAD_NOMBRE, um.NOMBRE)
+WHERE cd.CANTIDAD_POR_UNIDAD IS NULL OR cd.UNIDAD_ID IS NULL OR cd.UNIDAD_NOMBRE IS NULL;
+
+-- Backfill similar para FACTURA_DETALLES (por si existen facturas históricas sin metadata)
+UPDATE FACTURA_DETALLES fd
+JOIN producto_unidades pu ON pu.PRODUCT_ID = fd.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
+LEFT JOIN unidades_medidas um ON um.ID_UNIDAD = pu.UNIDAD_ID
+SET fd.CANTIDAD_POR_UNIDAD = COALESCE(fd.CANTIDAD_POR_UNIDAD, pu.CANTIDAD_POR_UNIDAD, 1.0000),
+    fd.UNIDAD_ID = COALESCE(fd.UNIDAD_ID, pu.UNIDAD_ID),
+    fd.UNIDAD_NOMBRE = COALESCE(fd.UNIDAD_NOMBRE, um.NOMBRE)
+WHERE fd.CANTIDAD_POR_UNIDAD IS NULL OR fd.UNIDAD_ID IS NULL OR fd.UNIDAD_NOMBRE IS NULL;
+
+-- Asegurar columna PRECIO_COMPRA en `productos` de forma compatible
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'productos' AND COLUMN_NAME = 'PRECIO_COMPRA');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `productos` ADD COLUMN `PRECIO_COMPRA` DECIMAL(12,2) NOT NULL DEFAULT ''0.00''', 'SELECT 1');
+PREPARE stmt_prod FROM @sql_stmt; EXECUTE stmt_prod; DEALLOCATE PREPARE stmt_prod;
+
+-- Nota: si desea poblar valores por defecto distintos a 0.00, ejecutar UPDATE manual en staging
+
+-- Nota: revisar los resultados del backfill en staging antes de aplicarlo en producción.
