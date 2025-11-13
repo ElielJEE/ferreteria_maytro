@@ -153,8 +153,7 @@ export default function ControlStockOrg() {
 		danados: 0,
 		reservados: 0,
 		criticos: 0,     // Requerido: dejar en 0 por ahora
-		agotados: 0,     // Requerido: dejar en 0 por ahora
-		valor_total: 0,  // Sin base de cálculo aún; dejamos 0 por ahora
+		agotados: 0,  // Sin base de cálculo aún; dejamos 0 por ahora
 	});
 
 	const cardsConfig = [
@@ -165,7 +164,6 @@ export default function ControlStockOrg() {
 		{ key: "reservados", title: "Reservados", icon: FiShoppingCart, color: "purple" },
 		{ key: "criticos", title: "Criticos", icon: FiAlertTriangle, color: "yellow" },
 		{ key: "agotados", title: "Agotados", icon: BsBoxSeam, color: "secondary" },
-		{ key: "valor_total", title: "Valor total", icon: FiDollarSign, color: "success", prefix: "C$ " },
 	];
 
 	const [activeTab, setActiveTab] = useState("");
@@ -271,7 +269,16 @@ export default function ControlStockOrg() {
 			});
 			let en_bodega = 0; let fisico_total = 0;
 			byProduct.forEach(v => { en_bodega += v.STOCK_BODEGA; fisico_total += v.FISICO_TOTAL; });
-			return { en_bodega, en_stock, fisico_total, danados, reservados, criticos: 0, agotados: 0, valor_total: 0 };
+			let criticos = 0;
+			let agotados = 0;
+
+			rows.forEach(r => {
+				const stock = Number(r.STOCK_SUCURSAL || 0);
+				const minimo = Number(r.MINIMO || 0); // suponiendo que el API te devuelve mínimo
+				if (stock === 0) agotados += 1;
+				else if (stock <= minimo) criticos += 1;
+			});
+			return { en_bodega, en_stock, fisico_total, danados, reservados, criticos, agotados };
 		};
 
 		const load = async () => {
@@ -281,6 +288,7 @@ export default function ControlStockOrg() {
 				setCardData(zeros);
 				return;
 			}
+			console.log(res);
 			const rows = res.resumen || [];
 			const base = calcCards(rows);
 			// Calcular valor total de inventario (igual que en Productos) y restar perdidas de dañados

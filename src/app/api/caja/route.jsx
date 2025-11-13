@@ -93,8 +93,8 @@ export async function POST(request) {
     conn.release();
     return Response.json({ success: true, sesion_id: ins.insertId });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
-    try { conn.release(); } catch {}
+    try { await conn.rollback(); } catch { }
+    try { conn.release(); } catch { }
     return Response.json({ error: e.message }, { status: 500 });
   }
 }
@@ -136,16 +136,16 @@ export async function PUT(request) {
     let totalVentasEqC = 0;
     try {
       const [sumRows] = await conn.query(
-        `SELECT COALESCE(SUM(fp.MONTO_CORDOBAS + fp.MONTO_DOLARES * fp.TASA_CAMBIO), 0) AS total
-         FROM FACTURA_PAGOS fp
-         JOIN FACTURA f ON f.ID_FACTURA = fp.ID_FACTURA
-         WHERE f.ID_SUCURSAL = ? AND f.FECHA >= ? AND f.FECHA <= ?`,
+        `SELECT COALESCE(SUM(f.TOTAL), 0) AS total
+   FROM FACTURA f
+   WHERE f.ID_SUCURSAL = ? AND DATE(f.FECHA) >= DATE(?) AND DATE(f.FECHA) <= DATE(?)`,
         [sesion.ID_SUCURSAL, sesion.FECHA_APERTURA, now]
       );
       totalVentasEqC = Number(sumRows?.[0]?.total || 0);
     } catch { totalVentasEqC = 0; }
 
     const esperado = Number((Number(sesion.MONTO_INICIAL || 0) + totalVentasEqC).toFixed(2));
+    console.log("lo esperado: ", esperado, "total de ventas:", totalVentasEqC);
     const diferencia = Number((montoFinal - esperado).toFixed(2));
 
     const { usuarioId } = getUserFromToken(request);
@@ -158,8 +158,8 @@ export async function PUT(request) {
     conn.release();
     return Response.json({ success: true, esperado, diferencia, totalVentas: totalVentasEqC });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
-    try { conn.release(); } catch {}
+    try { await conn.rollback(); } catch { }
+    try { conn.release(); } catch { }
     return Response.json({ error: e.message }, { status: 500 });
   }
 }

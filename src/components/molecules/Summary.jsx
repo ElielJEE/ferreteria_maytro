@@ -93,7 +93,6 @@ export default function Summary({ sucursalFilter }) {
 								<th className='text-center text-dark/50 font-semibold p-2'>Reservados</th>
 								<th className='text-center text-dark/50 font-semibold p-2'>Rango Min-Max</th>
 								<th className='text-start text-dark/50 font-semibold p-2'>Estado</th>
-								<th className='text-start text-dark/50 font-semibold p-2'>Valor</th>
 							</tr>
 						</thead>
 						<tbody className='w-full'>
@@ -128,12 +127,6 @@ export default function Summary({ sucursalFilter }) {
 													{estado}
 												</span>
 											);
-										})()}
-									</td>
-									<td className='p-2'>
-										{(() => {
-											const val = Number(item.VALOR_TOTAL || 0);
-											return val ? val.toLocaleString('es-NI', { style: 'currency', currency: 'NIO', minimumFractionDigits: 2 }) : '';
 										})()}
 									</td>
 								</tr>

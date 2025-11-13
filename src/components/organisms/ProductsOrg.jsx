@@ -219,14 +219,6 @@ export default function ProductsOrg() {
 						cardIconColor={"primary"}
 						cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
 					/>
-					<InfoCard
-						CardTitle={"Valor total de inventario"}
-						cardValue={
-							`C$${products.reduce((acc, prod) => acc + ((Number(prod.CANTIDAD) || 0) * (Number(prod.PRECIO) || 0)), 0).toLocaleString()}`
-						}
-						cardIconColor={"success"}
-						cardIcon={<FiTrendingUp className='h-4 w-4 md:h-6 md:w-6 text-success' />}
-					/>
 				</section>
 				<section className='w-full mt-6 border-dark/20 border rounded-lg p-4 flex flex-col'>
 					<div className='w-full flex sm:flex-row flex-col sm:justify-between sm:items-center mb-4 gap-2 md:gap-0'>

@@ -15,6 +15,8 @@ export default function SaleView({ sale, onClose }) {
 		setProductData(product);
 	}
 
+	console.log(sale);
+
 	if (!sale) return (
 		<div className='py-4'>No hay información de la venta.</div>
 	)
@@ -49,6 +51,10 @@ export default function SaleView({ sale, onClose }) {
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Vendedor</div>
 						<div className='font-semibold'>{sale?.usuario.nombre}</div>
+					</div>
+					<div className='mb-2 flex flex-col'>
+						<div className='text-dark/70 font-semibold'>Descuento</div>
+						<div className='font-semibold'>{sale?.discount.codigo}</div>
 					</div>
 				</div>
 				<div className='mb-2'>
@@ -108,11 +114,11 @@ export default function SaleView({ sale, onClose }) {
 				<div className='mt-4 flex flex-col'>
 					<div className='flex justify-between'>
 						<div className='text-md font-semibold'>Subtotal:</div>
-						<div className='text-md font-semibold'>{sale.subtotal ? `C$ ${Number(sale.subtotal).toLocaleString()}` : (sale.total_venta ? `C$${Number(sale.total_venta).toLocaleString()}` : '-')}</div>
+						<div className='text-md font-semibold'>{sale.subtotal ? `C$ ${sale.subtotal}` : (sale.total_venta ? `C$${sale.total_venta}` : '-')}</div>
 					</div>
 					<div className='flex justify-between'>
 						<div className='text-md font-semibold'>Descuento:</div>
-						<div className='text-md font-semibold'>{sale.descuento === 0 ? "N/A" : sale.descuento}</div>
+						<div className='text-md font-semibold'>{sale.descuento === 0 ? "N/A" : "C$ " + sale.descuento}</div>
 					</div>
 				</div>
 				<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>

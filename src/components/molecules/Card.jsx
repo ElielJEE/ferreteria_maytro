@@ -42,7 +42,7 @@ export default function Card({ productName, status, sucursal, id, category, chil
 						)}
 						{/* Mostrar 'Agotado' cuando stock === 0 para evitar 'Stock: 0' y mantener Stock: X cuando > 0 */}
 						{(stock !== undefined && stock !== null) && (
-							<span className={`${Number(stock) <= 0 ? 'text-dark/40' : 'text-dark/70'} font-semibold`}>
+							<span className={`${Number(stock) <= 0 ? 'text-light bg-danger rounded-full px-2' : 'text-dark/70'} font-semibold`}>
 								{Number(stock) <= 0 ? 'Agotado' : `Stock: ${stock}`}
 							</span>
 						)}
