@@ -289,6 +289,37 @@ LOCK TABLES `cotizacion_detalles` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `descuentos`
+--
+
+DROP TABLE IF EXISTS `descuentos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `descuentos` (
+  `ID_DESCUENTO` int NOT NULL AUTO_INCREMENT,
+  `CODIGO_DESCUENTO` varchar(50) NOT NULL,
+  `NOMBRE_DESCUENTO` varchar(100) NOT NULL,
+  `VALOR_PORCENTAJE` decimal(5,2) NOT NULL,
+  `DESCRIPCION` text,
+  `ESTADO` enum('Activo','Inactivo','Eliminado') DEFAULT 'Activo',
+  `FECHA_CREACION` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `FECHA_ACTUALIZACION` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ID_DESCUENTO`),
+  UNIQUE KEY `CODIGO_DESCUENTO` (`CODIGO_DESCUENTO`),
+  CONSTRAINT `descuentos_chk_1` CHECK (((`VALOR_PORCENTAJE` >= 0) and (`VALOR_PORCENTAJE` <= 100)))
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `descuentos`
+--
+
+LOCK TABLES `descuentos` WRITE;
+/*!40000 ALTER TABLE `descuentos` DISABLE KEYS */;
+/*!40000 ALTER TABLE `descuentos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `detalles_compra`
 --
 
@@ -397,6 +428,34 @@ LOCK TABLES `factura` WRITE;
 /*!40000 ALTER TABLE `factura` DISABLE KEYS */;
 INSERT INTO `factura` VALUES (1,'FAC-20251110-034904','2025-11-10',14000.00,0.00,14000.00,NULL,2,'S2');
 /*!40000 ALTER TABLE `factura` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `factura_descuento`
+--
+
+DROP TABLE IF EXISTS `factura_descuento`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `factura_descuento` (
+  `ID_DESCUENTO_FACTURA` int NOT NULL AUTO_INCREMENT,
+  `ID_FACTURA` int NOT NULL,
+  `ID_DESCUENTO` int DEFAULT NULL,
+  `PERCENT` decimal(6,2) DEFAULT '0.00',
+  `AMOUNT` decimal(12,2) DEFAULT '0.00',
+  PRIMARY KEY (`ID_DESCUENTO_FACTURA`),
+  KEY `idx_fd_fact` (`ID_FACTURA`),
+  CONSTRAINT `fk_fd_fact` FOREIGN KEY (`ID_FACTURA`) REFERENCES `factura` (`ID_FACTURA`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `factura_descuento`
+--
+
+LOCK TABLES `factura_descuento` WRITE;
+/*!40000 ALTER TABLE `factura_descuento` DISABLE KEYS */;
+/*!40000 ALTER TABLE `factura_descuento` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -688,6 +747,49 @@ LOCK TABLES `proveedor` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `reservas`
+--
+
+DROP TABLE IF EXISTS `reservas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `reservas` (
+  `ID_RESERVA` int NOT NULL AUTO_INCREMENT,
+  `ID_PRODUCT` int NOT NULL,
+  `ID_SUCURSAL` varchar(10) NOT NULL,
+  `ID_CLIENTES` int DEFAULT NULL,
+  `RESERVADO_POR` int DEFAULT NULL,
+  `CANTIDAD` int NOT NULL,
+  `FECHA_RESERVA` date NOT NULL,
+  `FECHA_ENTREGA` date DEFAULT NULL,
+  `ESTADO` enum('pendiente','entregada','cancelada') NOT NULL DEFAULT 'pendiente',
+  `TELEFONO_CONTACTO` varchar(20) DEFAULT NULL,
+  `NOTAS` varchar(255) DEFAULT NULL,
+  `CREATED_AT` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `UPDATED_AT` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ID_RESERVA`),
+  KEY `idx_res_prod` (`ID_PRODUCT`),
+  KEY `idx_res_suc` (`ID_SUCURSAL`),
+  KEY `idx_res_cli` (`ID_CLIENTES`),
+  KEY `idx_res_estado` (`ESTADO`),
+  KEY `fk_res_user` (`RESERVADO_POR`),
+  CONSTRAINT `fk_res_cliente` FOREIGN KEY (`ID_CLIENTES`) REFERENCES `clientes` (`ID_CLIENTES`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_res_product` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_res_sucursal` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_res_user` FOREIGN KEY (`RESERVADO_POR`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `reservas`
+--
+
+LOCK TABLES `reservas` WRITE;
+/*!40000 ALTER TABLE `reservas` DISABLE KEYS */;
+/*!40000 ALTER TABLE `reservas` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `rol`
 --
 
@@ -708,7 +810,7 @@ CREATE TABLE `rol` (
 
 LOCK TABLES `rol` WRITE;
 /*!40000 ALTER TABLE `rol` DISABLE KEYS */;
-INSERT INTO `rol` VALUES (1,'Administrador','Administra todo el sistema tiene todos los permisos.'),(2,'Gerente','Hace cosas de gerentes'),(3,'Vendedor',NULL);
+INSERT INTO `rol` VALUES (1,'Administrador','Acceso a todas las funciones del sistema');
 /*!40000 ALTER TABLE `rol` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -737,7 +839,7 @@ CREATE TABLE `rol_permisos` (
 
 LOCK TABLES `rol_permisos` WRITE;
 /*!40000 ALTER TABLE `rol_permisos` DISABLE KEYS */;
-INSERT INTO `rol_permisos` VALUES (17,1,1),(19,1,2),(18,1,3),(20,1,4),(25,1,5),(23,1,6),(22,1,7),(24,1,8),(8,1,9),(9,1,10),(7,1,11),(21,1,12),(15,1,13),(10,1,14),(11,1,15),(14,1,16),(13,1,17),(16,1,18),(12,1,19),(31,2,1),(33,2,2),(34,2,3),(32,2,4),(39,2,5),(36,2,6),(35,2,7),(38,2,8),(27,2,9),(28,2,10),(26,2,11),(37,2,12),(42,2,15),(30,2,16),(29,2,17),(40,2,18),(41,2,19),(45,3,1),(49,3,5),(47,3,6),(46,3,7),(48,3,8),(44,3,10),(43,3,11);
+INSERT INTO `rol_permisos` VALUES (50,1,1),(51,1,2),(52,1,3),(53,1,4),(54,1,5),(55,1,6),(56,1,7),(57,1,8),(58,1,9),(59,1,10),(60,1,11),(61,1,12),(62,1,13),(63,1,14),(64,1,15),(65,1,16),(66,1,17),(67,1,18),(68,1,19);
 /*!40000 ALTER TABLE `rol_permisos` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -860,6 +962,30 @@ INSERT INTO `sucursal` VALUES ('S1','Sucursal Centro','Calle Principal 123, Ciud
 UNLOCK TABLES;
 
 --
+-- Table structure for table `unidades_medidas`
+--
+
+DROP TABLE IF EXISTS `unidades_medidas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `unidades_medidas` (
+  `ID_UNIDAD` int NOT NULL AUTO_INCREMENT,
+  `NOMBRE` varchar(100) NOT NULL,
+  PRIMARY KEY (`ID_UNIDAD`),
+  UNIQUE KEY `uk_unidad_nombre` (`NOMBRE`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `unidades_medidas`
+--
+
+LOCK TABLES `unidades_medidas` WRITE;
+/*!40000 ALTER TABLE `unidades_medidas` DISABLE KEYS */;
+/*!40000 ALTER TABLE `unidades_medidas` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `usuarios`
 --
 
@@ -889,7 +1015,7 @@ CREATE TABLE `usuarios` (
 
 LOCK TABLES `usuarios` WRITE;
 /*!40000 ALTER TABLE `usuarios` DISABLE KEYS */;
-INSERT INTO `usuarios` VALUES (1,'Admin Principal','admin','admin@ferreteria.local','$2b$12$pmU5.BK.qYmaixEb8vW06eeznqlmDR97FElNJsJ7btWWIG3PNwe4G','ACTIVO',1,NULL),(2,'Gerente S1','gerente_s1','gerente.s1@ferreteria.local','gerentepass','INACTIVO',2,'S1'),(3,'Vendedor S1','vendedor_s1','vend.s1@ferreteria.local','vendpass1','INACTIVO',3,'S1'),(4,'Vendedor S2','vendedor_s2','vend.s2@ferreteria.local','vendpass2','ACTIVO',3,'S2'),(5,'Pancho Gonzales','Panchito123','PanchoGonzales@gmail.com','$2b$10$QOeMZ7vXf8a3sO6MdWJG5OJOQX7AONjuL4DHlVn6oxj08zbOI3e0W','INACTIVO',2,'s1'),(6,'Eliel Jose Escobar Escoto','Elielsito123','eliel123escobar@gmail.com','$2b$10$wV7Yp3ZfUCjPLZv0YxRLqOd2t4F2bmXHdAF5kxCvBtWg1Z3rudkva','ACTIVO',1,'S1'),(7,'Jose Abraham','Abraham','si@gmail.com','$2b$10$V0dak6ApBe8iJq1oRuPdy.TDnud/dQaoqYFIDa6H8R.xun4Z7iOZq','INACTIVO',2,'S1'),(8,'Darcys sahomy Mayorga Hernandez','darcys123','darcys123@gmail.com','$2b$10$03zxRABwNwjGQl/xWTBT/upqqWidSckZ0PJr99uNyepD.EpyANwHa','ACTIVO',3,'S1'),(9,'Juan Lopez','Juansito','juaneltuani@gmail.com','$2b$10$7nczXHQOrEr2J4sKvBClOeQp8RzSMRvge3qScsZ.keC5lojoQXYki','INACTIVO',3,'S1');
+INSERT INTO `usuarios` VALUES (1,'Jose Abraham Montes Lopez','JoseAdmin2','jose@gmail.com','$2b$10$AoQVHXja.tUkTFh0WXH7peFcch8xneNgEj5OqrIQOZKwbxgldBuya','ACTIVO',1,NULL),(11,'Eliel J E Escoto','ElielAdmin1','eliel123escobar@gmail.com','$2b$10$18FQ04osnlpfifU9XGZI2u1SrSOVkb.NJ4Z3hSBoX10couqFcMrg.','ACTIVO',1,NULL);
 /*!40000 ALTER TABLE `usuarios` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -929,6 +1055,7 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
+-- Dump completed on 2025-11-13  3:42:54
 -- Dump completed on 2025-11-11  5:12:55
 
 -- ------------------------------------------------------------------
