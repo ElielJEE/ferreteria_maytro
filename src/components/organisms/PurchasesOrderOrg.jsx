@@ -77,8 +77,7 @@ export default function PurchasesOrderOrg() {
 	}
 
 	const handleProcess = () => {
-		// This handler processes received items when in 'procesar' mode.
-		// If not in 'procesar' mode, just close the modal.
+		// This handler was previously tied to 'procesar' mode. That mode is removed — keep as no-op.
 		return;
 	}
 
@@ -97,8 +96,8 @@ export default function PurchasesOrderOrg() {
 	}
 
 	const handleProcessReceive = async () => {
-		// Only process when in procesar mode
-		if (mode !== 'procesar') {
+		// Only process when in recibir mode
+		if (mode !== 'recibir') {
 			setIsActiveModal(false);
 			setMode('');
 			return;
@@ -221,8 +220,8 @@ export default function PurchasesOrderOrg() {
 								inputClass={'no icon'}
 							/>
 							<DropdownMenu
-								options={['Todas', 'Pendiente', 'Recibida',]}
-								defaultValue={'Todas'}
+								options={['Pendiente', 'Recibida']}
+								defaultValue={'Pendiente'}
 							/>
 						</div>
 					</div>
@@ -263,8 +262,8 @@ export default function PurchasesOrderOrg() {
 												</td>
 												<td className='p-2 font-normal'>{formatDate(item.fechas?.esperada)}</td>
 												<td className='p-2'>
-													<span className={`${item.estado === 'recibida' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 text-sm`}>
-														{item.estado.charAt(0).toUpperCase() + item.estado.slice(1).toLowerCase()}
+													<span className={`${String(item.estado).toLowerCase() === 'recibida' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 text-sm`}>
+														{String(item.estado).charAt(0).toUpperCase() + String(item.estado).slice(1).toLowerCase()}
 													</span>
 												</td>
 												<td className='p-2 flex justify-center items-center'>
@@ -357,14 +356,14 @@ export default function PurchasesOrderOrg() {
 									<div className='font-semibold'>{purchaseData?.id}</div>
 								</div>
 								{
-									purchaseData?.estado !== 'recibida' && mode !== 'procesar' &&
+									purchaseData?.estado?.toLowerCase() !== 'recibida' && mode !== 'recibir' &&
 									<div className='mb-2 flex flex-col items-end col-span-2'>
 										<div className='font-semibold'>
 											<Button
 												text={'Recibir Mercancia'}
 												className={'transparent'}
 												icon={<BsBoxSeam />}
-												func={() => setMode('procesar')}
+												func={() => setMode('recibir')}
 											/>
 										</div>
 									</div>
@@ -378,7 +377,7 @@ export default function PurchasesOrderOrg() {
 												<thead>
 													<tr className='text-left border-b border-dark/20'>
 														{
-															mode === 'procesar' &&
+															mode === 'recibir' &&
 															<th className='p-2 text-center'></th>
 														}
 														<th className='p-2 text-center'>Cantidad</th>
@@ -388,9 +387,9 @@ export default function PurchasesOrderOrg() {
 														<th className='p-2 text-center'>Precio</th>
 														<th className='p-2 text-center'>Subtotal</th>
 														{
-															purchaseData?.estado === 'recibida'
+															String(purchaseData?.estado).toLowerCase() === 'recibida'
 																? <th className='p-2'>Estado</th>
-																: mode !== 'procesar' && <th className='p-2 text-center'>Acciones</th>
+																: mode !== 'recibir' && <th className='p-2 text-center'>Acciones</th>
 														}
 													</tr>
 												</thead>
@@ -398,7 +397,7 @@ export default function PurchasesOrderOrg() {
 													{purchaseData.productos.map((it, i) => (
 														<tr key={i} className='border-b border-dark/10'>
 															{
-																mode === 'procesar' &&
+																mode === 'recibir' &&
 																<td className='p-2 text-center'>
 																	<input
 																		type='checkbox'
@@ -421,7 +420,7 @@ export default function PurchasesOrderOrg() {
 																			{it.estado || '-'}
 																		</span>
 																	</td>
-																	: mode !== 'procesar' &&
+																	: mode !== 'recibir' &&
 																	<td className='p-2 text-center'>
 																		{!it.entregado ? (
 																			<Button
@@ -485,10 +484,10 @@ export default function PurchasesOrderOrg() {
 								{
 									purchaseData?.estado !== 'recibida' &&
 									<Button
-										text={mode === 'procesar' ? 'Procesar Compra' : 'Guardar Cambios'}
+										text={mode === 'recibir' ? 'Confirmar Recepción' : 'Guardar Cambios'}
 										icon={<FiShoppingBag />}
-										className={mode === 'procesar' ? 'success' : 'primary'}
-										func={mode === 'procesar' ? () => handleProcessReceive() : () => handleSave()}
+										className={mode === 'recibir' ? 'success' : 'primary'}
+										func={mode === 'recibir' ? () => handleProcessReceive() : () => handleSave()}
 									/>
 								}
 							</div>

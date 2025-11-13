@@ -50,7 +50,7 @@ export async function POST(request) {
       const [countRows] = await conn.query('SELECT COUNT(1) as pending FROM DETALLES_COMPRA WHERE ID_COMPRA = ? AND (ENTREGADO = 0 OR ENTREGADO IS NULL)', [id_compra]);
       const pending = (countRows && countRows.length > 0) ? Number(countRows[0].pending || 0) : 0;
       if (pending === 0) {
-        await conn.query('UPDATE COMPRAS SET ESTADO = ? WHERE ID_COMPRA = ?', ['recibida', id_compra]);
+        await conn.query('UPDATE COMPRAS SET ESTADO = ? WHERE ID_COMPRA = ?', ['Recibida', id_compra]);
       }
 
       await conn.commit();

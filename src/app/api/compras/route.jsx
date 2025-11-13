@@ -90,11 +90,11 @@ export async function POST(request) {
       // Insertar compra
       const [res] = await conn.query(
         'INSERT INTO COMPRAS (FECHA_PEDIDO, FECHA_ENTREGA, TOTAL, ID_PROVEEDOR, ID_USUARIO, ID_SUCURSAL, ESTADO) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [fecha_pedido || new Date(), fecha_entrega || null, Number(total) || 0, proveedorIdResolved || null, usuarioIdResolved || null, idSucursalResolved || null, 'procesada']
+        [fecha_pedido || new Date(), fecha_entrega || null, Number(total) || 0, proveedorIdResolved || null, usuarioIdResolved || null, idSucursalResolved || null, 'Pendiente']
       );
       const compraId = res.insertId;
 
-      // Insertar detalles y actualizar stock por sucursal
+      // Insertar detalles (no actualizar stock por sucursal al crear la compra)
       for (const it of items) {
         const productId = it.ID_PRODUCT || it.id || it.productId;
           const cantidad = Number(it.quantity ?? it.AMOUNT ?? it.cantidad) || 0;
@@ -121,7 +121,7 @@ export async function POST(request) {
         // NOTE: No actualizar PRODUCTOS.CANTIDAD aquí. Las compras no deben modificar el stock global.
         // Nos aseguramos de que el producto exista (ya validado arriba al obtener PRECIO_COMPRA).
 
-        // No registrar movimientos de inventario al procesar compras (solicitado)
+        // No registrar movimientos de inventario al crear compras (solicitado)
       }
 
       await conn.commit();
