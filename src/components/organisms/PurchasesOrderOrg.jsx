@@ -349,7 +349,7 @@ export default function PurchasesOrderOrg() {
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Estado</div>
-									<div className={`font-semibold ${purchaseData.estado === 'recibida' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 w-max`}>{purchaseData?.estado}</div>
+									<div className={`font-semibold ${purchaseData.estado === 'Recibida' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 w-max`}>{purchaseData?.estado}</div>
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Codigo de Referencia</div>
@@ -414,7 +414,7 @@ export default function PurchasesOrderOrg() {
 															<td className='p-2 text-center'>{"C$ " + Number(it.precioUnitario || 0).toLocaleString()}</td>
 															<td className='p-2 text-center'>{"C$ " + Number(it.cantidad * (it.precioUnitario || 0)).toLocaleString()}</td>
 															{
-																purchaseData?.estado === 'recibida'
+																purchaseData?.estado === 'Recibida'
 																	? <td className='p-2'>
 																		<span className={`${it.estado === 'Entregado' ? 'bg-success' : 'bg-yellow'} rounded-full text-light px-2`}>
 																			{it.estado || '-'}
@@ -482,7 +482,7 @@ export default function PurchasesOrderOrg() {
 									}}
 								/>
 								{
-									purchaseData?.estado !== 'recibida' &&
+									purchaseData?.estado !== 'Recibida' &&
 									<Button
 										text={mode === 'recibir' ? 'Confirmar Recepción' : 'Guardar Cambios'}
 										icon={<FiShoppingBag />}
