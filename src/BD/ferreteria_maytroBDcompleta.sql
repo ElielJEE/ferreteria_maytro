@@ -267,9 +267,13 @@ CREATE TABLE `cotizacion_detalles` (
   `AMOUNT` decimal(12,2) NOT NULL DEFAULT '0.00',
   `PRECIO_UNIT` decimal(12,2) NOT NULL DEFAULT '0.00',
   `SUB_TOTAL` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `UNIDAD_ID` int DEFAULT NULL,
+  `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
+  `UNIDAD_NOMBRE` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`ID_DETALLE_COTIZACION`),
   KEY `idx_cotdet_cot` (`ID_COTIZACION`),
   KEY `idx_cotdet_prod` (`ID_PRODUCT`),
+  KEY `idx_cotdet_unidad` (`UNIDAD_ID`),
   CONSTRAINT `fk_cotdet_cot` FOREIGN KEY (`ID_COTIZACION`) REFERENCES `cotizacion` (`ID_COTIZACION`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_cotdet_prod` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -577,6 +581,7 @@ CREATE TABLE `productos` (
   `PRODUCT_NAME` varchar(255) NOT NULL,
   `CANTIDAD` decimal(12,2) DEFAULT NULL,
   `ID_SUBCATEGORIAS` varchar(10) DEFAULT NULL,
+  `PRECIO_COMPRA` decimal(12,2) NOT NULL DEFAULT '0.00',
   PRIMARY KEY (`ID_PRODUCT`),
   KEY `idx_productos_idsub` (`ID_SUBCATEGORIAS`)
   -- ID_SUCURSAL removed: per-sucursal info should live in STOCK_SUCURSAL
@@ -589,7 +594,10 @@ CREATE TABLE `productos` (
 
 LOCK TABLES `productos` WRITE;
 /*!40000 ALTER TABLE `productos` DISABLE KEYS */;
-INSERT INTO `productos` VALUES (1,'HER001','Martillo 16oz',50,'SC1'),(2,'HER002','Taladro Eléctrico 12V',20,'SC2'),(3,'FER001','Juego de Tornillos 100u',200,'SC3');
+INSERT INTO `productos` (`ID_PRODUCT`,`CODIGO_PRODUCTO`,`PRODUCT_NAME`,`CANTIDAD`,`ID_SUBCATEGORIAS`) VALUES
+(1,'HER001','Martillo 16oz',50,'SC1'),
+(2,'HER002','Taladro Eléctrico 12V',20,'SC2'),
+(3,'FER001','Juego de Tornillos 100u',200,'SC3');
 /*!40000 ALTER TABLE `productos` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -605,6 +613,21 @@ CREATE TABLE `unidades_medidas` (
   UNIQUE KEY `uk_unidad_nombre` (`NOMBRE`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `unidades_medidas` (seeds añadidos)
+--
+
+LOCK TABLES `unidades_medidas` WRITE;
+/*!40000 ALTER TABLE `unidades_medidas` DISABLE KEYS */;
+INSERT INTO `unidades_medidas` (ID_UNIDAD, NOMBRE) VALUES
+(1,'Pieza'),
+(2,'Paquete 100u'),
+(3,'Unidad'),
+(4,'Juego'),
+(5,'Caja');
+/*!40000 ALTER TABLE `unidades_medidas` ENABLE KEYS */;
+UNLOCK TABLES;
 
 -- Table structure for table `producto_unidades` (precio por unidad y cantidad por unidad)
 --
@@ -625,6 +648,19 @@ CREATE TABLE `producto_unidades` (
   CONSTRAINT `fk_pu_unidad` FOREIGN KEY (`UNIDAD_ID`) REFERENCES `unidades_medidas` (`ID_UNIDAD`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `producto_unidades` (seeds añadidos)
+--
+
+LOCK TABLES `producto_unidades` WRITE;
+/*!40000 ALTER TABLE `producto_unidades` DISABLE KEYS */;
+INSERT INTO `producto_unidades` (ID, PRODUCT_ID, UNIDAD_ID, PRECIO, CANTIDAD_POR_UNIDAD, ES_POR_DEFECTO) VALUES
+(1,1,1,350.00,1.0000,1),
+(2,2,3,3500.00,1.0000,1),
+(3,3,2,1200.00,100.0000,1);
+/*!40000 ALTER TABLE `producto_unidades` ENABLE KEYS */;
+UNLOCK TABLES;
 
 
 --
@@ -894,3 +930,60 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2025-11-11  5:12:55
+
+-- ------------------------------------------------------------------
+-- Extra: garantizar columnas de unidad y backfill (seguro y idempotente)
+-- Estas sentencias se agregan al dump para que, al importar, la BD quede
+-- preparada para manejar UNIDAD_ID / CANTIDAD_POR_UNIDAD / UNIDAD_NOMBRE
+-- en `cotizacion_detalles` y para intentar poblar valores desde `producto_unidades`.
+-- No son migraciones formales, son pasos idempotentes incluidos en el dump.
+-- ------------------------------------------------------------------
+
+-- Asegurar columnas en `COTIZACION_DETALLES` de forma compatible
+-- (usuarios con MySQL < 8.0 no soportan ADD COLUMN IF NOT EXISTS)
+-- Para evitar fallos al importar, verificamos cada columna en information_schema
+-- y ejecutamos ALTER TABLE sólo si hace falta.
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND COLUMN_NAME = 'UNIDAD_ID');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `COTIZACION_DETALLES` ADD COLUMN `UNIDAD_ID` INT DEFAULT NULL', 'SELECT 1');
+PREPARE stmt FROM @sql_stmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `COTIZACION_DETALLES` ADD COLUMN `CANTIDAD_POR_UNIDAD` DECIMAL(12,4) NOT NULL DEFAULT ''1.0000''', 'SELECT 1');
+PREPARE stmt FROM @sql_stmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND COLUMN_NAME = 'UNIDAD_NOMBRE');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `COTIZACION_DETALLES` ADD COLUMN `UNIDAD_NOMBRE` VARCHAR(100) DEFAULT NULL', 'SELECT 1');
+PREPARE stmt FROM @sql_stmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Asegurar índice sobre UNIDAD_ID (CREATE INDEX IGNORE no existe en MySQL; usamos CREATE INDEX si no existe)
+SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND INDEX_NAME = 'idx_cotdet_unidad');
+SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_cotdet_unidad ON COTIZACION_DETALLES (UNIDAD_ID)', 'SELECT 1');
+PREPARE stmt_idx FROM @sql_stmt; EXECUTE stmt_idx; DEALLOCATE PREPARE stmt_idx;
+
+-- Backfill: copiar datos por defecto desde producto_unidades donde falten
+-- No sobrescribe valores existentes (uso COALESCE)
+UPDATE COTIZACION_DETALLES cd
+JOIN producto_unidades pu ON pu.PRODUCT_ID = cd.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
+LEFT JOIN unidades_medidas um ON um.ID_UNIDAD = pu.UNIDAD_ID
+SET cd.CANTIDAD_POR_UNIDAD = COALESCE(cd.CANTIDAD_POR_UNIDAD, pu.CANTIDAD_POR_UNIDAD, 1.0000),
+    cd.UNIDAD_ID = COALESCE(cd.UNIDAD_ID, pu.UNIDAD_ID),
+    cd.UNIDAD_NOMBRE = COALESCE(cd.UNIDAD_NOMBRE, um.NOMBRE)
+WHERE cd.CANTIDAD_POR_UNIDAD IS NULL OR cd.UNIDAD_ID IS NULL OR cd.UNIDAD_NOMBRE IS NULL;
+
+-- Backfill similar para FACTURA_DETALLES (por si existen facturas históricas sin metadata)
+UPDATE FACTURA_DETALLES fd
+JOIN producto_unidades pu ON pu.PRODUCT_ID = fd.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
+LEFT JOIN unidades_medidas um ON um.ID_UNIDAD = pu.UNIDAD_ID
+SET fd.CANTIDAD_POR_UNIDAD = COALESCE(fd.CANTIDAD_POR_UNIDAD, pu.CANTIDAD_POR_UNIDAD, 1.0000),
+    fd.UNIDAD_ID = COALESCE(fd.UNIDAD_ID, pu.UNIDAD_ID),
+    fd.UNIDAD_NOMBRE = COALESCE(fd.UNIDAD_NOMBRE, um.NOMBRE)
+WHERE fd.CANTIDAD_POR_UNIDAD IS NULL OR fd.UNIDAD_ID IS NULL OR fd.UNIDAD_NOMBRE IS NULL;
+
+-- Asegurar columna PRECIO_COMPRA en `productos` de forma compatible
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'productos' AND COLUMN_NAME = 'PRECIO_COMPRA');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `productos` ADD COLUMN `PRECIO_COMPRA` DECIMAL(12,2) NOT NULL DEFAULT ''0.00''', 'SELECT 1');
+PREPARE stmt_prod FROM @sql_stmt; EXECUTE stmt_prod; DEALLOCATE PREPARE stmt_prod;
+
+-- Nota: si desea poblar valores por defecto distintos a 0.00, ejecutar UPDATE manual en staging
+
+-- Nota: revisar los resultados del backfill en staging antes de aplicarlo en producción.

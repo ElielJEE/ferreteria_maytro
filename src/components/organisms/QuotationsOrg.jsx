@@ -99,9 +99,9 @@ export default function QuotationsOrg() {
 			// Marcar estado local
 			setSelectedQuote(prev => prev ? { ...prev, estado: 'procesada' } : prev);
 			await refreshQuotes();
-			// Opcional: obtener detalle de factura creada y loguear
+			// Opcional: obtener detalle de factura creada (no mostrar alert en UI)
 			if (res.facturaId) {
-				try { await SalesService.getSaleDetail(res.facturaId); alert(`Venta creada. Factura #${res.facturaId}`); } catch { try { alert('Venta creada'); } catch {} }
+				try { await SalesService.getSaleDetail(res.facturaId); } catch { /* ignore */ }
 			}
 		} catch (e) {
 			console.error('Error al procesar cotización:', e);

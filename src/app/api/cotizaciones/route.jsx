@@ -46,9 +46,9 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
     // Marcar expirada
     await conn.query(`UPDATE COTIZACION SET ESTADO = 'expirada' WHERE ID_COTIZACION = ? AND ESTADO = 'activa'`, [cotizacionId]);
 
-    // Devolver stock por cada detalle
+    // Devolver stock por cada detalle (tener en cuenta CANTIDAD_POR_UNIDAD si existe)
     const [detRows] = await conn.query(
-      `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad
+      `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, COALESCE(d.CANTIDAD_POR_UNIDAD,1) AS cantidad_por_unidad
        FROM COTIZACION_DETALLES d
        WHERE d.ID_COTIZACION = ?`,
       [cotizacionId]
@@ -62,13 +62,15 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
     for (const det of detRows || []) {
       const idProd = Number(det.ID_PRODUCT);
       const qty = Number(det.cantidad || 0);
+      const factor = Number(det.cantidad_por_unidad || 1) || 1;
+      const qtyReal = qty * factor;
       if (!idProd || qty <= 0 || !sucursalId) continue;
       const [stRows] = await conn.query(
         'SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
         [idProd, sucursalId]
       );
       const anterior = stRows?.length ? Number(stRows[0].CANTIDAD || 0) : 0;
-      const nuevo = anterior + qty;
+      const nuevo = anterior + qtyReal;
       if (stRows?.length) {
         await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevo, idProd, sucursalId]);
       } else {
@@ -79,7 +81,7 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
         await conn.query(
           `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [idProd, sucursalId, usuarioId, tipoEntrada, qty, 'Expiración de cotización', cotizacionId, anterior, nuevo]
+          [idProd, sucursalId, usuarioId, tipoEntrada, qtyReal, 'Expiración de cotización', cotizacionId, anterior, nuevo]
         );
       } catch { /* ignore */ }
     }
@@ -204,23 +206,50 @@ export async function POST(req) {
     // Insertar detalles (no afecta stock)
     const insertedItems = [];
     let detallesInsertados = 0;
+    // Detectar columnas de unidades en COTIZACION_DETALLES para compatibilidad
+    let hasUnidadCols = false;
+    try {
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES'`);
+      const present = new Set((cols || []).map(r => String(r.COLUMN_NAME)));
+      hasUnidadCols = present.has('UNIDAD_ID') || present.has('CANTIDAD_POR_UNIDAD') || present.has('UNIDAD_NOMBRE');
+    } catch { hasUnidadCols = false; }
     for (const it of items) {
       const idProd = Number(it.ID_PRODUCT || it.producto_id || it.id);
       const qty = Number(it.quantity || it.cantidad || 0);
       const precio = Number(it.PRECIO || it.precio_unit || it.precio || it.unitPrice || 0);
       if (!idProd || qty <= 0) continue; // ignora líneas inválidas sin abortar toda la transacción
       const sub = Number((precio * qty).toFixed(2));
-      const [detRes] = await conn.query(
-        `INSERT INTO COTIZACION_DETALLES (ID_COTIZACION, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL)
-         VALUES (?, ?, ?, ?, ?)`,
-        [newId, idProd, qty, precio, sub]
-      );
+      let detRes;
+      // declarar variables de unidad en el scope del bucle para evitar ReferenceError
+      let unidadId = null;
+      let cantidadPorUnidad = 1;
+      let unidadNombre = null;
+      if (hasUnidadCols) {
+      // asignar valores si las columnas están presentes (aceptar formas camelCase y english keys)
+      unidadId = it.UNIDAD_ID || it.unidad_id || it.unit_id || it.unit || null;
+      cantidadPorUnidad = Number((it.cantidad_por_unidad ?? it.cantidadPorUnidad ?? it.CANTIDAD_POR_UNIDAD ?? 1)) || 1;
+      unidadNombre = it.UNIDAD_NOMBRE || it.unidad_nombre || it.unit_name || it.unit || null;
+        [detRes] = await conn.query(
+          `INSERT INTO COTIZACION_DETALLES (ID_COTIZACION, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [newId, idProd, qty, precio, sub, unidadId, cantidadPorUnidad, unidadNombre]
+        );
+      } else {
+        [detRes] = await conn.query(
+          `INSERT INTO COTIZACION_DETALLES (ID_COTIZACION, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL)
+           VALUES (?, ?, ?, ?, ?)`,
+          [newId, idProd, qty, precio, sub]
+        );
+      }
       if (detRes?.affectedRows) detallesInsertados += detRes.affectedRows;
       insertedItems.push({
         ID_PRODUCT: idProd,
         cantidad: qty,
         unitPrice: precio,
         subtotal: sub,
+        cantidad_por_unidad: hasUnidadCols ? cantidadPorUnidad : 1,
+        unidad_id: hasUnidadCols ? (unidadId || null) : null,
+        unidad_nombre: hasUnidadCols ? (unidadNombre || null) : null,
       });
     }
 
@@ -257,8 +286,10 @@ export async function POST(req) {
     }
 
     // Agrupar cantidades por producto (por si llegan repetidos)
+    // Calcular cantidad real por producto teniendo en cuenta cantidad_por_unidad
     const qtyByProduct = insertedItems.reduce((acc, it) => {
-      acc[it.ID_PRODUCT] = (acc[it.ID_PRODUCT] || 0) + Number(it.cantidad || 0);
+      const factor = Number(it.cantidad_por_unidad || 1) || 1;
+      acc[it.ID_PRODUCT] = (acc[it.ID_PRODUCT] || 0) + Number(it.cantidad || 0) * factor;
       return acc;
     }, {});
 
@@ -350,18 +381,27 @@ export async function GET(req) {
           }
         }
       } catch {}
+
+      // Detectar columnas de unidad en COTIZACION_DETALLES para seleccionar si existen
+      let hasUnidadColsLocal = false;
+      try {
+        const [colRows] = await pool.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES'`);
+        const present = new Set((colRows || []).map(r => String(r.COLUMN_NAME)));
+        hasUnidadColsLocal = present.has('UNIDAD_ID') || present.has('CANTIDAD_POR_UNIDAD') || present.has('UNIDAD_NOMBRE');
+      } catch { hasUnidadColsLocal = false; }
+
       // Intento principal: unimos contra cabecera para evitar discrepancias de tipos
-      let [items] = await pool.query(
-        `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
-                p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
+      const selectItemsSql = `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
+              ${hasUnidadColsLocal ? 'd.UNIDAD_ID AS unidad_id, d.CANTIDAD_POR_UNIDAD AS cantidad_por_unidad, d.UNIDAD_NOMBRE AS unidad_nombre,' : ''}
+              p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
          FROM COTIZACION c
          LEFT JOIN COTIZACION_DETALLES d ON d.ID_COTIZACION = c.ID_COTIZACION
          LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
          WHERE c.ID_COTIZACION = ?
-         ORDER BY d.ID_DETALLE_COTIZACION ASC
-        `, [id]
-      );
-      // Si aún vacío, último fallback numérico (instalaciones antiguas INT)
+         ORDER BY d.ID_DETALLE_COTIZACION ASC`;
+
+      let [items] = await pool.query(selectItemsSql, [id]);
+      // Fallbacks (legacy schemas)
       if (!items || items.length === 0) {
         const numericId = Number(id);
         if (!Number.isNaN(numericId)) {
@@ -375,7 +415,6 @@ export async function GET(req) {
           );
           items = retryNum;
         }
-        // Fallback adicional: intentar coincidencia por CAST (por si tabla detalles quedó como INT y la cabecera como VARCHAR)
         if (!items || items.length === 0) {
           const [retryCast] = await pool.query(
             `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
@@ -386,9 +425,8 @@ export async function GET(req) {
           );
           items = retryCast;
         }
-        // Fallback extra: si ID tiene formato COT-YYYYMMDD-..., intentar extraer la parte numérica después de COT-
         if ((!items || items.length === 0) && /^COT-\d{8}-/.test(id)) {
-          const core = id.split('-')[1]; // YYYYMMDD
+          const core = id.split('-')[1];
           const [retryCore] = await pool.query(
             `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
                     p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
@@ -398,7 +436,6 @@ export async function GET(req) {
           );
           if (retryCore?.length) items = retryCore;
         }
-        // Fallback definitivo: consulta directa sin cabecera ni transformaciones por si el JOIN falla por collation/charset
         if (!items || items.length === 0) {
           const [direct] = await pool.query(
             `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
@@ -410,6 +447,7 @@ export async function GET(req) {
           if (direct?.length) items = direct;
         }
       }
+
       return Response.json({
         cotizacion: {
           id: c.ID_COTIZACION,
@@ -430,7 +468,9 @@ export async function GET(req) {
             cantidad: Number(it.cantidad || 0),
             unitPrice: Number(it.precio_unit || 0),
             subtotal: Number(it.subtotal || 0),
-            measureUnit: it.unidad_medida || null,
+            measureUnit: it.unidad_nombre || it.unidad_medida || null,
+            unidad_id: it.unidad_id || null,
+            cantidad_por_unidad: Number(it.cantidad_por_unidad || it.CANTIDAD_POR_UNIDAD || 1) || 1,
           }))
         }
       });
@@ -465,9 +505,6 @@ export async function GET(req) {
           if (exp <= today) updates.push(r.id);
         } catch {}
       }
-    }
-    for (const toExpireId of updates) {
-      try { await expireCotizacionAndReturnStock(toExpireId); } catch {}
     }
     // Map final including updated estado
     const mapped = (rows || []).map(r => ({
@@ -531,9 +568,10 @@ export async function PUT(req) {
             return Response.json({ error: 'La cotización está expirada' }, { status: 400 });
           }
         }
-        // Items desde detalles
+        // Items desde detalles (incluir metadata de unidad si existe)
         const [dRows] = await conn.query(
-          `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal
+          `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
+                  COALESCE(d.CANTIDAD_POR_UNIDAD,1) AS cantidad_por_unidad, d.UNIDAD_ID AS unidad_id, d.UNIDAD_NOMBRE AS unidad_nombre
            FROM COTIZACION_DETALLES d WHERE d.ID_COTIZACION = ?`, [id]
         );
         if (!dRows?.length) {
@@ -599,15 +637,47 @@ export async function PUT(req) {
         const [factRes] = await conn.query(facturaSql, facturaParams);
         const facturaId = factRes.insertId;
 
+        // Detectar si FACTURA_DETALLES soporta columnas de unidad y propagar si es posible
+        const fdCols = await (async () => {
+          try {
+            const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES'`);
+            const present = new Set((cols || []).map(r => String(r.COLUMN_NAME)));
+            return {
+              UNIDAD_ID: present.has('UNIDAD_ID'),
+              CANTIDAD_POR_UNIDAD: present.has('CANTIDAD_POR_UNIDAD'),
+              UNIDAD_NOMBRE: present.has('UNIDAD_NOMBRE')
+            };
+          } catch { return { UNIDAD_ID: false, CANTIDAD_POR_UNIDAD: false, UNIDAD_NOMBRE: false }; }
+        })();
+
         for (const it of dRows) {
           const idProd = Number(it.ID_PRODUCT);
           const qty = Number(it.cantidad || 0);
           const precio = Number(it.precio_unit || 0);
           const sub = Number((precio * qty).toFixed(2));
-          await conn.query(
-            'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
-            [facturaId, idProd, qty, precio, sub, c.ID_USUARIO || null]
-          );
+          // declarar variables de unidad en el scope del bucle
+          let unidadId = null;
+          let cantidadPorUnidad = 1;
+          let unidadNombre = null;
+          if (fdCols.UNIDAD_ID || fdCols.CANTIDAD_POR_UNIDAD || fdCols.UNIDAD_NOMBRE) {
+            unidadId = it.unidad_id || it.UNIDAD_ID || it.unit_id || it.unit || null;
+            cantidadPorUnidad = Number((it.cantidad_por_unidad ?? it.cantidadPorUnidad ?? it.CANTIDAD_POR_UNIDAD ?? 1)) || 1;
+            unidadNombre = it.unidad_nombre || it.UNIDAD_NOMBRE || it.unit_name || it.unit || null;
+            await conn.query(
+              `INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL${fdCols.UNIDAD_ID ? ', UNIDAD_ID' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : ''}${fdCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : ''}, ID_USUARIO)
+               VALUES (?, ?, ?, ?, ?${fdCols.UNIDAD_ID ? ', ?' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', ?' : ''}${fdCols.UNIDAD_NOMBRE ? ', ?' : ''}, ?)`,
+              [facturaId, idProd, qty, precio, sub]
+              .concat(fdCols.UNIDAD_ID ? [unidadId] : [])
+              .concat(fdCols.CANTIDAD_POR_UNIDAD ? [cantidadPorUnidad] : [])
+              .concat(fdCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
+              .concat([c.ID_USUARIO || null])
+            );
+          } else {
+            await conn.query(
+              'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
+              [facturaId, idProd, qty, precio, sub, c.ID_USUARIO || null]
+            );
+          }
         }
 
   // Marcar cotización como procesada (no le afecta fecha de vencimiento)
@@ -656,6 +726,13 @@ export async function PUT(req) {
     if (Array.isArray(items) && items.length > 0) {
       await conn.query('DELETE FROM COTIZACION_DETALLES WHERE ID_COTIZACION = ?', [id]);
       let computedSubtotal = 0;
+      // detectar columnas de unidad para esta tabla
+      let hasUnidadColsUpdate = false;
+      try {
+        const [colRows2] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES'`);
+        const present2 = new Set((colRows2 || []).map(r => String(r.COLUMN_NAME)));
+        hasUnidadColsUpdate = present2.has('UNIDAD_ID') || present2.has('CANTIDAD_POR_UNIDAD') || present2.has('UNIDAD_NOMBRE');
+      } catch { hasUnidadColsUpdate = false; }
       for (const it of items) {
         const prodId = Number(it.ID_PRODUCT || it.producto_id || it.id);
         const qty = Number(it.quantity || it.cantidad || 0);
@@ -666,11 +743,26 @@ export async function PUT(req) {
         }
         const sub = Number((precio * qty).toFixed(2));
         computedSubtotal += sub;
-        await conn.query(
-          `INSERT INTO COTIZACION_DETALLES (ID_COTIZACION, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL)
-           VALUES (?, ?, ?, ?, ?)`,
-          [id, prodId, qty, precio, sub]
-        );
+        // declarar variables de unidad para evitar problemas de alcance
+        let unidadId = null;
+        let cantidadPorUnidad = 1;
+        let unidadNombre = null;
+        if (hasUnidadColsUpdate) {
+          unidadId = it.UNIDAD_ID || it.unidad_id || it.unit_id || it.unit || null;
+          cantidadPorUnidad = Number((it.cantidad_por_unidad ?? it.cantidadPorUnidad ?? it.CANTIDAD_POR_UNIDAD ?? 1)) || 1;
+          unidadNombre = it.UNIDAD_NOMBRE || it.unidad_nombre || it.unit_name || it.unit || null;
+          await conn.query(
+            `INSERT INTO COTIZACION_DETALLES (ID_COTIZACION, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, prodId, qty, precio, sub, unidadId, cantidadPorUnidad, unidadNombre]
+          );
+        } else {
+          await conn.query(
+            `INSERT INTO COTIZACION_DETALLES (ID_COTIZACION, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL)
+             VALUES (?, ?, ?, ?, ?)`,
+            [id, prodId, qty, precio, sub]
+          );
+        }
       }
       subtotalOk = Number.isFinite(Number(subtotal)) ? Number(subtotal) : computedSubtotal;
       totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk);

@@ -117,7 +117,16 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 			<div className='bg-dark/5 py-2 px-4 rounded-lg flex flex-col mt-4 sm:w-120 w-full'>
 				<h2 className='text-medium font-semibold'>{productData?.producto_nombre || ''}</h2>
 				<span className='text-dark/60'>
-					Cantidad: {productData?.cantidad || ''} | Cliente: {returnData?.cliente?.nombre || ''}
+					Cantidad: {productData?.cantidad || ''}
+					{(() => {
+						const unidadNombre = productData?.unidad || productData?.unit || productData?.unidad_nombre || productData?.unit_name || productData?.UNIDAD_NOMBRE || '';
+						const cantidadPor = Number(productData?.cantidad_por_unidad || productData?.CANTIDAD_POR_UNIDAD || 0);
+						if (unidadNombre) {
+							return (<span> | Unidad: {unidadNombre}{(cantidadPor !== 0 && cantidadPor !== 1) ? (<small className='text-dark/50'> — x {cantidadPor} por unidad</small>) : null}</span>)
+						}
+						return null;
+					})()}
+					 | Cliente: {returnData?.cliente?.nombre || ''}
 				</span>
 			</div>
 

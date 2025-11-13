@@ -22,7 +22,11 @@ export default function QuoteEdit({ quote, onClose, onSave }) {
 				productCode: it.productCode,
 				cantidad: Number(it.cantidad || 0),
 				unitPrice: Number(it.unitPrice || 0),
-				subtotal: Number(it.subtotal ?? (Number(it.cantidad || 0) * Number(it.unitPrice || 0)))
+				subtotal: Number(it.subtotal ?? (Number(it.cantidad || 0) * Number(it.unitPrice || 0))),
+				// preserve unidad metadata if present
+				unidad_id: it.unidad_id || it.UNIDAD_ID || null,
+				unidad_nombre: it.unidad_nombre || it.UNIDAD_NOMBRE || it.measureUnit || null,
+				cantidad_por_unidad: Number(it.cantidad_por_unidad || it.CANTIDAD_POR_UNIDAD || 1) || 1
 			}))
 			: []
 	));
@@ -95,6 +99,9 @@ export default function QuoteEdit({ quote, onClose, onSave }) {
 				ID_PRODUCT: it.producto_id,
 				cantidad: Number(it.cantidad || 0),
 				PRECIO: Number(it.unitPrice || 0),
+				UNIDAD_ID: it.unidad_id || null,
+				UNIDAD_NOMBRE: it.unidad_nombre || null,
+				CANTIDAD_POR_UNIDAD: Number(it.cantidad_por_unidad || 1) || 1,
 			}));
 			const subtotal = items.reduce((acc, it) => acc + Number(it.unitPrice || 0) * Number(it.cantidad || 0), 0);
 			const descuento = 0;
