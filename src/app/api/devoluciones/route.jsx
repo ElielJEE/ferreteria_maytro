@@ -130,10 +130,21 @@ export async function POST(req) {
     await conn.beginTransaction();
 
     // Validar que la cantidad solicitada no exceda lo vendido en el detalle (acumulado)
+    // Además obtener el detalle de factura (FOR UPDATE) para leer CANTIDAD_POR_UNIDAD cuando exista
+    let detalleRow = null;
     if (detalle_id) {
-      const [dCant] = await conn.query('SELECT AMOUNT FROM FACTURA_DETALLES WHERE ID_DETALLES_FACTURA = ? LIMIT 1', [detalle_id]);
-      if (!dCant?.length) return Response.json({ error: 'Detalle de factura no encontrado' }, { status: 404 });
-      const cantVendida = Math.max(0, Number(dCant[0].AMOUNT || 0));
+      const [dRows] = await conn.query(
+        `SELECT ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT,
+                COALESCE(CANTIDAD_POR_UNIDAD, 1) AS CANTIDAD_POR_UNIDAD,
+                UNIDAD_ID, UNIDAD_NOMBRE
+           FROM FACTURA_DETALLES
+          WHERE ID_DETALLES_FACTURA = ?
+          LIMIT 1 FOR UPDATE`,
+        [detalle_id]
+      );
+      if (!dRows?.length) return Response.json({ error: 'Detalle de factura no encontrado' }, { status: 404 });
+      detalleRow = dRows[0];
+      const cantVendida = Math.max(0, Number(detalleRow.AMOUNT || 0));
       const [sumRows] = await conn.query('SELECT COALESCE(SUM(CANTIDAD),0) AS sum_dev FROM DEVOLUCION WHERE ID_DETALLES_FACTURA = ?', [detalle_id]);
       const sumPrev = Math.max(0, Number(sumRows?.[0]?.sum_dev || 0));
       const disponible = Math.max(0, cantVendida - sumPrev);
@@ -143,20 +154,16 @@ export async function POST(req) {
     }
 
     // Intentar obtener sucursal y cliente desde la factura del detalle si es posible
-    if (detalle_id) {
-      const [detRows] = await conn.query(
-        `SELECT f.ID_SUCURSAL, f.ID_CLIENTES
-           FROM FACTURA_DETALLES fd
-           INNER JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
-          WHERE fd.ID_DETALLES_FACTURA = ?
-          LIMIT 1`,
-        [detalle_id]
-      );
-      if (detRows?.length) {
-        facturaSucursal = detRows[0].ID_SUCURSAL || null;
-        sucursalId = sucursalId || facturaSucursal || null;
-        clienteId = detRows[0].ID_CLIENTES || null;
-      }
+    if (detalle_id && detalleRow) {
+      // Usar ID_FACTURA obtenido al leer el detalle
+      try {
+        const [frows] = await conn.query('SELECT ID_SUCURSAL, ID_CLIENTES FROM FACTURA WHERE ID_FACTURA = ? LIMIT 1', [detalleRow.ID_FACTURA]);
+        if (frows?.length) {
+          facturaSucursal = frows[0].ID_SUCURSAL || null;
+          sucursalId = sucursalId || facturaSucursal || null;
+          clienteId = frows[0].ID_CLIENTES || null;
+        }
+      } catch {}
     }
     // Fallback: última sucursal con movimiento para este producto
     let lastMovSucursal = null;
@@ -186,11 +193,26 @@ export async function POST(req) {
     // Actualizar stock o registrar daños según estado de producto
     if (devCols.ID_SUCURSAL && stockSucursalId != null) {
       const isDaniado = (estado || '').toString().toUpperCase() === 'DANIADO';
+
+      // Determinar factor CANTIDAD_POR_UNIDAD: preferir el almacenado en FACTURA_DETALLES si existe,
+      // si no, intentar la unidad por defecto en producto_unidades, sino 1.
+      let cantidadPorUnidad = 1;
+      if (detalleRow && detalleRow.CANTIDAD_POR_UNIDAD != null) {
+        cantidadPorUnidad = Number(detalleRow.CANTIDAD_POR_UNIDAD || 1) || 1;
+      } else {
+        try {
+          const [pu] = await conn.query('SELECT CANTIDAD_POR_UNIDAD FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [producto_id]);
+          if (pu?.length) cantidadPorUnidad = Number(pu[0].CANTIDAD_POR_UNIDAD || 1) || 1;
+        } catch {}
+      }
+
+      const cantidadReal = Number(cantidad || 0) * Number(cantidadPorUnidad || 1);
+
       if (!isDaniado) {
-        // En buen estado: sumar al stock de la sucursal y registrar movimiento de entrada
+        // En buen estado: sumar al stock de la sucursal y registrar movimiento de entrada (usar cantidad real)
         const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [producto_id, stockSucursalId]);
         const anterior = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
-        const nuevo = anterior + Number(cantidad);
+        const nuevo = anterior + cantidadReal;
         if (stockRows.length) {
           await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevo, producto_id, stockSucursalId]);
         } else {
@@ -200,7 +222,7 @@ export async function POST(req) {
           await conn.query(
             `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
              VALUES (?, ?, ?, 'entrada', ?, ?, ?, ?, ?)`,
-            [producto_id, movSucursalId, usuarioId || null, cantidad, 'Devolución', factura_id || null, anterior, nuevo]
+            [producto_id, movSucursalId, usuarioId || null, cantidadReal, 'Devolución', factura_id || null, anterior, nuevo]
           );
         } catch {}
       } else {
@@ -209,7 +231,7 @@ export async function POST(req) {
           await conn.query(
             `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
              VALUES (?, ?, ?, 'danado', ?, ?, ?, NULL, NULL)`,
-            [producto_id, movSucursalId, usuarioId || null, cantidad, 'Devolución dañada', factura_id || null]
+            [producto_id, movSucursalId, usuarioId || null, cantidadReal, 'Devolución dañada', factura_id || null]
           );
         } catch {}
         // Insertar registro en STOCK_DANADOS si existe la tabla/columnas (tolerante)
@@ -224,7 +246,7 @@ export async function POST(req) {
               if (pp2?.length) precioUnitario = Number(pp2[0].PRECIO || 0);
             }
           } catch {}
-          const perdida = Number(cantidad || 0) * Number(precioUnitario || 0);
+          const perdida = Number(cantidadReal || 0) * Number(precioUnitario || 0);
           const [colsRes] = await conn.query(
             `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS'`
           );
@@ -235,7 +257,7 @@ export async function POST(req) {
             const push = (c, v, now = false) => { cols.push(c); if (now) ph.push('NOW()'); else { ph.push('?'); vals.push(v); } };
             if (available.has('ID_PRODUCT')) push('ID_PRODUCT', producto_id);
             if (available.has('ID_SUCURSAL')) push('ID_SUCURSAL', stockSucursalId);
-            if (available.has('CANTIDAD')) push('CANTIDAD', cantidad);
+            if (available.has('CANTIDAD')) push('CANTIDAD', cantidadReal);
             if (available.has('DESCRIPCION')) push('DESCRIPCION', motivo || 'Devolución dañada');
             if (available.has('TIPO_DANO')) push('TIPO_DANO', 'devolucion');
             if (available.has('USUARIO_ID')) push('USUARIO_ID', usuarioId || null);
@@ -332,27 +354,68 @@ export async function POST(req) {
       }
       const subNuevo = Number((precioNuevo * qtyReemp).toFixed(2));
       if (facId) {
-        await conn.query(
-          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
-          [facId, nuevoProdId, qtyReemp, precioNuevo, subNuevo, usuarioId || null]
-        );
+        // Detectar si FACTURA_DETALLES tiene columnas de unidad para propagar metadata
+        const fdCols = await detectColumns(conn, 'FACTURA_DETALLES', ['UNIDAD_ID','CANTIDAD_POR_UNIDAD','UNIDAD_NOMBRE']);
+        const insCols = ['ID_FACTURA','ID_PRODUCT','AMOUNT','PRECIO_UNIT','SUB_TOTAL','ID_USUARIO'];
+        const insVals = [facId, nuevoProdId, qtyReemp, precioNuevo, subNuevo, usuarioId || null];
+        if (fdCols.UNIDAD_ID || fdCols.CANTIDAD_POR_UNIDAD || fdCols.UNIDAD_NOMBRE) {
+          // Si tenemos el detalle original, usar su metadata de unidad; si no, intentar obtener default del nuevo producto
+          const unidadIdFromOld = detalleRow ? (detalleRow.UNIDAD_ID ?? detalleRow.unidad_id ?? null) : null;
+          const cantidadPorUnidadFromOld = detalleRow ? (detalleRow.CANTIDAD_POR_UNIDAD ?? detalleRow.cantidad_por_unidad ?? 1) : null;
+          const unidadNombreFromOld = detalleRow ? (detalleRow.UNIDAD_NOMBRE ?? detalleRow.unidad_nombre ?? null) : null;
+
+          let unidadIdUse = unidadIdFromOld;
+          let cantidadPorUnidadUse = cantidadPorUnidadFromOld != null ? Number(cantidadPorUnidadFromOld || 1) : null;
+          let unidadNombreUse = unidadNombreFromOld;
+
+          if (!cantidadPorUnidadUse) {
+            try {
+              const [puDef] = await conn.query('SELECT CANTIDAD_POR_UNIDAD, UNIDAD_ID FROM producto_unidades pu LEFT JOIN unidades_medidas u ON pu.UNIDAD_ID = u.ID_UNIDAD WHERE pu.PRODUCT_ID = ? AND pu.ES_POR_DEFECTO = 1 LIMIT 1', [nuevoProdId]);
+              if (puDef?.length) {
+                cantidadPorUnidadUse = Number(puDef[0].CANTIDAD_POR_UNIDAD || 1) || 1;
+                unidadIdUse = unidadIdUse || (puDef[0].UNIDAD_ID || null);
+              }
+            } catch {}
+          }
+
+          if (fdCols.UNIDAD_ID) { insCols.push('UNIDAD_ID'); insVals.push(unidadIdUse); }
+          if (fdCols.CANTIDAD_POR_UNIDAD) { insCols.push('CANTIDAD_POR_UNIDAD'); insVals.push(cantidadPorUnidadUse != null ? cantidadPorUnidadUse : 1); }
+          if (fdCols.UNIDAD_NOMBRE) { insCols.push('UNIDAD_NOMBRE'); insVals.push(unidadNombreUse); }
+        }
+
+        const placeholders = insCols.map(()=>'?').join(',');
+        const sql = `INSERT INTO FACTURA_DETALLES (${insCols.join(',')}) VALUES (${placeholders})`;
+        await conn.query(sql, insVals);
       }
 
       // 3) Descontar stock para el producto de reemplazo (salida)
       if (devCols.ID_SUCURSAL && stockSucursalId != null) {
+        // Si el nuevo detalle incluye cantidad_por_unidad tomada del detalle devuelto, usarla para descontar stock real
+        let replacementFactor = 1;
+        try {
+          // Buscar en FACTURA_DETALLES recién insertado (último insert id) la CANTIDAD_POR_UNIDAD si existe
+          // pero preferir la metadata copiada desde detalleRow si estaba presente
+          if (detalleRow && detalleRow.CANTIDAD_POR_UNIDAD != null) replacementFactor = Number(detalleRow.CANTIDAD_POR_UNIDAD || 1) || 1;
+          else {
+            const [puDef2] = await conn.query('SELECT CANTIDAD_POR_UNIDAD FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [nuevoProdId]);
+            if (puDef2?.length) replacementFactor = Number(puDef2[0].CANTIDAD_POR_UNIDAD || 1) || 1;
+          }
+        } catch {}
+
+        const realQtyReemp = Number(qtyReemp || 0) * Number(replacementFactor || 1);
         const [stock2] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [nuevoProdId, stockSucursalId]);
         const ant = stock2.length ? Number(stock2[0].CANTIDAD || 0) : 0;
-        if (qtyReemp > ant) {
+        if (realQtyReemp > ant) {
           await conn.rollback();
           return Response.json({ error: 'Stock insuficiente para producto de reemplazo' }, { status: 400 });
         }
-        const neu = ant - qtyReemp;
+        const neu = ant - realQtyReemp;
         await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [neu, nuevoProdId, stockSucursalId]);
         try {
           await conn.query(
             `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
              VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`,
-            [nuevoProdId, movSucursalId, usuarioId || null, qtyReemp, 'Reemplazo devolución', facId || null, ant, neu]
+            [nuevoProdId, movSucursalId, usuarioId || null, realQtyReemp, 'Reemplazo devolución', facId || null, ant, neu]
           );
         } catch {}
       }
@@ -414,54 +477,66 @@ export async function GET(req) {
       hasFechaDev = (colRows?.[0]?.CNT || 0) > 0;
     } catch { hasFechaDev = false; }
 
-    if (id) {
-      const selectDetalle = hasFechaDev ?
+    // Detectar si FACTURA_DETALLES tiene columnas de unidad (para devolver metadata de unidad)
+    let hasFacturaDetallesUnidad = false;
+    try {
+      const [fdCols] = await pool.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES'`);
+      const presentFd = new Set((fdCols || []).map(r => String(r.COLUMN_NAME)));
+      hasFacturaDetallesUnidad = presentFd.has('UNIDAD_ID') || presentFd.has('CANTIDAD_POR_UNIDAD') || presentFd.has('UNIDAD_NOMBRE');
+    } catch { hasFacturaDetallesUnidad = false; }
+
+   if (id) {
+    // construir selectDetalle incluyendo posibles columnas de unidad en FACTURA_DETALLES
+    const extraFdSelect = hasFacturaDetallesUnidad ? 'fd.UNIDAD_ID AS unidad_id, fd.CANTIDAD_POR_UNIDAD AS cantidad_por_unidad, fd.UNIDAD_NOMBRE AS unidad_nombre,' : '';
+    const selectDetalle = hasFechaDev ?
   `SELECT d.ID_DEVOLUCION, d.CANTIDAD, d.ESTADO, d.MOTIVO, d.FECHA_DEVOLUCION, d.ID_SUCURSAL, d.ID_DETALLES_FACTURA, d.ID_PRODUCT,
-    d.ID_USUARIO_DEVOLUCION, p.PRODUCT_NAME, p.CODIGO_PRODUCTO,
-    fd.ID_FACTURA, f.TOTAL AS factura_total, f.FECHA AS factura_fecha,
-    COALESCE(c2.NOMBRE_CLIENTE, c.NOMBRE_CLIENTE) AS cliente_nombre,
-    COALESCE(c2.TELEFONO_CLIENTE, c.TELEFONO_CLIENTE) AS cliente_telefono,
-    COALESCE(s.NOMBRE_SUCURSAL,
-       (SELECT s2.NOMBRE_SUCURSAL FROM SUCURSAL s2 WHERE REPLACE(s2.ID_SUCURSAL,'S','') = d.ID_SUCURSAL LIMIT 1),
-       (SELECT s3.NOMBRE_SUCURSAL FROM SUCURSAL s3 WHERE s3.ID_SUCURSAL = CONCAT('S', d.ID_SUCURSAL) LIMIT 1)
-    ) AS sucursal_nombre,
-    COALESCE(s.ID_SUCURSAL,
-       (SELECT s2.ID_SUCURSAL FROM SUCURSAL s2 WHERE REPLACE(s2.ID_SUCURSAL,'S','') = d.ID_SUCURSAL LIMIT 1),
-       (SELECT s3.ID_SUCURSAL FROM SUCURSAL s3 WHERE s3.ID_SUCURSAL = CONCAT('S', d.ID_SUCURSAL) LIMIT 1)
-    ) AS sucursal_id_real,
-    u.NOMBRE AS usuario_nombre
-   FROM DEVOLUCION d
-   LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
-   LEFT JOIN FACTURA_DETALLES fd ON fd.ID_DETALLES_FACTURA = d.ID_DETALLES_FACTURA
-   LEFT JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
-   LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-   LEFT JOIN CLIENTES c2 ON c2.ID_CLIENTES = d.ID_CLIENTES
-   LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = d.ID_SUCURSAL
-   LEFT JOIN USUARIOS u ON u.ID = d.ID_USUARIO_DEVOLUCION
-   WHERE d.ID_DEVOLUCION = ? LIMIT 1` :
+   d.ID_USUARIO_DEVOLUCION, p.PRODUCT_NAME, p.CODIGO_PRODUCTO,
+   ${extraFdSelect}
+   fd.ID_FACTURA, f.TOTAL AS factura_total, f.FECHA AS factura_fecha,
+   COALESCE(c2.NOMBRE_CLIENTE, c.NOMBRE_CLIENTE) AS cliente_nombre,
+   COALESCE(c2.TELEFONO_CLIENTE, c.TELEFONO_CLIENTE) AS cliente_telefono,
+   COALESCE(s.NOMBRE_SUCURSAL,
+     (SELECT s2.NOMBRE_SUCURSAL FROM SUCURSAL s2 WHERE REPLACE(s2.ID_SUCURSAL,'S','') = d.ID_SUCURSAL LIMIT 1),
+     (SELECT s3.NOMBRE_SUCURSAL FROM SUCURSAL s3 WHERE s3.ID_SUCURSAL = CONCAT('S', d.ID_SUCURSAL) LIMIT 1)
+   ) AS sucursal_nombre,
+   COALESCE(s.ID_SUCURSAL,
+     (SELECT s2.ID_SUCURSAL FROM SUCURSAL s2 WHERE REPLACE(s2.ID_SUCURSAL,'S','') = d.ID_SUCURSAL LIMIT 1),
+     (SELECT s3.ID_SUCURSAL FROM SUCURSAL s3 WHERE s3.ID_SUCURSAL = CONCAT('S', d.ID_SUCURSAL) LIMIT 1)
+   ) AS sucursal_id_real,
+   u.NOMBRE AS usuario_nombre
+  FROM DEVOLUCION d
+  LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
+  LEFT JOIN FACTURA_DETALLES fd ON fd.ID_DETALLES_FACTURA = d.ID_DETALLES_FACTURA
+  LEFT JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
+  LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
+  LEFT JOIN CLIENTES c2 ON c2.ID_CLIENTES = d.ID_CLIENTES
+  LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = d.ID_SUCURSAL
+  LEFT JOIN USUARIOS u ON u.ID = d.ID_USUARIO_DEVOLUCION
+  WHERE d.ID_DEVOLUCION = ? LIMIT 1` :
   `SELECT d.ID_DEVOLUCION, d.CANTIDAD, d.ESTADO, d.MOTIVO, d.ID_SUCURSAL, d.ID_DETALLES_FACTURA, d.ID_PRODUCT,
-    d.ID_USUARIO_DEVOLUCION, p.PRODUCT_NAME, p.CODIGO_PRODUCTO,
-    fd.ID_FACTURA, f.TOTAL AS factura_total, f.FECHA AS factura_fecha,
-    COALESCE(c2.NOMBRE_CLIENTE, c.NOMBRE_CLIENTE) AS cliente_nombre,
-    COALESCE(c2.TELEFONO_CLIENTE, c.TELEFONO_CLIENTE) AS cliente_telefono,
-    COALESCE(s.NOMBRE_SUCURSAL,
-       (SELECT s2.NOMBRE_SUCURSAL FROM SUCURSAL s2 WHERE REPLACE(s2.ID_SUCURSAL,'S','') = d.ID_SUCURSAL LIMIT 1),
-       (SELECT s3.NOMBRE_SUCURSAL FROM SUCURSAL s3 WHERE s3.ID_SUCURSAL = CONCAT('S', d.ID_SUCURSAL) LIMIT 1)
-    ) AS sucursal_nombre,
-    COALESCE(s.ID_SUCURSAL,
-       (SELECT s2.ID_SUCURSAL FROM SUCURSAL s2 WHERE REPLACE(s2.ID_SUCURSAL,'S','') = d.ID_SUCURSAL LIMIT 1),
-       (SELECT s3.ID_SUCURSAL FROM SUCURSAL s3 WHERE s3.ID_SUCURSAL = CONCAT('S', d.ID_SUCURSAL) LIMIT 1)
-    ) AS sucursal_id_real,
-    u.NOMBRE AS usuario_nombre
-   FROM DEVOLUCION d
-   LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
-   LEFT JOIN FACTURA_DETALLES fd ON fd.ID_DETALLES_FACTURA = d.ID_DETALLES_FACTURA
-   LEFT JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
-   LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-   LEFT JOIN CLIENTES c2 ON c2.ID_CLIENTES = d.ID_CLIENTES
-   LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = d.ID_SUCURSAL
-   LEFT JOIN USUARIOS u ON u.ID = d.ID_USUARIO_DEVOLUCION
-   WHERE d.ID_DEVOLUCION = ? LIMIT 1`;
+   d.ID_USUARIO_DEVOLUCION, p.PRODUCT_NAME, p.CODIGO_PRODUCTO,
+   ${extraFdSelect}
+   fd.ID_FACTURA, f.TOTAL AS factura_total, f.FECHA AS factura_fecha,
+   COALESCE(c2.NOMBRE_CLIENTE, c.NOMBRE_CLIENTE) AS cliente_nombre,
+   COALESCE(c2.TELEFONO_CLIENTE, c.TELEFONO_CLIENTE) AS cliente_telefono,
+   COALESCE(s.NOMBRE_SUCURSAL,
+     (SELECT s2.NOMBRE_SUCURSAL FROM SUCURSAL s2 WHERE REPLACE(s2.ID_SUCURSAL,'S','') = d.ID_SUCURSAL LIMIT 1),
+     (SELECT s3.NOMBRE_SUCURSAL FROM SUCURSAL s3 WHERE s3.ID_SUCURSAL = CONCAT('S', d.ID_SUCURSAL) LIMIT 1)
+   ) AS sucursal_nombre,
+   COALESCE(s.ID_SUCURSAL,
+     (SELECT s2.ID_SUCURSAL FROM SUCURSAL s2 WHERE REPLACE(s2.ID_SUCURSAL,'S','') = d.ID_SUCURSAL LIMIT 1),
+     (SELECT s3.ID_SUCURSAL FROM SUCURSAL s3 WHERE s3.ID_SUCURSAL = CONCAT('S', d.ID_SUCURSAL) LIMIT 1)
+   ) AS sucursal_id_real,
+   u.NOMBRE AS usuario_nombre
+  FROM DEVOLUCION d
+  LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
+  LEFT JOIN FACTURA_DETALLES fd ON fd.ID_DETALLES_FACTURA = d.ID_DETALLES_FACTURA
+  LEFT JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
+  LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
+  LEFT JOIN CLIENTES c2 ON c2.ID_CLIENTES = d.ID_CLIENTES
+  LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = d.ID_SUCURSAL
+  LEFT JOIN USUARIOS u ON u.ID = d.ID_USUARIO_DEVOLUCION
+  WHERE d.ID_DEVOLUCION = ? LIMIT 1`;
       let rows;
       try {
         [rows] = await pool.query(selectDetalle, [id]);
@@ -513,7 +588,13 @@ export async function GET(req) {
           cantidad: Number(r.CANTIDAD || 0),
           estado: r.ESTADO,
           motivo: r.MOTIVO,
-          producto: { id: r.ID_PRODUCT, nombre: r.PRODUCT_NAME, codigo: r.CODIGO_PRODUCTO },
+          producto: {
+            id: r.ID_PRODUCT,
+            nombre: r.PRODUCT_NAME,
+            codigo: r.CODIGO_PRODUCTO,
+            unidad_nombre: r.unidad_nombre || null,
+            cantidad_por_unidad: Number(r.cantidad_por_unidad || r.CANTIDAD_POR_UNIDAD || 1) || 1,
+          },
           factura: { id: r.ID_FACTURA, total: Number(r.factura_total || 0), fecha: r.factura_fecha },
           fecha_devolucion: hasFechaDev ? r.FECHA_DEVOLUCION : null,
           cliente: { nombre: r.cliente_nombre || 'Consumidor Final', telefono: r.cliente_telefono || '' },

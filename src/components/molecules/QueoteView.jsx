@@ -80,7 +80,19 @@ export default function QueoteView({ quote, onClose, onProcess }) {
 											<td className='p-2 text-center'>{it.cantidad ?? it.qty ?? '-'}</td>
 											<td className='p-2'>{it.productCode || '-'}</td>
 											<td className='p-2'>{it.productName || '-'}</td>
-											<td className='p-2'>{it.measureUnit || '-'}</td>
+											<td className='p-2'>
+												{(() => {
+													const unidadNombre = it.unidad || it.unit || it.unidad_nombre || it.unit_name || it.UNIDAD_NOMBRE || it.measureUnit || '-';
+													return (
+														<div className='flex flex-col'>
+															<span>{unidadNombre}</span>
+															{(Number(it.cantidad_por_unidad || it.CANTIDAD_POR_UNIDAD || 0) !== 0 && Number(it.cantidad_por_unidad || it.CANTIDAD_POR_UNIDAD || 1) !== 1) && (
+																<small className='text-dark/50'>x {Number(it.cantidad_por_unidad || it.CANTIDAD_POR_UNIDAD).toString()} por unidad</small>
+															)}
+														</div>
+													)
+												})()}
+											</td>
 											<td className='p-2 text-center'>{"C$ " + Number(it.unitPrice || 0).toLocaleString()}</td>
 											<td className='p-2 text-center'>{"C$ " + Number(it.cantidad * (it.unitPrice || 0)).toLocaleString()}</td>
 										</tr>
