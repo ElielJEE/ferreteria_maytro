@@ -206,7 +206,7 @@ export default function NewPurchase() {
 			router.push('/compras');
 		} catch (err) {
 			console.error('Error procesando compra', err);
-			setError(prev => ({ ...prev, submit: err?.message || 'Error al procesar compra' }));
+			setError(prev => ({ ...prev, submit: err?.message || 'Error al crear compra' }));
 		}
 	};
 
@@ -253,6 +253,8 @@ export default function NewPurchase() {
 
 		} else if (type === 'modifyPrice') {
 			setProduct(productData)
+			// initialize modal input with current precio_compra for modification
+			setPrecioCompraInput(productData && (productData.PRECIO_COMPRA ?? productData.precio_compra) ? String(productData.PRECIO_COMPRA ?? productData.precio_compra) : '')
 			setIsActiveModal(true)
 		}
 	}
@@ -453,7 +455,7 @@ export default function NewPurchase() {
 						</div>
 						<Button
 							className={'success'}
-							text={'Procesar Orden'}
+							text={'Crear Orden'}
 							icon={<FiShoppingBag className='h-5 w-5' />}
 							func={() => handleSubmitCompra()}
 						/>
@@ -536,6 +538,8 @@ export default function NewPurchase() {
 										label={'Precio unitario del producto'}
 										placeholder={'Ingresa el precio unitario de la compra...'}
 										inputClass={'no icon'}
+										value={precioCompraInput}
+										onChange={(e) => setPrecioCompraInput(e.target.value)}
 									/>
 									<div className='flex gap-2'>
 										<Button
@@ -546,6 +550,30 @@ export default function NewPurchase() {
 										<Button
 											text={'Agregar'}
 											className={'success'}
+											func={async () => {
+												const parsed = parseFloat(precioCompraInput);
+												if (!isNaN(parsed) && parsed > 0) {
+													try {
+														// Persist change
+														await ProductService.editProduct({ id: product.ID_PRODUCT, precio_compra: parsed });
+														// REFRESH: fetch fresh products from API to avoid stale/shared-reference objects
+														const fresh = await ProductService.getProducts();
+														const normalizedFresh = (fresh || []).map(p => ({ ...p, PRECIO_COMPRA: Number(p?.PRECIO_COMPRA ?? 0) || 0 }));
+														setProducts(normalizedFresh);
+														const updatedProduct = normalizedFresh.find(p => String(p.ID_PRODUCT) === String(product.ID_PRODUCT));
+														if (updatedProduct) setProduct(updatedProduct);
+														// update productList entries (if present) using the fresh value
+														setProductList(prevList => prevList.map(item => item.ID_PRODUCT === product.ID_PRODUCT ? { ...item, PRECIO_COMPRA: Number(updatedProduct?.PRECIO_COMPRA ?? parsed) } : item));
+														setIsActiveModal(false);
+													} catch (e) {
+														console.error('Error actualizando precio de compra', e);
+														return;
+													}
+												} else {
+													// invalid input: keep modal open for correction
+													return;
+												}
+											}}
 										/>
 									</div>
 								</form>
