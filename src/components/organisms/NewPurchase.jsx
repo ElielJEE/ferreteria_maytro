@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { FiCheck, FiDollarSign, FiFile, FiGlobe, FiKey, FiList, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiTruck, FiUser, FiX } from 'react-icons/fi'
-import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, ProveedorService } from '@/services';
+import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, ProveedorService, ComprasService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsBoxSeam, BsCalculator, BsCashCoin, BsWrench } from 'react-icons/bs';
@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 export default function NewPurchase() {
 	const [products, setProducts] = useState([]);
 	const [product, setProduct] = useState([]);
+	const [precioCompraInput, setPrecioCompraInput] = useState('');
 	const [subcategories, setSubcategories] = useState([]);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [productList, setProductList] = useState([]);
@@ -31,7 +32,12 @@ export default function NewPurchase() {
 					ProductService.getProducts(),
 					ProductService.getSubcategories()
 				]);
-				setProducts(productsData);
+				// Normalizar precio de compra exclusivamente desde la columna PRECIO_COMPRA
+				const normalized = (productsData || []).map(p => ({
+					...p,
+					PRECIO_COMPRA: Number(p?.PRECIO_COMPRA ?? 0) || 0
+				}));
+				setProducts(normalized);
 				setSubcategories(subcats);
 			} catch (error) {
 				console.error(error)
@@ -52,37 +58,54 @@ export default function NewPurchase() {
 			item.NOMBRE_SUBCATEGORIA.toLowerCase().includes(term.toLowerCase())
 	});
 
-	const addToProductList = (product) => {
-		// Permite agregar un precio de compra si no existe en la base de datos.
-		if (Number(product.PRECIO_COMPRA || 0) <= 0 || Number(product.PRECIO_COMPRA || 0) === null) {
-			addPrice(product);
-			return;
-		}
+	const addToProductList = async (product) => {
+		// Antes de abrir modal, recargar el producto desde la API para garantizar que PRECIO_COMPRA venga de la BD
+		try {
+			const all = await ProductService.getProducts();
+			const normalizedAll = (all || []).map(p => ({ ...p, PRECIO_COMPRA: Number(p?.PRECIO_COMPRA ?? 0) || 0 }));
+			// actualizar cache local de productos
+			setProducts(normalizedAll);
+			const prodFresh = normalizedAll.find(p => String(p.ID_PRODUCT) === String(product.ID_PRODUCT));
+			const precioActual = Number(prodFresh?.PRECIO_COMPRA ?? 0) || 0;
 
-		setProductList((prevList) => {
-			const existingProduct = prevList.find(
-				(item) => item.ID_PRODUCT === product.ID_PRODUCT
-			);
-
-			if (existingProduct) {
-				const newQuantity = existingProduct.quantity + 1;
-				if (newQuantity > product.CANTIDAD) {
-					return prevList;
-				}
-				return prevList.map((item) =>
-					item.ID_PRODUCT === product.ID_PRODUCT
-						? { ...item, quantity: newQuantity }
-						: item
-				);
-			} else {
-				return [...prevList, { ...product, quantity: 1 }];
+			if (precioActual <= 0) {
+				// abrir modal para pedir precio de compra
+				addPrice(product);
+				return;
 			}
-		});
+
+			// normalize product object to always include PRECIO_COMPRA so UI and payload use it
+			const productNormalized = { ...product, PRECIO_COMPRA: precioActual };
+
+			setProductList((prevList) => {
+				const existingProduct = prevList.find((item) => item.ID_PRODUCT === productNormalized.ID_PRODUCT);
+
+				if (existingProduct) {
+					const newQuantity = existingProduct.quantity + 1;
+					if (newQuantity > productNormalized.CANTIDAD) {
+						return prevList;
+					}
+					return prevList.map((item) =>
+						item.ID_PRODUCT === productNormalized.ID_PRODUCT
+							? { ...item, quantity: newQuantity }
+							: item
+					);
+				} else {
+					return [...prevList, { ...productNormalized, quantity: 1 }];
+				}
+			});
+		} catch (e) {
+			console.error('Error verificando producto antes de agregar', e);
+			// fallback: abrir modal para evitar añadir con precio desconocido
+			addPrice(product);
+		}
 	};
 
 	const addPrice = (productData) => {
 		setIsActiveModal(true);
 		setProduct(productData);
+		// initialize modal input with current precio if exists
+		setPrecioCompraInput(productData && productData.PRECIO_COMPRA ? String(productData.PRECIO_COMPRA) : '');
 	}
 	console.log(product);
 
@@ -108,14 +131,17 @@ export default function NewPurchase() {
 		);
 	};
 
-	const subtotal = productList.reduce((acc, item) => acc + item.PRECIO * item.quantity, 0);
+	const subtotal = productList.reduce((acc, item) => {
+		const unit = Number(item?.PRECIO_COMPRA ?? 0);
+		return acc + unit * (Number(item.quantity) || 0);
+	}, 0);
 	const descuento = 0; // o podrías usar un estado si más adelante aplicas descuentos
 	const total = subtotal - descuento;
 
 	const validateFields = (form) => {
 		const newErrors = {};
 
-		// Campos siempre requeridos
+		// Campos siempre requeridos: nombre y telefono del proveedor y fecha
 		const required = ['nombre', 'telefono', 'fecha'];
 		required.forEach((field) => {
 			const value = form[field];
@@ -129,18 +155,59 @@ export default function NewPurchase() {
 	}
 
 	const handleSubmitCompra = async () => {
+		// Si no se especifica fecha de entrega, usar la fecha de hoy por defecto
 		const form = {
 			nombre: proveedorNombre,
 			telefono: proveedorTelefono,
-			fecha: fechaEntrega,
+			fecha: fechaEntrega || new Date().toISOString().slice(0,10),
 		}
 
 		const isValid = validateFields(form)
 		if (!isValid) {
+			console.debug('Validación de compra falló', error);
 			return;
 		}
 
-		router.push("/compras");
+		if (!productList || productList.length === 0) {
+			setError(prev => ({ ...prev, lista: 'La lista de productos está vacía' }));
+			return;
+		}
+
+		try {
+			// intentar obtener usuario actual para enviar usuarioId
+			const current = await AuthService.getCurrentUser();
+			// obtener id del usuario (aceptar varias formas: ID o id)
+			const usuarioId = current ? (current.ID ?? current.id ?? null) : null;
+			// si el usuario tiene sucursal registrada, enviarla también (variantes posibles)
+			const usuarioSucursal = current ? (current.ID_SUCURSAL ?? current.id_sucursal ?? current.ID_SUCURSAL ?? null) : null;
+
+			const items = productList.map(p => ({
+				ID_PRODUCT: p.ID_PRODUCT,
+				quantity: p.quantity,
+				PRECIO_COMPRA: Number(p?.PRECIO_COMPRA ?? 0) || 0
+			}));
+
+			const payload = {
+				proveedorNombre: proveedorNombre || null,
+				proveedorTelefono: proveedorTelefono || null,
+				usuarioId: usuarioId,
+				id_sucursal: usuarioSucursal,
+				fecha_pedido: new Date().toISOString().slice(0,10),
+				fecha_entrega: fechaEntrega || null,
+				total: total,
+				items
+			};
+
+			console.debug('Enviando compra payload:', payload);
+			const res = await ComprasService.createCompra(payload);
+			console.debug('Respuesta createCompra:', res);
+			// si se creó correctamente, limpiar y navegar
+			setProductList([]);
+			router.push('/compras');
+		} catch (err) {
+			console.error('Error procesando compra', err);
+			setError(prev => ({ ...prev, submit: err?.message || 'Error al procesar compra' }));
+		}
 	};
 
 	const [activeTab, setActiveTab] = useState("productos");
@@ -393,6 +460,8 @@ export default function NewPurchase() {
 								label={'Precio unitario del producto'}
 								placeholder={'Ingresa el precio unitario de la compra...'}
 								inputClass={'no icon'}
+								value={precioCompraInput}
+								onChange={(e) => setPrecioCompraInput(e.target.value)}
 							/>
 							<div className='flex gap-2'>
 								<Button
@@ -403,7 +472,45 @@ export default function NewPurchase() {
 								<Button
 									text={'Agregar'}
 									className={'success'}
-									func={() => addToProductList(product)}
+									func={async () => {
+										// Si hay precio ingresado, guardarlo en la tabla productos antes de agregar
+										const parsed = parseFloat(precioCompraInput);
+										if (!isNaN(parsed) && parsed > 0) {
+											try {
+												await ProductService.editProduct({ id: product.ID_PRODUCT, precio_compra: parsed });
+												// actualizar estado local de products y product para que no vuelva a pedir precio
+												setProducts(prev => prev.map(p => p.ID_PRODUCT === product.ID_PRODUCT ? { ...p, PRECIO_COMPRA: parsed } : p));
+												setProduct(prev => ({ ...prev, PRECIO_COMPRA: parsed }));
+												setIsActiveModal(false);
+												// ahora agregar a la lista
+												setProductList((prevList) => {
+													const existingProduct = prevList.find(
+														(item) => item.ID_PRODUCT === product.ID_PRODUCT
+													);
+													if (existingProduct) {
+														const newQuantity = existingProduct.quantity + 1;
+														if (newQuantity > product.CANTIDAD) {
+															return prevList;
+														}
+														return prevList.map((item) =>
+														item.ID_PRODUCT === product.ID_PRODUCT
+															? { ...item, quantity: newQuantity }
+															: item
+														);
+													} else {
+														return [...prevList, { ...product, quantity: 1, PRECIO_COMPRA: parsed }];
+													}
+												});
+											} catch (e) {
+												console.error('Error guardando precio de compra', e);
+												// Mantener modal abierto para reintento
+												return;
+											}
+										} else {
+											// No se ingresó precio válido: simplemente cerrar modal sin guardar ni agregar
+											setIsActiveModal(false);
+										}
+									}} 
 								/>
 							</div>
 						</form>

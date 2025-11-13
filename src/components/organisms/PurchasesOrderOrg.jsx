@@ -6,6 +6,7 @@ import { Card, DropdownMenu, Input } from '../molecules';
 import { useActive, useIsMobile } from '@/hooks';
 import { useRouter } from 'next/navigation';
 import { BsBoxSeam } from 'react-icons/bs';
+import { ComprasService } from '@/services';
 
 export default function PurchasesOrderOrg() {
 	const isMobile = useIsMobile({ breakpoint: 1024 })
@@ -14,90 +15,8 @@ export default function PurchasesOrderOrg() {
 	const [purchaseData, setPurchaseData] = useState([]);
 	const [mode, setMode] = useState('');
 
-	const ordenesEjemplo = [
-		{
-			id: "ORD-001",
-			proveedor: {
-				nombre: "Ferretería Central",
-				telefono: "555-1234"
-			},
-			fechas: {
-				creacion: "2024-01-25",
-				esperada: "2024-02-01",
-				recepcion: "2025-10-31"
-			},
-			estado: "Recibida",
-			productos: [
-				{
-					codigo: "HER001",
-					producto: "Martillo de Carpintero 16oz",
-					cantidad: 50,
-					precioUnitario: 35.00,
-					subtotal: 1750.00,
-					estado: "Entregado"
-				},
-				{
-					codigo: "HER002",
-					producto: "Destornillador Phillips #2",
-					cantidad: 100,
-					precioUnitario: 8.50,
-					subtotal: 850.00,
-					estado: "Pendiente"
-				},
-				{
-					codigo: "PIN001",
-					producto: "Pintura Vinílica Blanca 4L",
-					cantidad: 30,
-					precioUnitario: 95.00,
-					subtotal: 2850.00,
-					estado: "Pendiente"
-				}
-			],
-			notas: "Pedido urgente para reabastecimiento",
-			total: 3900.00
-		},
-		{
-			id: "ORD-001",
-			proveedor: {
-				nombre: "Ferretería Central",
-				telefono: "555-1234"
-			},
-			fechas: {
-				creacion: "2024-01-25",
-				esperada: "2024-02-01",
-				recepcion: "2025-10-31"
-			},
-			estado: "Pendiente",
-			productos: [
-				{
-					codigo: "HER001",
-					producto: "Martillo de Carpintero 16oz",
-					cantidad: 50,
-					precioUnitario: 35.00,
-					subtotal: 1750.00,
-					estado: "Pendiente"
-				},
-				{
-					codigo: "HER002",
-					producto: "Destornillador Phillips #2",
-					cantidad: 100,
-					precioUnitario: 8.50,
-					subtotal: 850.00,
-					estado: "Pendiente"
-				},
-				{
-					codigo: "PIN001",
-					producto: "Pintura Vinílica Blanca 4L",
-					cantidad: 30,
-					precioUnitario: 95.00,
-					subtotal: 2850.00,
-					estado: "Pendiente"
-				}
-			],
-			notas: "Pedido urgente para reabastecimiento",
-			total: 3900.00
-		}
-	];
+	const [ordenesEjemplo, setOrdenesEjemplo] = useState([]);
+	const [selectedDetalles, setSelectedDetalles] = useState(new Set());
 
 
 	const cardConfig = [
@@ -107,15 +26,60 @@ export default function PurchasesOrderOrg() {
 		{ key: 0, title: 'Valor Total', color: 'success', icon: FiDollarSign },
 	]
 
-	const handleView = (itemData) => {
+	const handleView = async (itemData) => {
+		// mostrar info básica mientras cargan detalles
 		setPurchaseData(itemData);
 		setIsActiveModal(true)
-		console.log(itemData);
+		try {
+			if (!itemData?.id) return;
+			const res = await fetch(`/api/compras?id=${encodeURIComponent(itemData.id)}`);
+			const data = await res.json();
+			if (res.ok && data) {
+				const detalles = Array.isArray(data.detalles) ? data.detalles.map(d => ({
+					ID_DETALLES_COMPRA: d.ID_DETALLES_COMPRA,
+					id: d.ID_PRODUCT,
+					codigo: d.CODIGO_PRODUCTO,
+					producto: d.PRODUCT_NAME,
+					cantidad: d.CANTIDAD,
+					precioUnitario: d.PRECIO_UNIT,
+					subtotal: d.SUB_TOTAL,
+					entregado: Boolean(Number(d.ENTREGADO || 0)),
+					estado: Number(d.ENTREGADO || 0) ? 'Entregado' : 'Pendiente'
+				})) : [];
+
+				setPurchaseData(prev => ({
+					...prev,
+					productos: detalles,
+					total: data.compra?.TOTAL ?? prev.total,
+					fechas: { ...prev.fechas, creacion: data.compra?.FECHA_PEDIDO, esperada: data.compra?.FECHA_ENTREGA }
+				}));
+
+				// reset selection when opening details
+				setSelectedDetalles(new Set());
+			}
+		} catch (e) {
+			console.error('Error cargando detalles de compra', e);
+		}
+	}
+
+	const formatDate = (v) => {
+		if (!v && v !== 0) return '';
+		try {
+			const d = new Date(v);
+			if (isNaN(d)) {
+				// fallback: take first 10 chars if it's an ISO-like string
+				return String(v).slice(0,10);
+			}
+			return d.toISOString().slice(0,10);
+		} catch (e) {
+			return String(v).slice(0,10);
+		}
 	}
 
 	const handleProcess = () => {
-		setIsActiveModal(false)
-		setMode('')
+		// This handler processes received items when in 'procesar' mode.
+		// If not in 'procesar' mode, just close the modal.
+		return;
 	}
 
 	const handleSave = () => {
@@ -123,8 +87,86 @@ export default function PurchasesOrderOrg() {
 		setMode('')
 	}
 
+	const toggleDetalle = (detalleId) => {
+		setSelectedDetalles(prev => {
+			const s = new Set(prev);
+			if (s.has(detalleId)) s.delete(detalleId);
+			else s.add(detalleId);
+			return s;
+		});
+	}
+
+	const handleProcessReceive = async () => {
+		// Only process when in procesar mode
+		if (mode !== 'procesar') {
+			setIsActiveModal(false);
+			setMode('');
+			return;
+		}
+
+		try {
+			const detallesArr = Array.from(selectedDetalles);
+			if (!detallesArr.length) {
+				// nothing selected - reset mode
+				setMode('');
+				return;
+			}
+
+			const payload = { id_compra: purchaseData?.id, detalles: detallesArr };
+			const res = await fetch('/api/compras/receive', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data?.error || 'Error procesando recepción');
+
+			// refresh details and master list
+			await handleView({ id: purchaseData?.id });
+			try {
+				const all = await ComprasService.listCompras();
+				if (Array.isArray(all)) {
+					setOrdenesEjemplo(all.map(r => ({
+						id: r.ID_COMPRA,
+						fechas: { creacion: r.FECHA_PEDIDO, esperada: r.FECHA_ENTREGA },
+						proveedor: { nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'), telefono: '' },
+						estado: r.ESTADO,
+						productos: Array.isArray(r.productos) && r.productos.length ? r.productos : new Array(Number(r.PRODUCT_COUNT || 0)),
+						total: r.TOTAL
+					})))
+				}
+			} catch (e) {
+				console.error('Error refreshing compras list', e);
+			}
+
+			setMode('');
+		} catch (e) {
+			console.error('Error procesando recepción', e);
+		}
+	}
+
 	useEffect(() => {
 		setMode('')
+
+		// cargar compras reales desde API
+		const fetchCompras = async () => {
+			try {
+				const res = await ComprasService.listCompras();
+				if (Array.isArray(res)) {
+					setOrdenesEjemplo(res.map(r => ({
+						id: r.ID_COMPRA,
+						fechas: { creacion: r.FECHA_PEDIDO, esperada: r.FECHA_ENTREGA },
+						proveedor: { nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'), telefono: '' },
+						estado: r.ESTADO,
+						productos: Array.isArray(r.productos) && r.productos.length ? r.productos : new Array(Number(r.PRODUCT_COUNT || 0)),
+						total: r.TOTAL
+					})));
+				}
+			} catch (e) {
+				console.error('Error fetching compras', e);
+			}
+		}
+		fetchCompras();
 	}, [isActiveModal])
 
 	return (
@@ -204,7 +246,7 @@ export default function PurchasesOrderOrg() {
 													{item.id}
 												</td>
 												<td className='p-2 font-normal'>
-													{item.fechas.creacion}
+													{formatDate(item.fechas?.creacion)}
 												</td>
 												<td className='p-2 flex flex-col'>
 													<span>{item.proveedor.nombre}</span>
@@ -216,7 +258,7 @@ export default function PurchasesOrderOrg() {
 												<td className='p-2 text-primary'>
 													C$ {item.total}
 												</td>
-												<td className='p-2 font-normal'>{item.fechas.esperada}</td>
+												<td className='p-2 font-normal'>{formatDate(item.fechas?.esperada)}</td>
 												<td className='p-2'>
 													<span className={`${item.estado === 'Recibida' ? 'bg-success' : 'bg-yellow'} text-light rounded-full px-2 text-sm`}>
 														{item.estado.charAt(0).toUpperCase() + item.estado.slice(1).toLowerCase()}
@@ -255,11 +297,11 @@ export default function PurchasesOrderOrg() {
 											</div>
 											<div className='flex flex-col'>
 												<span className='text-sm text-dark/70'>Fecha</span>
-												<span className='text-lg font-semibold'>{item.fechas.creacion}</span>
+												<span className='text-lg font-semibold'>{formatDate(item.fechas?.creacion)}</span>
 											</div>
 											<div className='flex flex-col'>
 												<span className='text-sm text-dark/70'>Fecha Esperada</span>
-												<span className='text-lg font-semibold'>{item.fechas.esperada}</span>
+												<span className='text-lg font-semibold'>{formatDate(item.fechas?.esperada)}</span>
 											</div>
 											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
 												<Button className={"primary"} text={"Ver"} icon={<FiEye />} />
@@ -293,15 +335,15 @@ export default function PurchasesOrderOrg() {
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Fecha Creada</div>
-									<div className='font-semibold'>{purchaseData?.fechas?.creacion ? new Date(purchaseData?.fechas?.creacion).toLocaleDateString() : ''}</div>
+									<div className='font-semibold'>{purchaseData?.fechas?.creacion ? formatDate(purchaseData?.fechas?.creacion) : ''}</div>
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Fecha Estimada</div>
-									<div className='font-semibold'>{purchaseData?.fechas?.esperada ? new Date(purchaseData?.fechas?.esperada).toLocaleDateString() : ''}</div>
+									<div className='font-semibold'>{purchaseData?.fechas?.esperada ? formatDate(purchaseData?.fechas?.esperada) : ''}</div>
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Fecha Recepcion</div>
-									<div className='font-semibold'>{purchaseData?.fechas?.recepcion ? new Date(purchaseData?.fechas?.recepcion).toLocaleDateString() : ''}</div>
+									<div className='font-semibold'>{purchaseData?.fechas?.recepcion ? formatDate(purchaseData?.fechas?.recepcion) : ''}</div>
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Estado</div>
@@ -357,6 +399,9 @@ export default function PurchasesOrderOrg() {
 																<td className='p-2 text-center'>
 																	<input
 																		type='checkbox'
+																		checked={it.entregado ? true : selectedDetalles.has(it.ID_DETALLES_COMPRA || it.id)}
+																		onChange={() => toggleDetalle(it.ID_DETALLES_COMPRA || it.id)}
+																		disabled={it.entregado}
 																	/>
 																</td>
 															}
@@ -375,10 +420,36 @@ export default function PurchasesOrderOrg() {
 																	</td>
 																	: mode !== 'procesar' &&
 																	<td className='p-2 text-center'>
-																		<Button
-																			icon={<FiTrash2 />}
-																			className={'danger'}
-																		/>
+																		{!it.entregado ? (
+																			<Button
+																				icon={<FiTrash2 />}
+																				className={'danger'}
+																				func={async () => {
+																				try {
+																					const detId = it.ID_DETALLES_COMPRA || it.id;
+																					if (!detId) return;
+																					const res = await fetch(`/api/compras?detalleId=${encodeURIComponent(detId)}`, { method: 'DELETE' });
+																					const data = await res.json();
+																					if (!res.ok) throw new Error(data?.error || 'Error deleting detalle');
+													
+																					// Si la compra fue eliminada completamente, cerrar modal y remover de la lista
+																					if (data?.compraDeleted) {
+																						setIsActiveModal(false);
+																						setOrdenesEjemplo(prev => prev.filter(o => o.id !== data.deletedCompraId && o.id !== purchaseData?.id));
+																						setPurchaseData({});
+																						return;
+																					}
+													
+																					// si no se eliminó la compra, recargar detalles de la compra
+																					await handleView({ id: purchaseData?.id });
+																				} catch (e) {
+																				console.error('Error eliminando detalle', e);
+																				}
+																				}}
+																			/>
+																		) : (
+																			<span className='text-sm text-dark/60'>Entregado</span>
+																		)}
 																	</td>
 															}
 														</tr>
@@ -414,7 +485,7 @@ export default function PurchasesOrderOrg() {
 										text={mode === 'procesar' ? 'Procesar Compra' : 'Guardar Cambios'}
 										icon={<FiShoppingBag />}
 										className={mode === 'procesar' ? 'success' : 'primary'}
-										func={mode === 'procesar' ? () => handleProcess() : () => handleSave()}
+										func={mode === 'procesar' ? () => handleProcessReceive() : () => handleSave()}
 									/>
 								}
 							</div>

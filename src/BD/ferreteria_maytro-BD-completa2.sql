@@ -319,11 +319,11 @@ DROP TABLE IF EXISTS `detalles_compra`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `detalles_compra` (
   `ID_DETALLES_COMPRA` int NOT NULL AUTO_INCREMENT,
+  `ID_COMPRA` int DEFAULT NULL,
   `ID_PRODUCT` int DEFAULT NULL,
-  `AMOUNT` int NOT NULL,
-  `TIPO_PAGO` varchar(50) DEFAULT NULL,
+  `CANTIDAD` decimal(12,2) NOT NULL,
+  `PRECIO_UNIT` decimal(12,2) NOT NULL DEFAULT '0.00',
   `SUB_TOTAL` decimal(12,2) NOT NULL,
-  `NUMERO_REFERENCIA` varchar(50) DEFAULT NULL,
   `ID_PROVEEDOR` int DEFAULT NULL,
   PRIMARY KEY (`ID_DETALLES_COMPRA`),
   KEY `idx_detcomp_product` (`ID_PRODUCT`),
