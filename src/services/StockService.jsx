@@ -179,6 +179,24 @@ const StockService = {
     }
   },
 
+  async evaluarPerdidaTotal({ id, cantidad, usuario_id }) {
+    try {
+      const res = await fetch(API_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'evaluarPerdidaTotal', id, cantidad, usuario_id }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message = json?.error || json?.message || 'No se pudo evaluar como pérdida total';
+        return { success: false, message };
+      }
+      return { success: true, data: json };
+    } catch (err) {
+      return { success: false, message: err.message || 'Error de conexión' };
+    }
+  },
+
   async registrarMovimiento(data) {
     const payload = { ...data };
 

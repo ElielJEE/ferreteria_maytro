@@ -34,15 +34,33 @@ export default function QuotationsOrg() {
 		load();
 	}, []);
 
+	// Parse fechaExp as a LOCAL calendar date to avoid TZ shifts
+	const parseLocalDate = (str) => {
+		if (!str || typeof str !== 'string') return null;
+		// yyyy-MM-dd (preferred)
+		const ymd = /^\d{4}-\d{2}-\d{2}$/;
+		if (ymd.test(str)) {
+			const [y, m, d] = str.split('-').map(Number);
+			return new Date(y, m - 1, d);
+		}
+		// dd/MM/yyyy (legacy)
+		const dmy = /^\d{2}\/\d{2}\/\d{4}$/;
+		if (dmy.test(str)) {
+			const [d, m, y] = str.split('/').map(Number);
+			return new Date(y, m - 1, d);
+		}
+		return null;
+	};
+
 	const isExpired = (q) => {
 		try {
 			if (!q) return false;
 			if ((q.estado || '').toLowerCase() === 'expirada') return true;
-			if (!q.fechaExp) return false;
-			const exp = new Date(q.fechaExp);
-			if (isNaN(exp.getTime())) return false;
+			const exp = parseLocalDate(q.fechaExp);
+			if (!exp) return false;
 			const today = new Date();
-			today.setHours(0,0,0,0); exp.setHours(0,0,0,0);
+			today.setHours(0, 0, 0, 0);
+			exp.setHours(0, 0, 0, 0);
 			// Inclusive: el mismo día de vencimiento ya se considera expirado
 			return exp <= today;
 		} catch { return false; }

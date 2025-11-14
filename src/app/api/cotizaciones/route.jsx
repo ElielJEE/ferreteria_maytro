@@ -1,6 +1,49 @@
 import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
 
+// Utils: parse and normalize date to 'YYYY-MM-DD' (no TZ shift)
+function toYMDString(input) {
+  if (!input) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  let d;
+  if (input instanceof Date) {
+    d = new Date(input.getTime());
+  } else if (typeof input === 'number') {
+    d = new Date(input);
+  } else if (typeof input === 'string') {
+    const s = input.trim();
+    // dd/MM/yyyy
+    const m1 = s.match(/^([0-3]?\d)\/([0-1]?\d)\/(\d{4})$/);
+    if (m1) {
+      const day = Number(m1[1]);
+      const mon = Number(m1[2]);
+      const yr = Number(m1[3]);
+      d = new Date(yr, mon - 1, day);
+    } else {
+      // yyyy-MM-dd (or any Date-parsable fallback)
+      const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m2) {
+        const yr = Number(m2[1]);
+        const mon = Number(m2[2]);
+        const day = Number(m2[3]);
+        d = new Date(yr, mon - 1, day);
+      } else {
+        const tmp = new Date(s);
+        if (isNaN(tmp.getTime())) return null;
+        d = tmp;
+      }
+    }
+  } else {
+    return null;
+  }
+  if (isNaN(d.getTime())) return null;
+  // build local date Y-M-D without time (prevents timezone off-by-one in DATE columns)
+  const y = d.getFullYear();
+  const m = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  return `${y}-${m}-${day}`;
+}
+
 // Helpers reutilizados del módulo de stock para registrar movimientos
 async function getAllowedTipoMovimiento(conn) {
   try {
@@ -147,10 +190,12 @@ export async function POST(req) {
     if (!fecha_vencimiento) {
       return Response.json({ error: 'Fecha de vencimiento requerida' }, { status: 400 });
     }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const exp = new Date(fecha_vencimiento);
-    exp.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const expStr = toYMDString(fecha_vencimiento);
+    if (!expStr) {
+      return Response.json({ error: 'Formato de fecha inválido. Usa dd/MM/yyyy o yyyy-MM-dd' }, { status: 400 });
+    }
+    const exp = new Date(expStr + 'T00:00:00');
     if (isNaN(exp.getTime()) || exp < today) {
       return Response.json({ error: 'La fecha de vencimiento no puede ser anterior a hoy' }, { status: 400 });
     }
@@ -200,7 +245,8 @@ export async function POST(req) {
     await conn.query(
       `INSERT INTO COTIZACION (ID_COTIZACION, FECHA_CREACION, FECHA_VENCIMIENTO, SUBTOTAL, DESCUENTO, TOTAL, ESTADO, ID_CLIENTES, ID_SUCURSAL, ID_USUARIO, NOTAS)
        VALUES (?, ?, ?, ?, ?, ?, 'activa', ?, ?, ?, ?)`,
-      [newId, fechaCreacion, exp, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null, usuarioId || null, notas || null]
+      // Pass a pure date string to avoid timezone conversion in MySQL DATE column
+      [newId, fechaCreacion, expStr, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null, usuarioId || null, notas || null]
     );
 
     // Insertar detalles (no afecta stock)
@@ -501,7 +547,10 @@ export async function GET(req) {
     for (const r of rows || []) {
       if (r.estado === 'activa' && r.fechaExp) {
         try {
-          const exp = new Date(r.fechaExp); exp.setHours(0,0,0,0);
+          // Parse 'YYYY-MM-DD' as a local date to avoid UTC off-by-one
+          const m = String(r.fechaExp).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          const exp = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(r.fechaExp);
+          exp.setHours(0,0,0,0);
           if (exp <= today) updates.push(r.id);
         } catch {}
       }
@@ -704,12 +753,14 @@ export async function PUT(req) {
     let fechaV = cRows[0].FECHA_VENCIMIENTO;
     if (fecha_vencimiento) {
       const today = new Date(); today.setHours(0,0,0,0);
-      const exp = new Date(fecha_vencimiento); exp.setHours(0,0,0,0);
-      if (isNaN(exp.getTime()) || exp < today) {
+      const expStr = toYMDString(fecha_vencimiento);
+      const exp = expStr ? new Date(expStr + 'T00:00:00') : null;
+      if (!expStr || isNaN(exp?.getTime()) || exp < today) {
         await conn.rollback();
         return Response.json({ error: 'La fecha de vencimiento no puede ser anterior a hoy' }, { status: 400 });
       }
-      fechaV = exp;
+      // store as normalized 'YYYY-MM-DD'
+      fechaV = expStr;
     }
 
     // Cliente

@@ -26,10 +26,10 @@ export default function ControlStockOrg() {
 			}
 		});
 
-		// Cantidad requerida excepto cuando es "Marcar como Dañado" y estado = Perdida Total (se auto-calcula)
+		// Cantidad requerida para todos los movimientos que usan cantidad
 		const requiereCantidad = (
 			['Entrada (Aumentar Stock)', 'Salida (Reducir Stock)'].includes(tipoMovimiento) ||
-			(tipoMovimiento === 'Marcar como Dañado' && form.estadoDano !== 'Perdida Total') ||
+			(tipoMovimiento === 'Marcar como Dañado') ||
 			(tipoMovimiento === 'Marcar como Reservado')
 		);
 		if (requiereCantidad) {
@@ -60,8 +60,8 @@ export default function ControlStockOrg() {
 		e.preventDefault();
 
 		let effectiveCantidad = cantidadMovimiento;
-		// Auto-calcular cantidad completa si es daño con pérdida total
-		if (tipoMovimiento === 'Marcar como Dañado' && estadoDano === 'Perdida Total') {
+		// Auto-calcular solo si es pérdida total y no se ingresó cantidad
+		if (tipoMovimiento === 'Marcar como Dañado' && estadoDano === 'Perdida Total' && !(Number(effectiveCantidad) > 0)) {
 			try {
 				// Necesitamos sucursal y producto seleccionados
 				if (selectedSucursal?.label && selectedProducto?.value != null) {
@@ -71,7 +71,7 @@ export default function ControlStockOrg() {
 						const filas = resumenJson?.resumen || [];
 						const row = filas.find(r => (r.ID_PRODUCT === selectedProducto.value || r.ID_PRODUCT === selectedProducto?.ID_PRODUCT) && (r.NOMBRE_SUCURSAL === selectedSucursal.label));
 						if (row) {
-							// Usar todo el stock sucursal disponible como pérdida total
+							// Prefijar con todo el stock sucursal disponible como sugerencia
 							const stockSucursal = Number(row.STOCK_SUCURSAL || 0);
 							effectiveCantidad = String(stockSucursal);
 						} else {
@@ -86,7 +86,7 @@ export default function ControlStockOrg() {
 				}
 			} catch (err) {
 				console.error('Auto-cálculo pérdida total:', err);
-				setFormErrors(prev => ({ ...prev, cantidad: 'Error calculando pérdida total' }));
+					setFormErrors(prev => ({ ...prev, cantidad: 'Error calculando pérdida total' }));
 			}
 		}
 
@@ -99,6 +99,7 @@ export default function ControlStockOrg() {
 			referencia: referenciaMovimiento,
 			tipoDano,
 			estadoDano,
+			unidad: selectedUnidad,
 			cliente,
 			telefono,
 		};
@@ -116,6 +117,8 @@ export default function ControlStockOrg() {
 			descripcion: motivoMovimiento,
 			tipo_dano: tipoDano,
 			estado_dano: estadoDano,
+			unidad_id: selectedUnidad?.value,
+			unidad_nombre: selectedUnidad?.label,
 
 		};
 
@@ -341,6 +344,8 @@ export default function ControlStockOrg() {
 	const [referenciaMovimiento, setReferenciaMovimiento] = useState("");
 	const [tipoDano, setTipoDano] = useState("");
 	const [estadoDano, setEstadoDano] = useState("");
+	const [unidadOptions, setUnidadOptions] = useState([]);
+	const [selectedUnidad, setSelectedUnidad] = useState(null);
 	// Campos adicionales para Reservados
 	const [fechaEntrega, setFechaEntrega] = useState("");
 	const [notas, setNotas] = useState("");
@@ -364,6 +369,26 @@ export default function ControlStockOrg() {
 			}
 		})();
 	}, [isActiveModal]);
+
+	// Cargar unidades del producto seleccionado cuando cambia
+	useEffect(() => {
+		if (!isActiveModal) return;
+		if (!selectedProducto?.value) { setUnidadOptions([]); setSelectedUnidad(null); return; }
+		(async () => {
+			try {
+				const res = await fetch(`/api/productos/unidades?producto_id=${encodeURIComponent(selectedProducto.value)}`);
+				if (!res.ok) { setUnidadOptions([]); setSelectedUnidad(null); return; }
+				const data = await res.json();
+				const opts = (data?.unidades || []).map(u => ({ label: u.nombre, value: u.id, factor: u.factor, precio: u.precio, es_default: u.es_default }));
+				setUnidadOptions(opts);
+				const def = opts.find(o => o.es_default) || opts[0] || null;
+				setSelectedUnidad(def);
+			} catch {
+				setUnidadOptions([]);
+				setSelectedUnidad(null);
+			}
+		})();
+	}, [isActiveModal, selectedProducto]);
 	// Estado para sucursales reales
 	const [sucursales, setSucursales] = useState([]);
 
@@ -649,7 +674,7 @@ export default function ControlStockOrg() {
 								{/* 🔹 Campos dinámicos */}
 								{tipoMovimiento === "Marcar como Dañado" && (
 									<>
-										{/* Estado del daño primero para condicionar cantidad */}
+										{/* Estado del daño */}
 										<DropdownMenu
 											label="Estado"
 											options={["Recuperable", "Perdida Total"]}
@@ -657,11 +682,6 @@ export default function ControlStockOrg() {
 											onChange={(opt) => {
 												const value = typeof opt === 'object' ? opt.label : opt;
 												setEstadoDano(value);
-												// Si es pérdida total limpiamos cantidad (ya no requerida)
-												if (value === 'Perdida Total') {
-													setCantidadMovimiento('');
-													setFormErrors(prev => ({ ...prev, cantidad: '' }));
-												}
 												setFormErrors(prev => ({ ...prev, estadoDano: '' }));
 											}}
 											error={formErrors.estadoDano}
@@ -669,26 +689,24 @@ export default function ControlStockOrg() {
 
 										<DropdownMenu
 											label="Unidad de Medida"
-											options={["mts", "pzs", "lts"]}
-											defaultValue="Selecciona la unidad de medida"
+											options={unidadOptions.length ? unidadOptions : [{ label: 'Sin unidades', value: null }]}
+											defaultValue={selectedUnidad ? selectedUnidad.label : 'Selecciona la unidad de medida'}
+											onChange={(opt) => { setSelectedUnidad(opt); setFormErrors(prev => ({ ...prev, unidad: '' })); }}
 											error={formErrors.unidad}
 										/>
 
-										{/* Cantidad solo cuando es recuperable */}
-										{estadoDano !== 'Perdida Total' && (
-											<Input
-												label="Cantidad Recuperable"
-												type="number"
-												placeholder="0"
-												inputClass="no icon"
-												value={cantidadMovimiento}
-												onChange={(e) => {
-													setCantidadMovimiento(e.target.value);
-													setFormErrors(prev => ({ ...prev, cantidad: '' }));
-												}}
-												error={formErrors.cantidad}
-											/>
-										)}
+										<Input
+											label={estadoDano === 'Perdida Total' ? 'Cantidad (Pérdida Total)' : 'Cantidad Recuperable'}
+											type="number"
+											placeholder="0"
+											inputClass="no icon"
+											value={cantidadMovimiento}
+											onChange={(e) => {
+												setCantidadMovimiento(e.target.value);
+												setFormErrors(prev => ({ ...prev, cantidad: '' }));
+											}}
+											error={formErrors.cantidad}
+										/>
 
 										<DropdownMenu
 											label="Tipo de Daño"
