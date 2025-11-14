@@ -83,9 +83,6 @@ export default function NewPurchase() {
 
 				if (existingProduct) {
 					const newQuantity = existingProduct.quantity + 1;
-					if (newQuantity > productNormalized.CANTIDAD) {
-						return prevList;
-					}
 					return prevList.map((item) =>
 						item.ID_PRODUCT === productNormalized.ID_PRODUCT
 							? { ...item, quantity: newQuantity }
@@ -115,9 +112,6 @@ export default function NewPurchase() {
 				if (item.ID_PRODUCT === id) {
 					// Validaciones de límites
 					if (newQuantity < 1) newQuantity = 1;
-					if (newQuantity > item.CANTIDAD) {
-						newQuantity = item.CANTIDAD;
-					}
 					return { ...item, quantity: newQuantity };
 				}
 				return item;
@@ -159,7 +153,7 @@ export default function NewPurchase() {
 		const form = {
 			nombre: proveedorNombre,
 			telefono: proveedorTelefono,
-			fecha: fechaEntrega || new Date().toISOString().slice(0,10),
+			fecha: fechaEntrega || new Date().toISOString().slice(0, 10),
 		}
 
 		const isValid = validateFields(form)
@@ -192,7 +186,7 @@ export default function NewPurchase() {
 				proveedorTelefono: proveedorTelefono || null,
 				usuarioId: usuarioId,
 				id_sucursal: usuarioSucursal,
-				fecha_pedido: new Date().toISOString().slice(0,10),
+				fecha_pedido: new Date().toISOString().slice(0, 10),
 				fecha_entrega: fechaEntrega || null,
 				total: total,
 				items
@@ -317,7 +311,6 @@ export default function NewPurchase() {
 											text={'Agregar'}
 											icon={<FiPlus className='h-4 w-4' />}
 											func={(e) => addToProductList(item)}
-											disabled={Number(item.CANTIDAD || 0) <= 0}
 										/>
 									</div>
 								</Card>
@@ -470,68 +463,68 @@ export default function NewPurchase() {
 						modalDescription={mode === 'addPrice' ? 'Agrega el precio unitario de la compra para este producto. Solo la primera vez.' : 'Modifica el precio unitario de la compra para este producto. El anterior sera actualizado.'}
 						isForm={true}
 					>
-          {
+						{
 							mode === 'addPrice' ?
-						<form className='flex flex-col gap-2 mt-2' onSubmit={(e) => {e.preventDefault()}}>
-							<Input
-								label={'Precio unitario del producto'}
-								placeholder={'Ingresa el precio unitario de la compra...'}
-								inputClass={'no icon'}
-								value={precioCompraInput}
-								onChange={(e) => setPrecioCompraInput(e.target.value)}
-							/>
-							<div className='flex gap-2'>
-								<Button
-									text={'Cancelar'}
-									className={'secondary'}
-									func={() => setIsActiveModal(false)}
-								/>
-								<Button
-									text={'Agregar'}
-									className={'success'}
-									func={async () => {
-										// Si hay precio ingresado, guardarlo en la tabla productos antes de agregar
-										const parsed = parseFloat(precioCompraInput);
-										if (!isNaN(parsed) && parsed > 0) {
-											try {
-												await ProductService.editProduct({ id: product.ID_PRODUCT, precio_compra: parsed });
-												// actualizar estado local de products y product para que no vuelva a pedir precio
-												setProducts(prev => prev.map(p => p.ID_PRODUCT === product.ID_PRODUCT ? { ...p, PRECIO_COMPRA: parsed } : p));
-												setProduct(prev => ({ ...prev, PRECIO_COMPRA: parsed }));
-												setIsActiveModal(false);
-												// ahora agregar a la lista
-												setProductList((prevList) => {
-													const existingProduct = prevList.find(
-														(item) => item.ID_PRODUCT === product.ID_PRODUCT
-													);
-													if (existingProduct) {
-														const newQuantity = existingProduct.quantity + 1;
-														if (newQuantity > product.CANTIDAD) {
-															return prevList;
-														}
-														return prevList.map((item) =>
-														item.ID_PRODUCT === product.ID_PRODUCT
-															? { ...item, quantity: newQuantity }
-															: item
-														);
-													} else {
-														return [...prevList, { ...product, quantity: 1, PRECIO_COMPRA: parsed }];
+								<form className='flex flex-col gap-2 mt-2' onSubmit={(e) => { e.preventDefault() }}>
+									<Input
+										label={'Precio unitario del producto'}
+										placeholder={'Ingresa el precio unitario de la compra...'}
+										inputClass={'no icon'}
+										value={precioCompraInput}
+										onChange={(e) => setPrecioCompraInput(e.target.value)}
+									/>
+									<div className='flex gap-2'>
+										<Button
+											text={'Cancelar'}
+											className={'secondary'}
+											func={() => setIsActiveModal(false)}
+										/>
+										<Button
+											text={'Agregar'}
+											className={'success'}
+											func={async () => {
+												// Si hay precio ingresado, guardarlo en la tabla productos antes de agregar
+												const parsed = parseFloat(precioCompraInput);
+												if (!isNaN(parsed) && parsed > 0) {
+													try {
+														await ProductService.editProduct({ id: product.ID_PRODUCT, precio_compra: parsed });
+														// actualizar estado local de products y product para que no vuelva a pedir precio
+														setProducts(prev => prev.map(p => p.ID_PRODUCT === product.ID_PRODUCT ? { ...p, PRECIO_COMPRA: parsed } : p));
+														setProduct(prev => ({ ...prev, PRECIO_COMPRA: parsed }));
+														setIsActiveModal(false);
+														// ahora agregar a la lista
+														setProductList((prevList) => {
+															const existingProduct = prevList.find(
+																(item) => item.ID_PRODUCT === product.ID_PRODUCT
+															);
+															if (existingProduct) {
+																const newQuantity = existingProduct.quantity + 1;
+																if (newQuantity > product.CANTIDAD) {
+																	return prevList;
+																}
+																return prevList.map((item) =>
+																	item.ID_PRODUCT === product.ID_PRODUCT
+																		? { ...item, quantity: newQuantity }
+																		: item
+																);
+															} else {
+																return [...prevList, { ...product, quantity: 1, PRECIO_COMPRA: parsed }];
+															}
+														});
+													} catch (e) {
+														console.error('Error guardando precio de compra', e);
+														// Mantener modal abierto para reintento
+														return;
 													}
-												});
-											} catch (e) {
-												console.error('Error guardando precio de compra', e);
-												// Mantener modal abierto para reintento
-												return;
-											}
-										} else {
-											// No se ingresó precio válido: simplemente cerrar modal sin guardar ni agregar
-											setIsActiveModal(false);
-										}
-									}} 
-								/>
-							</div>
-						</form>
-						
+												} else {
+													// No se ingresó precio válido: simplemente cerrar modal sin guardar ni agregar
+													setIsActiveModal(false);
+												}
+											}}
+										/>
+									</div>
+								</form>
+
 								:
 								<form className='flex flex-col gap-2 mt-2' onSubmit={(e) => { e.preventDefault() }}>
 									<Input

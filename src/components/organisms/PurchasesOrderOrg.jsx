@@ -139,6 +139,7 @@ export default function PurchasesOrderOrg() {
 			}
 
 			setMode('');
+			setIsActiveModal(false);
 		} catch (e) {
 			console.error('Error procesando recepción', e);
 		}

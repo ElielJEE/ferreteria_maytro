@@ -71,6 +71,7 @@ export const config = {
 		"/compras",
 		"/clientes/:path*",
 		"/proveedores",
-		"/configuracion/:path*"
+		"/configuracion/:path*",
+		"/"
 	]
 }
