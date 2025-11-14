@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { FiArrowLeftCircle, FiArrowRight, FiCheck, FiCornerUpLeft, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiRotateCcw, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX, FiXCircle } from 'react-icons/fi'
-import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, CotizacionesService, DescuentoService } from '@/services';
+import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, CotizacionesService, DescuentoService, CreditosService } from '@/services';
 import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin, BsKey, BsRulers, BsScrewdriver, BsWrench } from 'react-icons/bs';
@@ -33,6 +33,8 @@ export default function PuntoVentaOrg() {
 	// Unidad modal: opciones y producto objetivo
 	const [unitOptions, setUnitOptions] = useState([]);
 	const [unitProduct, setUnitProduct] = useState(null);
+	const [customPriceProduct, setCustomPriceProduct] = useState(null);
+	const [customPriceInput, setCustomPriceInput] = useState('');
 	const [selectedUnitOption, setSelectedUnitOption] = useState(null);
 	const [fechaVencimiento, setFechaVencimiento] = useState('');
 	const isMobile = useIsMobile({ breakpoint: 1024 })
@@ -45,10 +47,17 @@ export default function PuntoVentaOrg() {
 	const [descuentos, setDescuentos] = useState([])
 	const [selectedDiscountOpt, setSelectedDiscountOpt] = useState([]);
 	const [appliedDiscount, setAppliedDiscount] = useState(null); // descuento aplicado en la venta
+
+	// Re-enabled discounts: fetch from service
+	const ENABLE_DISCOUNTS = true;
 	const router = useRouter();
 	console.log(selectedDiscountOpt);
 
 	useEffect(() => {
+		if (!ENABLE_DISCOUNTS) {
+			setDescuentos([]);
+			return;
+		}
 		const fetchDescuentos = async () => {
 			const descuentosData = await DescuentoService.getDescuentos();
 			const onlyActiveDiscounts = descuentosData.filter(discount => discount.ESTADO === 'Activo');
@@ -198,6 +207,7 @@ export default function PuntoVentaOrg() {
 
 	const toggleModalType = async (type, product = null) => {
 		setMode(type);
+		console.log('toggleModalType ->', type, 'product?', !!product, 'productListLen', productList.length);
 		// Abrir modal de unidad -> cargar unidades del producto si se pasa
 		if (type === 'unit' && product) {
 			setUnitProduct(product);
@@ -223,6 +233,12 @@ export default function PuntoVentaOrg() {
 			return;
 		}
 
+		// Ensure credito modal always opens (fix for no-op when clicking Credito)
+		if (type === 'credito') {
+			setIsActiveModal(true);
+			return;
+		}
+
 		// Casos previos sin carga extra
 		if (type === 'venta' && productList.length > 0) {
 			setIsActiveModal(true);
@@ -238,6 +254,9 @@ export default function PuntoVentaOrg() {
 			handleSubmitVenta();
 
 		} else if (type === 'price') {
+			// open custom price modal for a specific product
+			setCustomPriceProduct(product || null);
+			setCustomPriceInput(product ? String((product.PRECIO !== undefined ? product.PRECIO : product.PRECIO) || '') : '');
 			setIsActiveModal(true);
 
 		} else if (type === 'credito') {
@@ -363,6 +382,9 @@ export default function PuntoVentaOrg() {
 		setUnitOptions([]);
 		setUnitProduct(null);
 		setSelectedUnitOption(null);
+		// limpiar estado de precio personalizado
+		setCustomPriceProduct(null);
+		setCustomPriceInput('');
 	};
 
 	const handleDone = () => {
@@ -379,6 +401,9 @@ export default function PuntoVentaOrg() {
 		});
 		setAppliedDiscount(null);
 		setSelectedDiscountOpt([]);
+		// limpiar custom price state
+		setCustomPriceProduct(null);
+		setCustomPriceInput('');
 	}
 
 	const [activeTab, setActiveTab] = useState("productos");
@@ -537,12 +562,77 @@ export default function PuntoVentaOrg() {
 	}
 
 	const handleCustomPrice = () => {
-		setIsActiveModal(false);
+		try {
+			const parsed = parseFloat(customPriceInput);
+			if (isNaN(parsed) || parsed <= 0) {
+				// invalid input, keep modal open for correction
+				return;
+			}
+			// update only the current sale's line price (do NOT persist to DB)
+			setProductList(prev => prev.map(item => {
+				if (!customPriceProduct) return item;
+				if (item.ID_PRODUCT === customPriceProduct.ID_PRODUCT) {
+					return { ...item, PRECIO: Number(parsed) };
+				}
+				return item;
+			}));
+			setIsActiveModal(false);
+			setCustomPriceProduct(null);
+			setCustomPriceInput('');
+		} catch (e) {
+			console.error('Error setting custom price', e);
+		}
 	}
 
-	const confirmCredito = () => {
-		setIsActiveModal(false)
-		router.push('/clientes/creditos');
+	const confirmCredito = async () => {
+		if (processing) return;
+		// Validaciones mínimas
+		const errs = {};
+		if (!clienteNombre?.trim()) errs.nombre = 'Este campo es requerido';
+		if (!clienteTelefono?.trim()) errs.telefono = 'Este campo es requerido';
+		if (!productList?.length) errs.general = 'Agrega al menos un producto';
+		setError(prev => ({ ...(prev || {}), ...errs }));
+		if (Object.keys(errs).length) return;
+
+		setProcessing(true);
+		try {
+			console.log('confirmCredito: payload building... productListLen:', productList.length, 'total', total);
+			const items = productList.map(p => ({
+				ID_PRODUCT: p.ID_PRODUCT,
+				cantidad: Number(p.quantity || 0),
+				PRECIO: Number(p.PRECIO || 0),
+				unit_id: p.unit_id ?? p.UNIDAD_ID ?? null,
+				unit_name: p.unit ?? p.UNIDAD_NOMBRE ?? null,
+				cantidad_por_unidad: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1
+			}));
+
+			const payload = {
+				items,
+				subtotal: Number(subtotal.toFixed(2)),
+				descuento: Number(descuento || 0),
+				total: Number(total.toFixed(2)),
+				cliente: { nombre: clienteNombre, telefono: clienteTelefono },
+				sucursal_id: currentUser?.ID_SUCURSAL || (selectedSucursal?.value ?? null),
+			};
+
+			console.log('confirmCredito: calling CreditosService.createCredit');
+			const res = await CreditosService.createCredit(payload);
+			console.log('confirmCredito: response', res);
+			if (!res || !res.success) {
+				setError(prev => ({ ...(prev || {}), general: res?.message || 'No se pudo crear el crédito' }));
+				setProcessing(false);
+				return;
+			}
+			// éxito: limpiar y redirigir al listado de créditos
+			setProductList([]);
+			setIsActiveModal(false);
+			router.push('/clientes/creditos');
+		} catch (e) {
+			console.error('Error creando crédito:', e);
+			setError(prev => ({ ...(prev || {}), general: e?.message || 'Error al crear el crédito' }));
+		} finally {
+			setProcessing(false);
+		}
 	}
 
 	const handelApplyDiscount = () => {
@@ -692,11 +782,13 @@ export default function PuntoVentaOrg() {
 								}}
 								error={error && error.telefono}
 							/>
-							<Button
-								text={'Aplicar Descuento'}
-								className={'blue'}
-								func={() => toggleModalType('discount')}
-							/>
+							{ENABLE_DISCOUNTS && (
+								<Button
+									text={'Aplicar Descuento'}
+									className={'blue'}
+									func={() => toggleModalType('discount')}
+								/>
+							)}
 						</div>
 					</div>
 					<div className='w-full border max-h-[297px] border-dark/20 rounded-lg p-4 flex flex-col gap-4'>
@@ -752,7 +844,7 @@ export default function PuntoVentaOrg() {
 														<Button
 															icon={<BsWrench />}
 															className={'noneTwo'}
-															func={() => toggleModalType('price')}
+															func={() => toggleModalType('price', product)}
 														/>
 														${product.PRECIO} {product.unit || 'c/u'}
 													</span>
@@ -961,12 +1053,14 @@ export default function PuntoVentaOrg() {
 									type={'number'}
 									inputClass={'no icon'}
 									placeholder={"ej: C$300.00"}
+									value={customPriceInput}
+									onChange={(e) => setCustomPriceInput(e.target.value)}
 								/>
 								<div className='flex gap-2'>
 									<Button
 										text={"Cancelar"}
 										className={'secondary'}
-										func={() => setIsActiveModal(false)}
+										func={() => handleModalClose()}
 									/>
 									<Button
 										className={'success'}

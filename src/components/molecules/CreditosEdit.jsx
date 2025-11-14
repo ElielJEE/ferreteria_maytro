@@ -7,7 +7,8 @@ import { Button } from '../atoms';
 import { FiTrash2 } from 'react-icons/fi';
 
 export default function CreditosEdit({ creditData, onClose, onSave }) {
-	const [cliente, setCliente] = useState(creditData.cliente.nombre || 0);
+	const [cliente, setCliente] = useState(creditData.cliente?.nombre || '');
+	const [telefono, setTelefono] = useState(creditData.cliente?.telefono || '');
 	const [productsOptions, setProductsOptions] = useState([]);
 
 	useEffect(() => {
@@ -29,6 +30,12 @@ export default function CreditosEdit({ creditData, onClose, onSave }) {
 					value={cliente}
 					onChange={(e) => setCliente(e.target.value)}
 					inputClass={'no icon'}
+				/>
+				<Input
+					value={telefono}
+					onChange={(e) => setTelefono(e.target.value)}
+					inputClass={'no icon'}
+					placeholder={'Teléfono'}
 				/>
 			</div>
 
@@ -72,7 +79,19 @@ export default function CreditosEdit({ creditData, onClose, onSave }) {
 
 			<div className='flex gap-2 mt-4'>
 				<Button className={'danger'} text={'Cancelar'} func={onClose} />
-				<Button className={'success'} text={'Guardar Cambios'} />
+				<Button className={'success'} text={'Guardar Cambios'} func={async () => {
+					// call API to update client for this credit
+					try {
+						const payload = { id: creditData.id, clienteNombre: cliente, clienteTelefono: telefono };
+						const res = await (await import('@/services/CreditosService')).default.updateCredit(payload);
+						if (res && res.success) {
+							onSave && onSave(res);
+							onClose && onClose();
+						} else {
+							console.error('Error updating credit:', res);
+						}
+					} catch (e) { console.error(e); }
+				}} />
 			</div>
 		</div>
 	)

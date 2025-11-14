@@ -18,7 +18,10 @@ export default function CreditosView({ creditData, onClose }) {
 				</div>
 				<div className='mb-2 flex flex-col'>
 					<div className='text-dark/70 font-semibold'>Fecha</div>
-					<div className='font-semibold'>{creditData?.fecha ? new Date(creditData.fecha).toLocaleDateString() : ''}</div>
+					<div className='font-semibold'>{
+						creditData?.fecha
+						|| (creditData?.fechaIso ? (isNaN(new Date(creditData.fechaIso).getTime()) ? '' : new Date(creditData.fechaIso).toLocaleDateString()) : '')
+					}</div>
 				</div>
 				<div className='mb-2 flex flex-col'>
 					<div className='text-dark/70 font-semibold'>Sucursal</div>
