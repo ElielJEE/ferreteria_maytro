@@ -17,34 +17,8 @@ export default function CreditosOrg() {
 	const { isActiveModal, setIsActiveModal } = useActive();
 
 
-	const creditosDataEjemplo = [
-		{
-			id: 'CRE-001',
-			cliente: { nombre: 'Juan Perez', telefono: '12345678' },
-			deudaInicio: '2000.00',
-			deudaActual: '1000.00',
-			estado: 'Activa',
-			items: [],
-			sucursal: { label: 'Sucursal Sur', value: 'S1' },
-			fecha: '01/01/25',
-			hecho_por: 'Ana Julia Orozco Gonzales',
-			numeroFactura: 'FAC-001',
-		},
-		{
-			id: 'CRE-002',
-			cliente: { nombre: 'Julio Peralta', telefono: '12345678' },
-			deudaInicio: '2000.00',
-			deudaActual: '1000.00',
-			estado: 'Activa',
-			items: [],
-			sucursal: { label: 'Sucursal Centro', value: 'S2' },
-			fecha: '01/01/25',
-			hecho_por: 'Ana Julia Orozco Gonzales',
-			numeroFactura: 'FAC-002',
-		},
-	]
-
-	const [creditosData, setCreditosData] = useState(creditosDataEjemplo)
+	// Estado real de créditos: inicia vacío para evitar datos ficticios
+	const [creditosData, setCreditosData] = useState([])
 
 	const filteredSales = useFilter({
 		data: creditosData,
@@ -68,23 +42,33 @@ export default function CreditosOrg() {
 			const res = await CreditosService.getCredits();
 			if (!res || !res.success) return;
 			const rows = res.creditos || [];
-			if (!rows.length) return; // keep example data if API returns empty
-			const mapped = (rows || []).map(r => {
-				let fechaDisplay = '';
-				let horaDisplay = '';
-				if (r.fecha) {
-					const d = new Date(r.fecha);
-					if (!isNaN(d.getTime())) {
-						fechaDisplay = d.toLocaleDateString('es-ES');
-						horaDisplay = d.toLocaleTimeString('es-ES');
-					}
-				}
+			// Normaliza fecha local: mantiene `fecha` como yyyy-MM-dd para filtros y `fechaDisplay` para UI
+			const toLocalParts = (val) => {
+				try {
+					if (!val) return { ymd: '', display: '', time: '' };
+					const d = new Date(val);
+					if (isNaN(d.getTime())) return { ymd: '', display: '', time: '' };
+					const pad = (n) => String(n).padStart(2, '0');
+					const y = d.getFullYear();
+					const m = pad(d.getMonth() + 1);
+					const da = pad(d.getDate());
+					return {
+						ymd: `${y}-${m}-${da}`,
+						display: d.toLocaleDateString('es-ES'),
+						time: d.toLocaleTimeString('es-ES')
+					};
+				} catch { return { ymd: '', display: '', time: '' }; }
+			};
+
+			const mapped = rows.map(r => {
+				const parts = toLocalParts(r.fecha);
 				return {
 					id: r.id,
 					numeroFactura: r.numero || r.NUMERO || r.numeroFactura || '',
-					fecha: fechaDisplay,
+					fecha: parts.ymd,
+					fechaDisplay: parts.display,
 					fechaIso: r.fecha || null,
-					hora: horaDisplay,
+					hora: parts.time,
 					sucursal: { label: r.sucursal || String(r.sucursal || ''), value: r.sucursal },
 					cliente: { nombre: (r.cliente || r.NOMBRE_CLIENTE) || 'Consumidor Final', telefono: r.telefono || r.TELEFONO_CLIENTE || '' },
 					deudaInicio: ((r.DEUDA_INICIAL ?? r.deuda_inicial ?? r.DEUDA_ACTUAL ?? r.MONTO_DEUDA ?? r.deuda_actual) || null),
@@ -100,9 +84,10 @@ export default function CreditosOrg() {
 						unitPrice: it.precio_unit ?? it.unitPrice ?? it.precio_unit ?? 0,
 						subtotal: it.subtotal ?? it.SUB_TOTAL ?? 0
 					}))
-				}
-			})
-			setCreditosData(mapped)
+				};
+			});
+			// Siempre reemplaza el estado, incluso si la lista está vacía
+			setCreditosData(mapped);
 		} catch (e) {
 			console.error('Error fetching creditos:', e)
 		}
@@ -215,7 +200,7 @@ export default function CreditosOrg() {
 													{item.numeroFactura}
 												</td>
 												<td className='p-2 flex flex-col'>
-													<span>{item.fecha}</span>
+													<span>{item.fechaDisplay}</span>
 													<span className='text-sm text-dark/60'>{item.hora}</span>
 												</td>
 												<td className='p-2 text-dark/70 max-w-[180px] truncate'>
@@ -269,7 +254,7 @@ export default function CreditosOrg() {
 									>
 										<div className='flex flex-col'>
 											<span className='text-sm text-dark/70'>Fecha</span>
-											<span className='text-lg font-semibold'>{item.fecha}</span>
+											<span className='text-lg font-semibold'>{item.fechaDisplay}</span>
 										</div>
 										<div className='flex flex-col'>
 											<span className='text-sm text-dark/70'>N° Factura</span>

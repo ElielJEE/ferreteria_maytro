@@ -207,11 +207,14 @@ async function getDanados({ sucursal }) {
        COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') AS reportado_por,
        sd.PERDIDA AS perdida,
        sd.ESTADO AS estado,
-       sd.DESCRIPCION AS descripcion
+       sd.DESCRIPCION AS descripcion,
+      COALESCE(sd.UNIDAD_NOMBRE, um.NOMBRE) AS unidad
      FROM STOCK_DANADOS sd
      LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = sd.ID_PRODUCT
      LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = sd.ID_SUCURSAL
      LEFT JOIN USUARIOS u ON u.ID = sd.USUARIO_ID
+     LEFT JOIN producto_unidades pu ON pu.PRODUCT_ID = sd.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
+     LEFT JOIN unidades_medidas um ON um.ID_UNIDAD = pu.UNIDAD_ID
      ${whereSucursal}
      ORDER BY sd.CREATED_AT DESC
      LIMIT 2000`,
@@ -535,7 +538,7 @@ async function salida({ usuario_id, producto, producto_id, sucursal, sucursal_id
   }
 }
 
-async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucursal_id, cantidad, descripcion, motivo, tipo_dano, estado_dano, referencia }) {
+async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucursal_id, cantidad, descripcion, motivo, tipo_dano, estado_dano, referencia, unidad_id, unidad_nombre }) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -552,13 +555,33 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
       if (!sucRows.length) throw new Error('Sucursal no encontrada');
       idSucursal = sucRows[0].ID_SUCURSAL;
     }
+    // Unidad seleccionada (opcional): ajustar por factor y guardar en dañados
+    const selectedUnidadId = unidad_id ?? (referencia?.unidad_id ?? null);
+    let unidadNombre = unidad_nombre ?? null;
+    let factor = 1; // cuántos "base" descuenta una unidad
+    let precioUnitElegido = null; // precio por esa unidad si existe
+    if (selectedUnidadId) {
+      try {
+        const [uu] = await conn.query(
+          'SELECT pu.CANTIDAD_POR_UNIDAD AS factor, pu.PRECIO AS precio, um.NOMBRE AS nombre FROM producto_unidades pu LEFT JOIN unidades_medidas um ON um.ID_UNIDAD = pu.UNIDAD_ID WHERE pu.PRODUCT_ID = ? AND pu.UNIDAD_ID = ? LIMIT 1',
+          [idProduct, selectedUnidadId]
+        );
+        if (uu?.length) {
+          factor = Number(uu[0].factor || 1);
+          precioUnitElegido = Number(uu[0].precio || 0);
+          unidadNombre = uu[0].nombre || null;
+        }
+      } catch { }
+    }
+
     // Stock sucursal
     const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
     const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
-    if (Number(cantidad) > cantidadEnSucursal) throw new Error('Stock en sucursal insuficiente');
-    const nuevaSucursal = cantidadEnSucursal - Number(cantidad);
+    const cantidadBase = Number(cantidad) * Number(factor || 1);
+    if (cantidadBase > cantidadEnSucursal) throw new Error('Stock en sucursal insuficiente');
+    const nuevaSucursal = cantidadEnSucursal - cantidadBase;
     await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevaSucursal, idProduct, idSucursal]);
-    const stockAnteriorDanado = Number(nuevaSucursal) + Number(cantidad);
+    const stockAnteriorDanado = Number(nuevaSucursal) + Number(cantidadBase);
     const stockNuevoDanado = nuevaSucursal;
     // Movimiento inventario danado
     try {
@@ -567,7 +590,7 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
       await conn.query(
         `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, stock_anterior, stock_nuevo)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [idProduct, idSucursal, usuario_id, tipoMov, cantidad, descripcion || motivo || '', stockAnteriorDanado, stockNuevoDanado]
+        [idProduct, idSucursal, usuario_id, tipoMov, cantidadBase, descripcion || motivo || '', stockAnteriorDanado, stockNuevoDanado]
       );
     } catch { }
 
@@ -575,12 +598,15 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
     try {
       let precioUnitario = 0;
       try {
-        // Try to get default unit price from producto_unidades
-        const [pp] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [idProduct]);
-        if (pp?.length) { precioUnitario = Number(pp[0].PRECIO || 0); }
+        if (precioUnitElegido != null) precioUnitario = Number(precioUnitElegido || 0);
         else {
-          const [pp2] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [idProduct]);
-          if (pp2?.length) precioUnitario = Number(pp2[0].PRECIO || 0);
+          // Try to get default unit price from producto_unidades
+          const [pp] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [idProduct]);
+          if (pp?.length) { precioUnitario = Number(pp[0].PRECIO || 0); }
+          else {
+            const [pp2] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [idProduct]);
+            if (pp2?.length) precioUnitario = Number(pp2[0].PRECIO || 0);
+          }
         }
       } catch { }
       const perdidaCalculada = Number(cantidad || 0) * Number(precioUnitario || 0);
@@ -593,8 +619,20 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
         insertCols.push(colName);
         if (useNow) { insertPlaceholders.push('NOW()'); } else { insertPlaceholders.push('?'); insertValues.push(val); }
       };
+      // Ensure unit columns if not present
+      if (!available.has('UNIDAD_ID') || !available.has('UNIDAD_NOMBRE')) {
+        try { await conn.query(`ALTER TABLE STOCK_DANADOS ADD COLUMN UNIDAD_ID INT NULL`); } catch { }
+        try { await conn.query(`ALTER TABLE STOCK_DANADOS ADD COLUMN UNIDAD_NOMBRE VARCHAR(100) NULL`); } catch { }
+        const [colsRes2] = await conn.query(
+          `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS'`
+        );
+        const available2 = new Set((colsRes2 || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
+        available.clear();
+        for (const c of available2) available.add(c);
+      }
       if (available.has('ID_PRODUCT')) pushCol('ID_PRODUCT', idProduct);
       if (available.has('ID_SUCURSAL')) pushCol('ID_SUCURSAL', idSucursal);
+      // Guardar cantidad en la unidad seleccionada (lo mostrado al usuario)
       if (available.has('CANTIDAD')) pushCol('CANTIDAD', cantidad);
       if (available.has('DESCRIPCION')) pushCol('DESCRIPCION', descripcion || motivo || '');
       if (available.has('TIPO_DANO')) pushCol('TIPO_DANO', tipo_dano ?? null);
@@ -605,6 +643,8 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
       }
       if (available.has('USUARIO_ID')) pushCol('USUARIO_ID', usuario_id ?? null);
       if (available.has('REFERENCIA')) pushCol('REFERENCIA', referencia || null);
+      if (available.has('UNIDAD_ID')) pushCol('UNIDAD_ID', selectedUnidadId ?? null);
+      if (available.has('UNIDAD_NOMBRE')) pushCol('UNIDAD_NOMBRE', unidadNombre ?? null);
       if (available.has('PERDIDA')) pushCol('PERDIDA', perdidaCalculada);
       if (available.has('CREATED_AT')) pushCol('CREATED_AT', null, true);
       if (insertCols.length) {
@@ -692,7 +732,8 @@ export async function GET(req) {
         reportado_por: r.reportado_por || '',
         perdida: r.perdida == null ? 0 : Number(r.perdida),
         estado: r.estado || '',
-        descripcion: r.descripcion || ''
+        descripcion: r.descripcion || '',
+        unidad: r.unidad || ''
       }));
       return Response.json({ danados: mapped, resumen: summary });
     }
@@ -856,7 +897,9 @@ export async function POST(req) {
           motivo: body.motivo,
           tipo_dano: body.tipo_dano ?? body.tipoDano ?? body.tipoDanoLabel,
           estado_dano: body.estado ?? body.estado_dano ?? body.estadoDano,
-          referencia: body.referencia
+          referencia: body.referencia,
+          unidad_id: body.unidad_id ?? null,
+          unidad_nombre: body.unidad_nombre ?? null
         });
         return Response.json({ ok: true, ...result });
       } catch (err) {
@@ -1144,6 +1187,82 @@ export async function PUT(req) {
       } catch (e) {
         try { await conn.rollback(); } catch { }
         return Response.json({ error: e.message || 'Error al recuperar dañado' }, { status: 400 });
+      }
+    }
+
+    // Evaluar como pérdida total (total o parcial)
+    if (action === 'evaluarPerdidaTotal') {
+      try {
+        const id = body?.id ?? body?.danado_id ?? body?.id_danado;
+        const cantidadEval = Number(body?.cantidad || 0);
+        if (!id) {
+          await conn.rollback();
+          return Response.json({ error: 'ID de registro dañado requerido' }, { status: 400 });
+        }
+        if (!(cantidadEval > 0)) {
+          await conn.rollback();
+          return Response.json({ error: 'Cantidad a evaluar inválida' }, { status: 400 });
+        }
+
+        // Cargar registro de dañados
+        const [rows] = await conn.query('SELECT * FROM STOCK_DANADOS WHERE ID_DANADO = ? FOR UPDATE', [id]);
+        if (!rows?.length) {
+          await conn.rollback();
+          return Response.json({ error: 'Registro de dañado no encontrado' }, { status: 404 });
+        }
+        const d = rows[0];
+        const idProduct = Number(d.ID_PRODUCT);
+        const idSucursal = d.ID_SUCURSAL;
+        const cantActual = Number(d.CANTIDAD || 0);
+        if (!idProduct || !idSucursal) {
+          await conn.rollback();
+          return Response.json({ error: 'Registro dañado incompleto (producto/sucursal)' }, { status: 400 });
+        }
+        if (cantidadEval > cantActual) {
+          await conn.rollback();
+          return Response.json({ error: 'Cantidad a evaluar excede la cantidad dañada' }, { status: 400 });
+        }
+
+        // Precio unitario para valor de pérdida
+        let precioUnit = 0;
+        try {
+          const [pp] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [idProduct]);
+          if (pp?.length) { precioUnit = Number(pp[0].PRECIO || 0); }
+          else {
+            const [pp2] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [idProduct]);
+            if (pp2?.length) precioUnit = Number(pp2[0].PRECIO || 0);
+          }
+        } catch { precioUnit = 0; }
+
+        const valorEval = Number((cantidadEval * precioUnit).toFixed(2));
+
+        if (cantidadEval === cantActual) {
+          // Caso simple: todo el registro pasa a Pérdida Total
+          await conn.query('UPDATE STOCK_DANADOS SET ESTADO = ? WHERE ID_DANADO = ?', ['Perdida Total', id]);
+          await conn.commit();
+          return Response.json({ ok: true, id, evaluado: cantidadEval, estado: 'Perdida Total' });
+        }
+
+        // Parcial: crear nuevo registro con estado Perdida Total y restar del original
+        // Insert nuevo registro
+        await conn.query(
+          `INSERT INTO STOCK_DANADOS (ID_PRODUCT, ID_SUCURSAL, CANTIDAD, TIPO_DANO, ESTADO, DESCRIPCION, USUARIO_ID, REFERENCIA, PERDIDA, CREATED_AT)
+           VALUES (?, ?, ?, ?, 'Perdida Total', ?, ?, ?, ?, NOW())`,
+          [idProduct, idSucursal, cantidadEval, d.TIPO_DANO || null, d.DESCRIPCION || '', usuario_id ?? null, `eval-perdida:${id}`, valorEval]
+        );
+
+        // Restar del registro original
+        const nuevaCant = Math.max(0, cantActual - cantidadEval);
+        await conn.query('UPDATE STOCK_DANADOS SET CANTIDAD = ? WHERE ID_DANADO = ?', [nuevaCant, id]);
+        if (precioUnit > 0) {
+          try { await conn.query('UPDATE STOCK_DANADOS SET PERDIDA = GREATEST(PERDIDA - ?, 0) WHERE ID_DANADO = ?', [valorEval, id]); } catch { }
+        }
+
+        await conn.commit();
+        return Response.json({ ok: true, id, evaluado: cantidadEval, cantidad_restante: nuevaCant });
+      } catch (e) {
+        try { await conn.rollback(); } catch { }
+        return Response.json({ error: e.message || 'Error al evaluar pérdida total' }, { status: 400 });
       }
     }
 

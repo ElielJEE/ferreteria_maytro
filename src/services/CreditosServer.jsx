@@ -326,6 +326,7 @@ export async function updateCredit(payload) {
 
 export async function payCredit(payload) {
   const { id, cordobas = 0, dolares = 0, tasaCambio = 0, metodo = 'efectivo' } = payload || {};
+  const montoPagarIn = Number(payload?.montoPagar ?? payload?.monto_pagar ?? 0);
   if (!id) throw new Error('Missing credit id');
   const conn = await pool.getConnection();
   try {
@@ -351,6 +352,22 @@ export async function payCredit(payload) {
     const recibidoDol = Number(dolares || 0);
     const recibidoTotalC = Number((recibidoCord + recibidoDol * tasa).toFixed(2));
 
+    // Validaciones y cálculo del monto a aplicar a la deuda
+    const deudaActual = Number(uc.DEUDA_ACTUAL ?? uc.MONTO_DEUDA ?? 0);
+    let montoPagarC = Number(montoPagarIn || 0);
+    if (!montoPagarC || montoPagarC <= 0) {
+      await conn.rollback();
+      throw new Error('Monto a pagar inválido');
+    }
+    if (montoPagarC > deudaActual) {
+      await conn.rollback();
+      throw new Error(`Monto a pagar no puede ser mayor a la deuda actual (C$${deudaActual})`);
+    }
+    if (recibidoTotalC < montoPagarC) {
+      await conn.rollback();
+      throw new Error('El monto recibido es menor al monto a pagar');
+    }
+
     if (facturaId) {
       try {
         await conn.query('INSERT INTO FACTURA_PAGOS (ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, TASA_CAMBIO, METODO) VALUES (?, ?, ?, ?, ?)', [facturaId, recibidoCord, recibidoDol, tasa, metodo]);
@@ -361,13 +378,12 @@ export async function payCredit(payload) {
       const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS'`);
       const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
 
-      const deudaActual = Number(uc.DEUDA_ACTUAL ?? uc.MONTO_DEUDA ?? 0);
       let montoPagoPrev = 0;
       if (uc.MONTO_PAGO) {
         montoPagoPrev = Number((uc.MONTO_PAGO + '').replace(/[^0-9.-]/g, '')) || 0;
       }
-      const nuevaDeuda = Math.max(0, Number((deudaActual - recibidoTotalC).toFixed(2)));
-      const nuevoMontoPago = Number((montoPagoPrev + recibidoTotalC).toFixed(2));
+      const nuevaDeuda = Math.max(0, Number((deudaActual - montoPagarC).toFixed(2)));
+      const nuevoMontoPago = Number((montoPagoPrev + montoPagarC).toFixed(2));
 
       const updates = [];
       const params = [];
@@ -386,7 +402,8 @@ export async function payCredit(payload) {
     }
 
     await conn.commit();
-    return { ok: true, id, recibidoTotalC };
+    const cambio = Number((recibidoTotalC - montoPagarC).toFixed(2));
+    return { ok: true, id, recibidoTotalC, montoAplicado: montoPagarC, cambio: cambio > 0 ? cambio : 0 };
   } catch (e) {
     try { await conn.rollback(); } catch {}
     throw e;

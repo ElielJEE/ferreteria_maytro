@@ -46,15 +46,23 @@ export default function SaleView({ sale, onClose }) {
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Sucursal</div>
-						<div className='font-semibold'>{sale?.sucursal.nombre}</div>
+						<div className='font-semibold'>{sale?.sucursal?.nombre || 'N/A'}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Vendedor</div>
-						<div className='font-semibold'>{sale?.usuario.nombre}</div>
+						<div className='font-semibold'>{sale?.usuario?.nombre || 'N/A'}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Descuento</div>
-						<div className='font-semibold'>{sale?.discount.codigo}</div>
+						<div className='font-semibold'>
+							{(() => {
+								const d = sale?.discount || null;
+								if (!d) return 'Sin descuento';
+								return (
+									d.codigo || d.CODIGO_DESCUENTO || d.nombre || 'Descuento aplicado'
+								);
+							})()}
+						</div>
 					</div>
 				</div>
 				<div className='mb-2'>

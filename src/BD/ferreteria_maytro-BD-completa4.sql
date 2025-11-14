@@ -1,3 +1,326 @@
+CREATE DATABASE  IF NOT EXISTS `ferreteria_maytro` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `ferreteria_maytro`;
+-- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
+--
+-- Host: localhost    Database: ferreteria_maytro
+-- ------------------------------------------------------
+-- Server version	9.2.0
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `apertura_caja`
+--
+
+DROP TABLE IF EXISTS `apertura_caja`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `apertura_caja` (
+  `D_APERTURA` varchar(10) NOT NULL,
+  `ID_CAJA` varchar(10) DEFAULT NULL,
+  `ID` int DEFAULT NULL,
+  `ESTADO` varchar(255) NOT NULL,
+  `MONTO` decimal(12,2) NOT NULL,
+  `FECHA` date NOT NULL,
+  PRIMARY KEY (`D_APERTURA`),
+  KEY `idx_apertura_id` (`ID`),
+  KEY `idx_apertura_idcaja` (`ID_CAJA`),
+  CONSTRAINT `fk_apertura_caja_caja` FOREIGN KEY (`ID_CAJA`) REFERENCES `caja` (`ID_CAJA`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_apertura_caja_usuarios` FOREIGN KEY (`ID`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `apertura_caja`
+--
+
+LOCK TABLES `apertura_caja` WRITE;
+/*!40000 ALTER TABLE `apertura_caja` DISABLE KEYS */;
+/*!40000 ALTER TABLE `apertura_caja` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `caja`
+--
+
+DROP TABLE IF EXISTS `caja`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `caja` (
+  `ID_CAJA` varchar(10) NOT NULL,
+  `DESCRIPCION` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`ID_CAJA`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `caja`
+--
+
+LOCK TABLES `caja` WRITE;
+/*!40000 ALTER TABLE `caja` DISABLE KEYS */;
+/*!40000 ALTER TABLE `caja` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `caja_sesion`
+--
+
+DROP TABLE IF EXISTS `caja_sesion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `caja_sesion` (
+  `ID_SESION` int NOT NULL AUTO_INCREMENT,
+  `ID_SUCURSAL` varchar(10) NOT NULL,
+  `USUARIO_APERTURA` int DEFAULT NULL,
+  `FECHA_APERTURA` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `MONTO_INICIAL` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `ESTADO` enum('abierta','cerrada') NOT NULL DEFAULT 'abierta',
+  `FECHA_CIERRE` datetime DEFAULT NULL,
+  `USUARIO_CIERRE` int DEFAULT NULL,
+  `MONTO_FINAL` decimal(12,2) DEFAULT NULL,
+  `TOTAL_VENTAS_EQ_C` decimal(12,2) DEFAULT NULL,
+  `DIFERENCIA` decimal(12,2) DEFAULT NULL,
+  `OBSERVACIONES` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`ID_SESION`),
+  KEY `idx_caja_suc_estado` (`ID_SUCURSAL`,`ESTADO`),
+  KEY `idx_caja_fecha` (`FECHA_APERTURA`),
+  KEY `fk_caja_user_open` (`USUARIO_APERTURA`),
+  KEY `fk_caja_user_close` (`USUARIO_CIERRE`),
+  CONSTRAINT `fk_caja_suc` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_caja_user_close` FOREIGN KEY (`USUARIO_CIERRE`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_caja_user_open` FOREIGN KEY (`USUARIO_APERTURA`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `caja_sesion`
+--
+
+LOCK TABLES `caja_sesion` WRITE;
+/*!40000 ALTER TABLE `caja_sesion` DISABLE KEYS */;
+INSERT INTO `caja_sesion` VALUES (1,'S1',1,'2025-11-10 01:55:24',2000.00,'cerrada','2025-11-10 01:56:17',1,3000.00,0.00,1000.00,NULL),(2,'S1',1,'2025-11-10 01:57:23',2000.00,'cerrada','2025-11-10 01:57:38',1,0.00,0.00,-2000.00,NULL),(3,'S1',1,'2025-11-10 14:54:31',2000.00,'cerrada','2025-11-10 14:54:52',1,2500.00,0.00,500.00,NULL);
+/*!40000 ALTER TABLE `caja_sesion` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `categorias`
+--
+
+DROP TABLE IF EXISTS `categorias`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `categorias` (
+  `ID_CATEGORIAS` varchar(10) NOT NULL,
+  `NOMBRE_CATEGORIAS` varchar(255) NOT NULL,
+  PRIMARY KEY (`ID_CATEGORIAS`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `categorias`
+--
+
+LOCK TABLES `categorias` WRITE;
+/*!40000 ALTER TABLE `categorias` DISABLE KEYS */;
+INSERT INTO `categorias` VALUES ('C1','Herramientas'),('C2','Ferretería General');
+/*!40000 ALTER TABLE `categorias` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `clientes`
+--
+
+DROP TABLE IF EXISTS `clientes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `clientes` (
+  `ID_CLIENTES` int NOT NULL AUTO_INCREMENT,
+  `NOMBRE_CLIENTE` varchar(255) NOT NULL,
+  `DIRECCION_CLIENTE` varchar(255) NOT NULL,
+  `TELEFONO_CLIENTE` varchar(20) NOT NULL,
+  PRIMARY KEY (`ID_CLIENTES`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `clientes`
+--
+
+LOCK TABLES `clientes` WRITE;
+/*!40000 ALTER TABLE `clientes` DISABLE KEYS */;
+INSERT INTO `clientes` VALUES (2,'Eliel J E Escoto','Gas Central 1 cuadra y media al sur','84005907');
+/*!40000 ALTER TABLE `clientes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `compras`
+--
+
+DROP TABLE IF EXISTS `compras`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `compras` (
+  `ID_COMPRA` int NOT NULL AUTO_INCREMENT,
+  `FECHA_PEDIDO` date NOT NULL,
+  `FECHA_ENTREGA` date DEFAULT NULL,
+  `TOTAL` decimal(12,2) NOT NULL,
+  `ID_PROVEEDOR` int DEFAULT NULL,
+  `ID_USUARIO` int DEFAULT NULL,
+  `ID_SUCURSAL` varchar(10) DEFAULT NULL,
+  `ESTADO` varchar(20) DEFAULT 'pendiente',
+  PRIMARY KEY (`ID_COMPRA`),
+  KEY `idx_compras_proveedor` (`ID_PROVEEDOR`),
+  KEY `idx_compras_sucursal` (`ID_SUCURSAL`),
+  CONSTRAINT `fk_compras_proveedor` FOREIGN KEY (`ID_PROVEEDOR`) REFERENCES `proveedor` (`ID_PROVEEDOR`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `compras`
+--
+
+LOCK TABLES `compras` WRITE;
+/*!40000 ALTER TABLE `compras` DISABLE KEYS */;
+/*!40000 ALTER TABLE `compras` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `config_tasa_cambio`
+--
+
+DROP TABLE IF EXISTS `config_tasa_cambio`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `config_tasa_cambio` (
+  `ID` int NOT NULL,
+  `TASA` decimal(12,4) NOT NULL,
+  `UPDATED_AT` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `config_tasa_cambio`
+--
+
+LOCK TABLES `config_tasa_cambio` WRITE;
+/*!40000 ALTER TABLE `config_tasa_cambio` DISABLE KEYS */;
+INSERT INTO `config_tasa_cambio` VALUES (1,36.5500,'2025-11-10 09:48:21');
+/*!40000 ALTER TABLE `config_tasa_cambio` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `cotizacion`
+--
+
+DROP TABLE IF EXISTS `cotizacion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cotizacion` (
+  `ID_COTIZACION` varchar(24) NOT NULL,
+  `FECHA_CREACION` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `FECHA_VENCIMIENTO` date NOT NULL,
+  `SUBTOTAL` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `DESCUENTO` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `TOTAL` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `ESTADO` enum('activa','expirada','cancelada','procesada') NOT NULL DEFAULT 'activa',
+  `ID_CLIENTES` int DEFAULT NULL,
+  `ID_SUCURSAL` varchar(10) DEFAULT NULL,
+  `ID_USUARIO` int DEFAULT NULL,
+  `NOTAS` text,
+  PRIMARY KEY (`ID_COTIZACION`),
+  KEY `idx_cot_cli` (`ID_CLIENTES`),
+  KEY `idx_cot_suc` (`ID_SUCURSAL`),
+  KEY `idx_cot_user` (`ID_USUARIO`),
+  CONSTRAINT `fk_cotizacion_cliente` FOREIGN KEY (`ID_CLIENTES`) REFERENCES `clientes` (`ID_CLIENTES`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_cotizacion_sucursal` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_cotizacion_usuario` FOREIGN KEY (`ID_USUARIO`) REFERENCES `usuarios` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `cotizacion`
+--
+
+LOCK TABLES `cotizacion` WRITE;
+/*!40000 ALTER TABLE `cotizacion` DISABLE KEYS */;
+/*!40000 ALTER TABLE `cotizacion` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `cotizacion_detalles`
+--
+
+DROP TABLE IF EXISTS `cotizacion_detalles`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cotizacion_detalles` (
+  `ID_DETALLE_COTIZACION` int NOT NULL AUTO_INCREMENT,
+  `ID_COTIZACION` varchar(24) NOT NULL,
+  `ID_PRODUCT` int DEFAULT NULL,
+  `AMOUNT` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `PRECIO_UNIT` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `SUB_TOTAL` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `UNIDAD_ID` int DEFAULT NULL,
+  `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
+  `UNIDAD_NOMBRE` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`ID_DETALLE_COTIZACION`),
+  KEY `idx_cotdet_cot` (`ID_COTIZACION`),
+  KEY `idx_cotdet_prod` (`ID_PRODUCT`),
+  KEY `idx_cotdet_unidad` (`UNIDAD_ID`),
+  CONSTRAINT `fk_cotdet_cot` FOREIGN KEY (`ID_COTIZACION`) REFERENCES `cotizacion` (`ID_COTIZACION`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_cotdet_prod` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `detalles_compra`
+--
+
+DROP TABLE IF EXISTS `detalles_compra`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `detalles_compra` (
+  `ID_DETALLES_COMPRA` int NOT NULL AUTO_INCREMENT,
+  `ID_COMPRA` int DEFAULT NULL,
+  `ID_PRODUCT` int DEFAULT NULL,
+  `CANTIDAD` decimal(12,2) NOT NULL,
+  `PRECIO_UNIT` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `SUB_TOTAL` decimal(12,2) NOT NULL,
+  `ID_PROVEEDOR` int DEFAULT NULL,
+  PRIMARY KEY (`ID_DETALLES_COMPRA`),
+  KEY `idx_detcomp_compra` (`ID_COMPRA`),
+  KEY `idx_detcomp_product` (`ID_PRODUCT`),
+  KEY `idx_detcomp_prov` (`ID_PROVEEDOR`),
+  CONSTRAINT `fk_detcomp_compra` FOREIGN KEY (`ID_COMPRA`) REFERENCES `compras` (`ID_COMPRA`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_detcomp_productos` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_detcomp_proveedor` FOREIGN KEY (`ID_PROVEEDOR`) REFERENCES `proveedor` (`ID_PROVEEDOR`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- (file truncated here for brevity; full content was restored from ferreteria_maytroBDcompleta.sql)
+
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2025-11-11  5:12:55
 -- Consolidated schema for ferreteria_maytro
 -- This file merges the CREATE TABLE statements from the three provided dumps
 -- and excludes all INSERT seed data. It also includes idempotent schema
@@ -41,7 +364,6 @@ CREATE TABLE `apertura_caja` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
--- caja
 DROP TABLE IF EXISTS `caja`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -52,7 +374,6 @@ CREATE TABLE `caja` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
--- caja_sesion
 DROP TABLE IF EXISTS `caja_sesion`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -70,7 +391,6 @@ CREATE TABLE `caja_sesion` (
   `DIFERENCIA` decimal(12,2) DEFAULT NULL,
   `OBSERVACIONES` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`ID_SESION`),
-  KEY `idx_caja_suc_estado` (`ID_SUCURSAL`,`ESTADO`),
   KEY `idx_caja_fecha` (`FECHA_APERTURA`),
   KEY `fk_caja_user_open` (`USUARIO_APERTURA`),
   KEY `fk_caja_user_close` (`USUARIO_CIERRE`),
@@ -91,9 +411,18 @@ CREATE TABLE `categorias` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Dumping data for table `categorias`
+--
+
+LOCK TABLES `categorias` WRITE;
+/*!40000 ALTER TABLE `categorias` DISABLE KEYS */;
+INSERT INTO `categorias` VALUES ('C1','Herramientas'),('C2','Ferretería General');
+/*!40000 ALTER TABLE `categorias` ENABLE KEYS */;
+UNLOCK TABLES;
+
 -- clientes
 DROP TABLE IF EXISTS `clientes`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `clientes` (
   `ID_CLIENTES` int NOT NULL AUTO_INCREMENT,
@@ -105,20 +434,7 @@ CREATE TABLE `clientes` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 -- compras
-DROP TABLE IF EXISTS `compras`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `compras` (
-  `ID_COMPRA` int NOT NULL AUTO_INCREMENT,
-  `FECHA_PEDIDO` date NOT NULL,
-  `FECHA_ENTREGA` date DEFAULT NULL,
-  `TOTAL` decimal(12,2) NOT NULL,
-  `ID_DETALLES_COMPRA` int DEFAULT NULL,
-  PRIMARY KEY (`ID_COMPRA`),
-  KEY `idx_compras_detalles` (`ID_DETALLES_COMPRA`),
-  CONSTRAINT `fk_compras_detalles` FOREIGN KEY (`ID_DETALLES_COMPRA`) REFERENCES `detalles_compra` (`ID_DETALLES_COMPRA`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+-- compras (duplicate fragment removed; canonical definition appears earlier in this file)
 
 -- config_tasa_cambio
 DROP TABLE IF EXISTS `config_tasa_cambio`;
@@ -287,9 +603,8 @@ CREATE TABLE `factura_descuento` (
   PRIMARY KEY (`ID_DESCUENTO_FACTURA`),
   KEY `idx_fd_fact` (`ID_FACTURA`),
   CONSTRAINT `fk_fd_fact` FOREIGN KEY (`ID_FACTURA`) REFERENCES `factura` (`ID_FACTURA`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
 -- factura_detalles
 DROP TABLE IF EXISTS `factura_detalles`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -509,6 +824,9 @@ CREATE TABLE `stock_danados` (
   `ID_PRODUCT` int NOT NULL,
   `ID_SUCURSAL` varchar(20) DEFAULT NULL,
   `CANTIDAD` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `UNIDAD_ID` int DEFAULT NULL,
+  `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
+  `UNIDAD_NOMBRE` varchar(100) DEFAULT NULL,
   `TIPO_DANO` varchar(100) DEFAULT NULL,
   `ESTADO` varchar(100) DEFAULT NULL,
   `DESCRIPCION` text,
@@ -519,6 +837,7 @@ CREATE TABLE `stock_danados` (
   PRIMARY KEY (`ID_DANADO`),
   KEY `idx_sd_prod` (`ID_PRODUCT`),
   KEY `idx_sd_suc` (`ID_SUCURSAL`),
+  KEY `idx_sd_unidad` (`UNIDAD_ID`),
   CONSTRAINT `fk_sd_prod` FOREIGN KEY (`ID_PRODUCT`) REFERENCES `productos` (`ID_PRODUCT`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_sd_suc` FOREIGN KEY (`ID_SUCURSAL`) REFERENCES `sucursal` (`ID_SUCURSAL`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -697,6 +1016,23 @@ PREPARE stmt_cd3 FROM @sql_stmt; EXECUTE stmt_cd3; DEALLOCATE PREPARE stmt_cd3;
 SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'COTIZACION_DETALLES' AND INDEX_NAME = 'idx_cotdet_unidad');
 SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_cotdet_unidad ON COTIZACION_DETALLES (UNIDAD_ID)', 'SELECT 1');
 PREPARE stmt_idx FROM @sql_stmt; EXECUTE stmt_idx; DEALLOCATE PREPARE stmt_idx;
+
+-- Ensure unit columns exist in STOCK_DANADOS
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS' AND COLUMN_NAME = 'UNIDAD_ID');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `STOCK_DANADOS` ADD COLUMN `UNIDAD_ID` INT DEFAULT NULL', 'SELECT 1');
+PREPARE stmt_sd1 FROM @sql_stmt; EXECUTE stmt_sd1; DEALLOCATE PREPARE stmt_sd1;
+
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `STOCK_DANADOS` ADD COLUMN `CANTIDAD_POR_UNIDAD` DECIMAL(12,4) NOT NULL DEFAULT ''1.0000''', 'SELECT 1');
+PREPARE stmt_sd2 FROM @sql_stmt; EXECUTE stmt_sd2; DEALLOCATE PREPARE stmt_sd2;
+
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS' AND COLUMN_NAME = 'UNIDAD_NOMBRE');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `STOCK_DANADOS` ADD COLUMN `UNIDAD_NOMBRE` VARCHAR(100) DEFAULT NULL', 'SELECT 1');
+PREPARE stmt_sd3 FROM @sql_stmt; EXECUTE stmt_sd3; DEALLOCATE PREPARE stmt_sd3;
+
+SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS' AND INDEX_NAME = 'idx_sd_unidad');
+SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_sd_unidad ON STOCK_DANADOS (UNIDAD_ID)', 'SELECT 1');
+PREPARE stmt_sdidx FROM @sql_stmt; EXECUTE stmt_sdidx; DEALLOCATE PREPARE stmt_sdidx;
 
 -- Ensure PRECIO_COMPRA exists in productos
 SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'productos' AND COLUMN_NAME = 'PRECIO_COMPRA');

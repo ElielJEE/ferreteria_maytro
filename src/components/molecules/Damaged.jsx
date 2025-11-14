@@ -20,6 +20,9 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 	const [accion, setAccion] = useState('');
 	const [evalCantidad, setEvalCantidad] = useState('');
 
+	// Formateador de moneda Córdoba (C$)
+	const fmtCordoba = (v) => `C$ ${Number(v || 0).toLocaleString('es-NI')}`;
+
 	const cardsConfig = [
 		{ key: "danados", title: "Dañados", icon: FiXCircle, color: "danger" },
 		{ key: "recuperables", title: "Recuperables", icon: FiAlertTriangle, color: "yellow" },
@@ -107,8 +110,18 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 				setEvalLoading(false);
 			}
 		} else if (accionNorm.includes('perdida')) {
-			// Placeholder: flujo de pérdida total no solicitado. Podríamos marcar estado como 'Pérdida Total'.
-			alert('Evaluación como pérdida total aún no implementada.');
+			try {
+				setEvalLoading(true);
+				const res = await StockService.evaluarPerdidaTotal({ id: selectedItem.id, cantidad: qty });
+				if (!res.success) {
+					alert(res.message || 'No se pudo evaluar como pérdida total.');
+					return;
+				}
+				setIsActiveModal(false);
+				try { if (typeof window !== 'undefined') window.dispatchEvent(new Event('stock:updated')); } catch {}
+			} finally {
+				setEvalLoading(false);
+			}
 		}
 	}
 
@@ -174,7 +187,7 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 														{item.sucursal}
 													</span>
 												</td>
-												<td className={`p-2 text-center ${cfgDano.textColor} ${cfgDano.bgColor}/10`}>{item.cantidad}</td>
+												<td className={`p-2 text-center ${cfgDano.textColor} ${cfgDano.bgColor}/10`}>{`${item.cantidad}${item.unidad ? ' ' + item.unidad : ''}`}</td>
 												<td className='p-2'>
 													<div className={`px-2 text-center rounded-full ${cfgDano.bgColor ?? 'bg-dark/10'}`}>
 														<span className='text-sm text-light'>{item.tipo_dano}</span>
@@ -187,7 +200,7 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 														{item.reportado_por}
 													</div>
 												</td>
-												<td className='p-2 text-danger'>{item.perdida}</td>
+												<td className='p-2 text-danger'>{fmtCordoba(item.perdida)}</td>
 												<td className='p-2'>
 													<div className={`px-2 text-center rounded-full ${cfgEstado.bgColor ?? 'bg-dark/10'}`}>
 														<span className='text-sm text-light'>{item.estado}</span>
@@ -231,11 +244,11 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 									>
 										<div className='flex flex-col'>
 											<span className='text-sm text-dark/70'>Cantidad</span>
-											<span className='text-lg font-semibold'>{item.cantidad}</span>
+											<span className='text-lg font-semibold'>{`${item.cantidad}${item.unidad ? ' ' + item.unidad : ''}`}</span>
 										</div>
 										<div className='flex flex-col'>
 											<span className='text-sm text-dark/70'>Perdida</span>
-											<span className='text-lg font-semibold'>{item.perdida}</span>
+											<span className='text-lg font-semibold'>{fmtCordoba(item.perdida)}</span>
 										</div>
 										<div className='flex flex-col'>
 											<span className='text-sm text-dark/70'>Fecha</span>
