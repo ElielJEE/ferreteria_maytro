@@ -44,9 +44,15 @@ export async function GET(request) {
 
     if (historial) {
       const params = [];
-      let sql = 'SELECT * FROM CAJA_SESION ';
+    let sucursal = searchParams.get('sucursal');
       if (sucursal) { sql += 'WHERE ID_SUCURSAL = ? '; params.push(sucursal); }
       sql += 'ORDER BY FECHA_APERTURA DESC LIMIT ?';
+
+    // Forzar sucursal si el usuario no es admin (tiene sucursal asignada). Si el usuario tiene sucursalId => no-admin.
+    try {
+      const { sucursalId } = getUserFromToken(request);
+      if (sucursalId) sucursal = sucursalId; // ignorar query param para no-admin
+    } catch {}
       params.push(limit);
       const [rows] = await pool.query(sql, params);
       return Response.json({ historial: rows });
@@ -56,6 +62,11 @@ export async function GET(request) {
       // devolver sesiones abiertas por sucursal
       const [rows] = await pool.query('SELECT * FROM CAJA_SESION WHERE ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC');
       return Response.json({ abiertas: rows });
+    }
+    const { sucursalId } = getUserFromToken(request);
+    if (sucursalId) {
+      const [rows] = await pool.query('SELECT * FROM CAJA_SESION WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC LIMIT 1', [sucursalId]);
+      return Response.json({ abierta: rows?.[0] || null });
     }
     const [rows] = await pool.query('SELECT * FROM CAJA_SESION WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC LIMIT 1', [sucursal]);
     return Response.json({ abierta: rows?.[0] || null });

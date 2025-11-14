@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
+import { getUserSucursalContext } from '@/lib/auth/getUserSucursal';
 
 async function ensureEntregadoColumn() {
   // Ensure detalles_compra.ENTREGADO exists (idempotent)
@@ -176,14 +177,18 @@ export async function GET(request) {
       return Response.json({ compra, detalles: detRows });
     }
 
-    // listar compras con nombre de proveedor y conteo de items
+    // listar compras con filtro por sucursal si usuario no es admin
+    const { isAdmin, sucursalId } = await getUserSucursalContext(request);
+    const where = !isAdmin && sucursalId ? 'WHERE c.ID_SUCURSAL = ?' : '';
+    const params = !isAdmin && sucursalId ? [sucursalId] : [];
     const [rows] = await pool.query(`
       SELECT c.ID_COMPRA, c.FECHA_PEDIDO, c.FECHA_ENTREGA, c.TOTAL, c.ID_PROVEEDOR, p.NOMBRE_PROVEEDOR, c.ID_USUARIO, c.ID_SUCURSAL, c.ESTADO,
              (SELECT COUNT(1) FROM DETALLES_COMPRA d WHERE d.ID_COMPRA = c.ID_COMPRA) AS PRODUCT_COUNT
       FROM COMPRAS c
       LEFT JOIN PROVEEDOR p ON p.ID_PROVEEDOR = c.ID_PROVEEDOR
+      ${where}
       ORDER BY c.ID_COMPRA DESC
-    `);
+    `, params);
     return Response.json(rows);
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

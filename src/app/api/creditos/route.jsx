@@ -224,6 +224,16 @@ async function createCredit(req) {
 
 async function getCredits() {
   try {
+    // Determinar contexto sucursal
+    const fakeReq = { cookies: { get: () => null } }; // placeholder si se llama sin request
+    let isAdmin = true; let sucursalId = null;
+    try {
+      const { getUserSucursalContext } = await import('@/lib/auth/getUserSucursal');
+      const ctx = await getUserSucursalContext(globalThis.__nextRequest || fakeReq);
+      isAdmin = ctx.isAdmin; sucursalId = ctx.sucursalId;
+    } catch {}
+    const where = !isAdmin && sucursalId ? 'WHERE COALESCE(uc.ID_SUCURSAL, f.ID_SUCURSAL) = ?' : '';
+    const params = !isAdmin && sucursalId ? [sucursalId] : [];
     const [rows] = await pool.query(`
       SELECT
         uc.ID_USUARIOSCRED AS id,
@@ -243,9 +253,10 @@ async function getCredits() {
       LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
       LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = COALESCE(uc.ID_SUCURSAL, f.ID_SUCURSAL)
       LEFT JOIN USUARIOS u ON u.ID = uc.ID_USUARIO
+      ${where}
       ORDER BY f.FECHA DESC
       LIMIT 1000
-    `);
+    `, params);
     const creditos = rows || [];
 
     const facturaIds = creditos.map(r => r.factura_id).filter(Boolean);

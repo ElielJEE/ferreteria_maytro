@@ -522,7 +522,11 @@ export async function GET(req) {
       });
     }
 
-    // Listado
+    // Listado con filtro sucursal para no admin
+    const { getUserSucursalContext } = await import('@/lib/auth/getUserSucursal');
+    const { isAdmin, sucursalId } = await getUserSucursalContext(req);
+    const where = !isAdmin && sucursalId ? 'WHERE c.ID_SUCURSAL = ?' : '';
+    const params = !isAdmin && sucursalId ? [sucursalId] : [];
     const [rows] = await pool.query(
       `SELECT c.ID_COTIZACION AS id,
               DATE_FORMAT(c.FECHA_CREACION, '%Y-%m-%d') AS fecha,
@@ -538,8 +542,10 @@ export async function GET(req) {
        LEFT JOIN CLIENTES cli ON cli.ID_CLIENTES = c.ID_CLIENTES
        LEFT JOIN USUARIOS u ON u.ID = c.ID_USUARIO
        LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = c.ID_SUCURSAL
+       ${where}
        ORDER BY c.FECHA_CREACION DESC
-       LIMIT 1000`
+       LIMIT 1000`,
+      params
     );
     // Batch auto-expirar activas y devolver stock
     const today = new Date(); today.setHours(0,0,0,0);
