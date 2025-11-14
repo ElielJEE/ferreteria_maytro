@@ -604,6 +604,11 @@ export async function GET(req) {
       });
     }
 
+    const { getUserSucursalContext } = await import('@/lib/auth/getUserSucursal');
+    const { isAdmin, sucursalId } = await getUserSucursalContext(req);
+    const sucursalFilterClause = !isAdmin && sucursalId ? 'WHERE d.ID_SUCURSAL = ?' : '';
+    const filterParams = !isAdmin && sucursalId ? [sucursalId] : [];
+
     const selectLista = hasFechaDev ?
       `SELECT d.ID_DEVOLUCION, d.CANTIDAD, d.ESTADO, d.MOTIVO, d.FECHA_DEVOLUCION, d.ID_SUCURSAL, d.ID_PRODUCT,
         p.PRODUCT_NAME, p.CODIGO_PRODUCTO, fd.ID_FACTURA, f.FECHA, f.TOTAL,
@@ -626,6 +631,7 @@ export async function GET(req) {
        LEFT JOIN CLIENTES c2 ON c2.ID_CLIENTES = d.ID_CLIENTES
        LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = d.ID_SUCURSAL
        LEFT JOIN USUARIOS u ON u.ID = d.ID_USUARIO_DEVOLUCION
+        ${sucursalFilterClause}
        ORDER BY d.FECHA_DEVOLUCION DESC, d.ID_DEVOLUCION DESC
        LIMIT 500` :
       `SELECT d.ID_DEVOLUCION, d.CANTIDAD, d.ESTADO, d.MOTIVO, d.ID_SUCURSAL, d.ID_PRODUCT,
@@ -649,11 +655,12 @@ export async function GET(req) {
        LEFT JOIN CLIENTES c2 ON c2.ID_CLIENTES = d.ID_CLIENTES
        LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = d.ID_SUCURSAL
        LEFT JOIN USUARIOS u ON u.ID = d.ID_USUARIO_DEVOLUCION
+        ${sucursalFilterClause}
        ORDER BY f.FECHA DESC, d.ID_DEVOLUCION DESC
        LIMIT 500`;
     let rows;
     try {
-      [rows] = await pool.query(selectLista);
+      [rows] = await pool.query(selectLista, filterParams);
     } catch (err) {
       const fallbackLista = hasFechaDev ?
         `SELECT d.ID_DEVOLUCION, d.CANTIDAD, d.ESTADO, d.MOTIVO, d.FECHA_DEVOLUCION, d.ID_SUCURSAL, d.ID_PRODUCT,
@@ -671,6 +678,7 @@ export async function GET(req) {
          LEFT JOIN CLIENTES c2 ON c2.ID_CLIENTES = d.ID_CLIENTES
          LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = d.ID_SUCURSAL
          LEFT JOIN USUARIOS u ON u.ID = d.ID_USUARIO_DEVOLUCION
+          ${sucursalFilterClause}
          ORDER BY d.FECHA_DEVOLUCION DESC, d.ID_DEVOLUCION DESC
          LIMIT 500`
         :
@@ -689,9 +697,10 @@ export async function GET(req) {
          LEFT JOIN CLIENTES c2 ON c2.ID_CLIENTES = d.ID_CLIENTES
          LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = d.ID_SUCURSAL
          LEFT JOIN USUARIOS u ON u.ID = d.ID_USUARIO_DEVOLUCION
+          ${sucursalFilterClause}
          ORDER BY f.FECHA DESC, d.ID_DEVOLUCION DESC
          LIMIT 500`;
-      [rows] = await pool.query(fallbackLista);
+      [rows] = await pool.query(fallbackLista, filterParams);
     }
     const devoluciones = (rows || []).map(r => ({
       id: r.ID_DEVOLUCION,

@@ -1,9 +1,27 @@
 import pool from '@/lib/db';
+import jwt from 'jsonwebtoken';
+
+async function getUserSucursal(req) {
+  try {
+    const token = req.cookies?.get?.('token')?.value ?? null;
+    if (!token) return null;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded?.id || decoded?.ID || decoded?.sub || null;
+    if (!userId) return null;
+    const [[row]] = await pool.query('SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1', [userId]);
+    return row?.ID_SUCURSAL || null;
+  } catch { return null; }
+}
 
 // GET /api/nivelacion?sucursal=S1&productoId=123
 export async function GET(req) {
   try {
-    const sucursal = req.nextUrl.searchParams.get('sucursal');
+    let sucursal = req.nextUrl.searchParams.get('sucursal');
+    const userSucursal = await getUserSucursal(req);
+    if (userSucursal) {
+      // Usuario no admin, forzar sucursal propia
+      sucursal = userSucursal;
+    }
     const productoId = req.nextUrl.searchParams.get('productoId');
     const where = [];
     const params = [];
@@ -25,7 +43,12 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const producto_id = Number(body.producto_id);
-    const sucursal_id = body.sucursal_id || null;
+    let sucursal_id = body.sucursal_id || null;
+    const userSucursal = await getUserSucursal(req);
+    if (userSucursal) {
+      // Forzar sucursal del usuario si no es admin
+      sucursal_id = userSucursal;
+    }
     const minimo = body.minimo != null ? String(body.minimo) : null;
     const maximo = body.maximo != null ? String(body.maximo) : null;
     if (!producto_id || !sucursal_id) {

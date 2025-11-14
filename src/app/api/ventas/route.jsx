@@ -285,6 +285,19 @@ export async function GET(req) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    // Determinar sucursal efectiva segun el usuario (si tiene sucursal asignada => no es admin)
+    let usuarioSucursalId = null;
+    try {
+      const token = req.cookies?.get?.('token')?.value ?? null;
+      if (token) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded?.id || decoded?.ID || decoded?.sub || null;
+        if (userId) {
+          const [[uRow]] = await pool.query('SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1', [userId]);
+          if (uRow && uRow.ID_SUCURSAL) usuarioSucursalId = uRow.ID_SUCURSAL;
+        }
+      }
+    } catch { usuarioSucursalId = null; }
 
     // If id provided, return detailed sale
     if (id) {
@@ -378,9 +391,13 @@ export async function GET(req) {
       }
     }
 
-    // Otherwise return list of ventas (general view)
+    // Otherwise return list of ventas (general view). Si el usuario no es admin (tiene sucursal asignada) forzamos ese filtro.
     try {
-      const sucursal = (searchParams.get('sucursal') || '').toString().trim();
+      let sucursal = (searchParams.get('sucursal') || '').toString().trim();
+      if (usuarioSucursalId) {
+        // Usuario no admin: ignorar sucursal enviada y usar la suya
+        sucursal = usuarioSucursalId;
+      }
 
       // Construir SQL con filtro opcional por sucursal
       let sql = `
