@@ -235,6 +235,13 @@ export default function PuntoVentaOrg() {
 
 		// Ensure credito modal always opens (fix for no-op when clicking Credito)
 		if (type === 'credito') {
+			// Si es admin, debe seleccionar una sucursal específica para crédito
+			if (!currentUser?.ID_SUCURSAL && (!selectedSucursal || selectedSucursal?.value === 'Todas')) {
+				setMode('credito');
+				setIsActiveModal(true);
+				setError(prev => ({ ...(prev || {}), general: 'Seleccione una sucursal para crear un crédito.' }));
+				return;
+			}
 			setIsActiveModal(true);
 			return;
 		}
@@ -591,6 +598,10 @@ export default function PuntoVentaOrg() {
 		if (!clienteNombre?.trim()) errs.nombre = 'Este campo es requerido';
 		if (!clienteTelefono?.trim()) errs.telefono = 'Este campo es requerido';
 		if (!productList?.length) errs.general = 'Agrega al menos un producto';
+		// Validar sucursal cuando es admin
+		if (!currentUser?.ID_SUCURSAL && (!selectedSucursal || selectedSucursal?.value === 'Todas')) {
+			errs.general = 'Seleccione una sucursal para crear un crédito.';
+		}
 		setError(prev => ({ ...(prev || {}), ...errs }));
 		if (Object.keys(errs).length) return;
 
@@ -1070,7 +1081,14 @@ export default function PuntoVentaOrg() {
 								</div>
 							</div>
 						) : (mode === "credito" ? (
-							<div className='flex gap-2 mt-2'>
+											<div className='flex flex-col gap-2 mt-2'>
+												{isAdmin && (
+													<span className='text-sm text-dark/70'>
+														Sucursal seleccionada: <span className='font-semibold'>{selectedSucursal?.label || '—'}</span>
+													</span>
+												)}
+												{error?.general && <span className='text-danger text-sm'>{error.general}</span>}
+												<div className='flex gap-2'>
 								<Button
 									text={"Cancelar"}
 									className={"secondary"}
@@ -1081,6 +1099,7 @@ export default function PuntoVentaOrg() {
 									text={"Confirmar credito"}
 									func={() => confirmCredito()}
 								/>
+												</div>
 							</div>
 						) : (mode === "discount" ? (
 							<div className='flex flex-col gap-2 mt-2'>

@@ -380,7 +380,10 @@ export async function GET(req) {
 
     // Otherwise return list of ventas (general view)
     try {
-      const [rows] = await pool.query(`
+      const sucursal = (searchParams.get('sucursal') || '').toString().trim();
+
+      // Construir SQL con filtro opcional por sucursal
+      let sql = `
         SELECT f.ID_FACTURA AS id,
                ${hasFacturaNumero ? 'f.NUMERO_FACTURA' : 'NULL'} AS numero,
                DATE_FORMAT(f.FECHA, '%Y-%m-%d') AS fecha,
@@ -391,10 +394,15 @@ export async function GET(req) {
                (SELECT COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') FROM FACTURA_DETALLES fd LEFT JOIN USUARIOS u ON u.ID = fd.ID_USUARIO WHERE fd.ID_FACTURA = f.ID_FACTURA LIMIT 1) AS hecho_por
         FROM FACTURA f
         LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-        LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL
-        ORDER BY f.FECHA DESC
-        LIMIT 1000
-      `);
+        LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL`;
+      const params = [];
+      if (sucursal) {
+        sql += ' WHERE f.ID_SUCURSAL = ?';
+        params.push(sucursal);
+      }
+      sql += ' ORDER BY f.FECHA DESC LIMIT 1000';
+
+      const [rows] = await pool.query(sql, params);
       const mapped = (rows || []).map(r => ({ id: r.id, numero: r.numero || null, fecha: r.fecha, hora: r.hora, sucursal: r.sucursal || 'Sin sucursal', cliente: r.cliente || '', total: Number(r.total || 0), hecho_por: r.hecho_por || '' }));
       return Response.json({ ventas: mapped });
     } catch (e) {
