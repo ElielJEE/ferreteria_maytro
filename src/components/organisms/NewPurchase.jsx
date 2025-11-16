@@ -135,7 +135,7 @@ export default function NewPurchase() {
 	const validateFields = (form) => {
 		const newErrors = {};
 
-		// Campos siempre requeridos: nombre y telefono del proveedor y fecha
+		// Campos siempre requeridos: nombre, telefono y fecha estimada de entrega
 		const required = ['nombre', 'telefono', 'fecha'];
 		required.forEach((field) => {
 			const value = form[field];
@@ -143,17 +143,24 @@ export default function NewPurchase() {
 				newErrors[field] = 'Este campo es requerido';
 			}
 		});
+		// Validar formato YYYY-MM-DD para fecha (input type=date lo entrega así)
+		if (form.fecha) {
+			const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+			if (!isoDatePattern.test(form.fecha)) {
+				newErrors.fecha = 'Formato de fecha inválido';
+			}
+		}
 
 		setError(newErrors);
 		return Object.keys(newErrors).length === 0;
 	}
 
 	const handleSubmitCompra = async () => {
-		// Si no se especifica fecha de entrega, usar la fecha de hoy por defecto
+		// La fecha estimada de entrega ahora es obligatoria: no sustituir por hoy
 		const form = {
 			nombre: proveedorNombre,
 			telefono: proveedorTelefono,
-			fecha: fechaEntrega || new Date().toISOString().slice(0, 10),
+			fecha: fechaEntrega,
 		}
 
 		const isValid = validateFields(form)
@@ -187,7 +194,7 @@ export default function NewPurchase() {
 				usuarioId: usuarioId,
 				id_sucursal: usuarioSucursal,
 				fecha_pedido: new Date().toISOString().slice(0, 10),
-				fecha_entrega: fechaEntrega || null,
+				fecha_entrega: fechaEntrega, // obligatorio en backend también
 				total: total,
 				items
 			};

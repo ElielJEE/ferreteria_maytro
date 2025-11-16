@@ -1137,7 +1137,7 @@ export async function PUT(req) {
           await conn.query(
             `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [idProduct, idSucursal, body?.usuario_id ?? null, tipoMov, cantidadRec, 'Recuperado de daño', id, stockAnterior, stockNuevo]
+            [idProduct, idSucursal, usuario_id ?? null, tipoMov, cantidadRec, 'Recuperado de daño', id, stockAnterior, stockNuevo]
           );
         } catch { /* ignore movement errors */ }
 
@@ -1179,8 +1179,8 @@ export async function PUT(req) {
           }
         }
 
-        // Aplicar actualización de cantidad
-        await conn.query('UPDATE STOCK_DANADOS SET ' + sets.join(', ') + ' WHERE ID_DANADO = ?', vals);
+        // Aplicar actualización de cantidad y registrar último usuario
+        await conn.query('UPDATE STOCK_DANADOS SET ' + sets.join(', ') + ', USUARIO_ID = ? WHERE ID_DANADO = ?', [...vals.slice(0, -1), usuario_id ?? null, vals[vals.length - 1]]);
 
         await conn.commit();
         return Response.json({ ok: true, id, recuperado: cantidadRec, stock_nuevo: stockNuevo, cantidad_restante: nuevaCant });
@@ -1238,7 +1238,7 @@ export async function PUT(req) {
 
         if (cantidadEval === cantActual) {
           // Caso simple: todo el registro pasa a Pérdida Total
-          await conn.query('UPDATE STOCK_DANADOS SET ESTADO = ? WHERE ID_DANADO = ?', ['Perdida Total', id]);
+          await conn.query('UPDATE STOCK_DANADOS SET ESTADO = ?, USUARIO_ID = ? WHERE ID_DANADO = ?', ['Perdida Total', usuario_id ?? null, id]);
           await conn.commit();
           return Response.json({ ok: true, id, evaluado: cantidadEval, estado: 'Perdida Total' });
         }
@@ -1253,7 +1253,7 @@ export async function PUT(req) {
 
         // Restar del registro original
         const nuevaCant = Math.max(0, cantActual - cantidadEval);
-        await conn.query('UPDATE STOCK_DANADOS SET CANTIDAD = ? WHERE ID_DANADO = ?', [nuevaCant, id]);
+        await conn.query('UPDATE STOCK_DANADOS SET CANTIDAD = ?, USUARIO_ID = ? WHERE ID_DANADO = ?', [nuevaCant, usuario_id ?? null, id]);
         if (precioUnit > 0) {
           try { await conn.query('UPDATE STOCK_DANADOS SET PERDIDA = GREATEST(PERDIDA - ?, 0) WHERE ID_DANADO = ?', [valorEval, id]); } catch { }
         }

@@ -28,6 +28,11 @@ export async function POST(request) {
       items
     } = body;
 
+    // Validar fecha_entrega obligatoria (formato YYYY-MM-DD)
+    if (!fecha_entrega || typeof fecha_entrega !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha_entrega)) {
+      return Response.json({ error: 'fecha_entrega requerida (YYYY-MM-DD)' }, { status: 400 });
+    }
+
     if (!Array.isArray(items) || items.length === 0) {
       return Response.json({ error: 'items requeridos' }, { status: 400 });
     }
@@ -91,7 +96,7 @@ export async function POST(request) {
       // Insertar compra
       const [res] = await conn.query(
         'INSERT INTO COMPRAS (FECHA_PEDIDO, FECHA_ENTREGA, TOTAL, ID_PROVEEDOR, ID_USUARIO, ID_SUCURSAL, ESTADO) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [fecha_pedido || new Date(), fecha_entrega || null, Number(total) || 0, proveedorIdResolved || null, usuarioIdResolved || null, idSucursalResolved || null, 'Pendiente']
+        [fecha_pedido || new Date(), fecha_entrega, Number(total) || 0, proveedorIdResolved || null, usuarioIdResolved || null, idSucursalResolved || null, 'Pendiente']
       );
       const compraId = res.insertId;
 

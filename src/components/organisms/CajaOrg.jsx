@@ -13,6 +13,7 @@ export default function CajaOrg() {
 	const [historial, setHistorial] = useState([]);
 	const [totalVentas, setTotalVentas] = useState({}); // map sucursalId -> total ventas hoy
 	const [esperadoMap, setEsperadoMap] = useState({});
+	const [cajaErrors, setCajaErrors] = useState({}); // sucursalId -> error message
 	console.log(sucursales);
 
 	useEffect(() => {
@@ -113,8 +114,15 @@ export default function CajaOrg() {
 
 	const handleCloseCaja = async (id, montoFinal) => {
 		try {
+			// Validar que el usuario haya ingresado algo (campo obligatorio)
+			const raw = cajas?.[id]?.montoFinalRaw;
+			if (raw === undefined || raw === null || String(raw).trim() === '') {
+				setCajaErrors(prev => ({ ...prev, [id]: 'Ingresa el monto final antes de cerrar.' }));
+				return;
+			}
+			setCajaErrors(prev => ({ ...prev, [id]: undefined }));
 			const sesionId = cajas?.[id]?.sesionId || null;
-			const res = await CajaService.cerrarCaja({ sesion_id: sesionId, sucursal_id: id, monto_final: Number(montoFinal || 0) });
+			await CajaService.cerrarCaja({ sesion_id: sesionId, sucursal_id: id, monto_final: Number(montoFinal || 0) });
 			setCajas(prev => ({ ...prev, [id]: { status: 'Cerrada', montoInicial: 0, horaApertura: null, sesionId: null } }));
 			setCerrarCaja(prev => ({ ...prev, [id]: false }));
 			// refrescar historial y aplicar la diferencia calculada localmente para que se muestre inmediatamente
@@ -215,18 +223,22 @@ export default function CajaOrg() {
 															placeholder={'0.00'}
 															inputClass={'no icon'}
 															type={'number'}
-															value={cajas?.[sucursal.value]?.montoFinal ?? ''}
+															value={cajas?.[sucursal.value]?.montoFinalRaw ?? ''}
 															onChange={(e) => {
-																const val = Number(e.target.value || 0);
-																setCajas(prev => ({ ...prev, [sucursal.value]: { ...prev[sucursal.value], montoFinal: val } }));
+																const rawVal = e.target.value;
+																const numVal = rawVal === '' ? null : Number(rawVal);
+																setCajas(prev => ({ ...prev, [sucursal.value]: { ...prev[sucursal.value], montoFinalRaw: rawVal, montoFinal: numVal ?? 0 } }));
 																// calcular diferencia usando esperadoMap (si no existe, calcular con montoInicial + totalVentas)
 																const inicial = Number(cajas?.[sucursal.value]?.montoInicial || 0);
 																const ventas = Number(totalVentas[sucursal.value] || 0);
 																const esperado = Number((esperadoMap[sucursal.value] ?? (inicial + ventas)).toFixed(2));
 																setEsperadoMap(prev => ({ ...prev, [sucursal.value]: esperado }));
-																setDiferenciaMap(prev => ({ ...prev, [sucursal.value]: Number((val - esperado).toFixed(2)) }));
+																const diffBase = numVal == null ? 0 : numVal;
+																setDiferenciaMap(prev => ({ ...prev, [sucursal.value]: Number((diffBase - esperado).toFixed(2)) }));
+																if (rawVal !== '') setCajaErrors(prev => ({ ...prev, [sucursal.value]: undefined }));
 															}}
 															/>
+															{cajaErrors[sucursal.value] && <span className='text-danger text-xs'>{cajaErrors[sucursal.value]}</span>}
 														<Input
 															label={'Total de Ventas (C$)'}
 															placeholder={'0.00'}
@@ -316,21 +328,26 @@ export default function CajaOrg() {
 							Historial ({historial.length})
 						</h2>
 						<div className='flex flex-col gap-2 max-h-[477px] overflow-y-auto'>
-							{historial.map((h) => (
-								<div key={h.ID_SESION} className='p-4 border border-dark/20 rounded-lg grid grid-cols-2 gap-2'>
-									<span className='font-semibold text-lg'>{h.ID_SUCURSAL}</span>
-									<span className='border rounded-full text-center border-dark/30 font-semibold'>{new Date(h.FECHA_APERTURA).toLocaleString()}</span>
-									<div className='flex flex-col'>
-										<span className='font-semibold text-sm text-dark/60'>Monto Inicial</span>
-										<span className='font-semibold'>C${Number(h.MONTO_INICIAL || 0).toFixed(2)}</span>
+							{historial.map((h) => {
+								const montoFinalMostrar = h.ESTADO === 'cerrada' && h.MONTO_FINAL != null ? Number(h.MONTO_FINAL).toFixed(2) : '--';
+								const sucursalNombre = h.NOMBRE_SUCURSAL || h.ID_SUCURSAL || 'Sucursal';
+								const diff = Number(h.DIFERENCIA || 0);
+								return (
+									<div key={h.ID_SESION} className='p-4 border border-dark/20 rounded-lg grid grid-cols-2 gap-2'>
+										<span className='font-semibold text-lg'>{sucursalNombre}</span>
+										<span className='border rounded-full text-center border-dark/30 font-semibold'>{new Date(h.FECHA_APERTURA).toLocaleString()}</span>
+										<div className='flex flex-col'>
+											<span className='font-semibold text-sm text-dark/60'>Monto Inicial</span>
+											<span className='font-semibold'>C${Number(h.MONTO_INICIAL || 0).toFixed(2)}</span>
+										</div>
+										<div className='flex flex-col'>
+											<span className='font-semibold text-sm text-dark/60'>Monto Final</span>
+											<span className='font-semibold text-primary'>C${montoFinalMostrar}</span>
+										</div>
+										<span className={`${diff === 0 ? 'text-success bg-success/20' : diff > 0 ? 'text-blue bg-blue/20' : 'text-danger bg-danger/20'} col-span-2 px-2 py-1 rounded-sm font-semibold`}>Diferencia: C${diff.toFixed(2)}</span>
 									</div>
-									<div className='flex flex-col'>
-										<span className='font-semibold text-sm text-dark/60'>Monto Final</span>
-										<span className='font-semibold text-primary'>C${Number(h.MONTO_FINAL || 0).toFixed(2)}</span>
-									</div>
-									<span className={`${Number(h.DIFERENCIA || 0) === 0 ? 'text-success bg-success/20' : Number(h.DIFERENCIA || 0) > 0 ? 'text-blue bg-blue/20' : 'text-danger bg-danger/20'} col-span-2 px-2 py-1 rounded-sm font-semibold`}>Diferencia: C${Number(h.DIFERENCIA || 0).toFixed(2)}</span>
-								</div>
-							))}
+								);
+							})}
 						</div>
 					</div>
 				</div>
