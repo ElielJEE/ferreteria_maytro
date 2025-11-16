@@ -44,15 +44,18 @@ export async function GET(request) {
 
     if (historial) {
       const params = [];
-    let sucursal = searchParams.get('sucursal');
-      if (sucursal) { sql += 'WHERE ID_SUCURSAL = ? '; params.push(sucursal); }
-      sql += 'ORDER BY FECHA_APERTURA DESC LIMIT ?';
-
-    // Forzar sucursal si el usuario no es admin (tiene sucursal asignada). Si el usuario tiene sucursalId => no-admin.
-    try {
-      const { sucursalId } = getUserFromToken(request);
-      if (sucursalId) sucursal = sucursalId; // ignorar query param para no-admin
-    } catch {}
+      let sucursalParam = searchParams.get('sucursal');
+      // Forzar sucursal si el usuario tiene sucursalId (no admin)
+      try {
+        const { sucursalId } = getUserFromToken(request);
+        if (sucursalId) sucursalParam = sucursalId;
+      } catch {}
+      let sql = `SELECT cs.ID_SESION, cs.ID_SUCURSAL, s.NOMBRE_SUCURSAL, cs.FECHA_APERTURA, cs.FECHA_CIERRE,
+                        cs.MONTO_INICIAL, cs.MONTO_FINAL, cs.DIFERENCIA, cs.ESTADO
+                 FROM CAJA_SESION cs
+                 LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = cs.ID_SUCURSAL `;
+      if (sucursalParam) { sql += 'WHERE cs.ID_SUCURSAL = ? '; params.push(sucursalParam); }
+      sql += 'ORDER BY cs.FECHA_APERTURA DESC LIMIT ?';
       params.push(limit);
       const [rows] = await pool.query(sql, params);
       return Response.json({ historial: rows });
@@ -118,7 +121,11 @@ export async function PUT(request) {
     const body = await request.json().catch(() => ({}));
     let sesionId = Number(body?.sesion_id || 0);
     const sucursalId = (body?.sucursal_id || '').toString().trim();
-    const montoFinal = Number(body?.monto_final || 0);
+    const rawMontoFinal = body?.monto_final;
+    if (rawMontoFinal === undefined || rawMontoFinal === null || (typeof rawMontoFinal === 'string' && rawMontoFinal.trim() === '')) {
+      return Response.json({ error: 'monto_final requerido' }, { status: 400 });
+    }
+    const montoFinal = Number(rawMontoFinal);
     const observaciones = body?.observaciones || null;
     if ((isNaN(montoFinal) || montoFinal < 0)) return Response.json({ error: 'monto_final inválido' }, { status: 400 });
 
