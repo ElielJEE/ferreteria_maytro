@@ -277,7 +277,7 @@ export async function POST(req) {
             if (available.has('ID_SUCURSAL')) push('ID_SUCURSAL', stockSucursalId);
             if (available.has('CANTIDAD')) push('CANTIDAD', cantidadReal);
             if (available.has('DESCRIPCION')) push('DESCRIPCION', motivo || 'Devolución dañada');
-            if (available.has('TIPO_DANO')) push('TIPO_DANO', 'devolucion');
+            if (available.has('TIPO_DANO')) push('TIPO_DANO', 'Defectuoso');
             if (available.has('USUARIO_ID')) push('USUARIO_ID', usuarioId || null);
             if (available.has('REFERENCIA')) push('REFERENCIA', factura_id || null);
             if (available.has('PERDIDA')) push('PERDIDA', perdida);
@@ -417,7 +417,7 @@ export async function POST(req) {
       let unidadNombreNuevo = null;
       if (unidadReemplazoId) {
         const [rowUn] = await conn.query(
-          'SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE_UNIDAD FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? AND UNIDAD_ID = ? LIMIT 1',
+          'SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? AND UNIDAD_ID = ? LIMIT 1',
           [nuevoProdId, unidadReemplazoId]
         );
         if (!rowUn?.length) {
@@ -428,13 +428,13 @@ export async function POST(req) {
         unidadFactorNuevo = Number(rowUn[0].CANTIDAD_POR_UNIDAD || 1) || 1;
         unidadNombreNuevo = rowUn[0].UNIDAD_NOMBRE || null;
       } else {
-        const [ppn] = await conn.query('SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE_UNIDAD FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [nuevoProdId]);
+        const [ppn] = await conn.query('SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [nuevoProdId]);
         if (ppn?.length) {
           precioNuevo = Number(ppn[0].PRECIO || 0);
           unidadFactorNuevo = Number(ppn[0].CANTIDAD_POR_UNIDAD || 1) || 1;
           unidadNombreNuevo = ppn[0].UNIDAD_NOMBRE || null;
         } else {
-          const [ppn2] = await conn.query('SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE_UNIDAD FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [nuevoProdId]);
+          const [ppn2] = await conn.query('SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [nuevoProdId]);
           if (ppn2?.length) {
             precioNuevo = Number(ppn2[0].PRECIO || 0);
             unidadFactorNuevo = Number(ppn2[0].CANTIDAD_POR_UNIDAD || 1) || 1;
