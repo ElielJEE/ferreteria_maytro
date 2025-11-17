@@ -1,32 +1,17 @@
-import net from "net";
+import { imprimirVoucher } from '../../utils/printVoucherTCP';
 
-export async function POST(req) {
-	try {
-		const body = await req.json();
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método no permitido' });
+  }
 
-		const ip = body.ip;          // Ejemplo: "192.168.1.150"
-		const escpos = body.data;   // Comandos ESC/POS en formato string
+  const data = req.body;
 
-		await sendToPrinter(ip, escpos);
-
-		return Response.json({ ok: true });
-	} catch (err) {
-		console.error("Error imprimiendo:", err);
-		return Response.json({ ok: false, error: err.message }, { status: 500 });
-	}
-}
-
-function sendToPrinter(ip, data) {
-	return new Promise((resolve, reject) => {
-		const client = new net.Socket();
-
-		client.connect(9100, ip, () => {
-			client.write(data, () => {
-				client.end();
-				resolve();
-			});
-		});
-
-		client.on("error", reject);
-	});
+  try {
+    await imprimirVoucher(data);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("Error imprimiendo voucher:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
 }
