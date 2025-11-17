@@ -1,5 +1,5 @@
 'use client'
-import { buildVoucher } from "@/utils/buildVoucher";
+import { buildVoucher } from "@/utils/buildVoucherSales";
 
 const imprimirVoucher = async (data) => {
     const escpos = buildVoucher(data);
