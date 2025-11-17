@@ -15,7 +15,7 @@ export default function DashboardOrg() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [dash, setDash] = useState(null);
-
+	const [generatingPdf, setGeneratingPdf] = useState(false);
 	useEffect(() => {
 		let mounted = true;
 		(async () => {
@@ -33,10 +33,10 @@ export default function DashboardOrg() {
 
 	const ventasData = useMemo(() => dash?.weeklySales || [], [dash]);
 	const maxAmount = useMemo(() => Math.max(1, ...ventasData.map(d => d.amount || 0)), [ventasData]);
-	const masVendidosOrdered = useMemo(() => (dash?.topProducts || []).slice().sort((a,b)=> (b.count||0)-(a.count||0)), [dash]);
+	const masVendidosOrdered = useMemo(() => (dash?.topProducts || []).slice().sort((a, b) => (b.count || 0) - (a.count || 0)), [dash]);
 	const StockAlerts = useMemo(() => dash?.lowStockProducts || [], [dash]);
 
-	const fmtC = (n) => `C$${Number(n||0).toLocaleString('es-NI', { maximumFractionDigits: 2 })}`;
+	const fmtC = (n) => `C$${Number(n || 0).toLocaleString('es-NI', { maximumFractionDigits: 2 })}`;
 	const monthLabel = useMemo(() => {
 		const now = new Date();
 		return now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
@@ -44,6 +44,142 @@ export default function DashboardOrg() {
 
 	if (loading) return <div className='w-full p-6'>Cargando dashboard…</div>;
 	if (error) return <div className='w-full p-6 text-red-600'>Error: {error}</div>;
+
+	const handleGenerateReport = async () => {
+		if (generatingPdf) return;
+		if (!dash) return alert('Datos del dashboard no están cargados');
+		setGeneratingPdf(true);
+		try {
+			// Try to import jspdf dynamically
+			let jsPDFModule;
+			try {
+				jsPDFModule = await import('jspdf');
+			} catch (impErr) {
+				// If jspdf is not installed, offer fallback (download JSON)
+				console.warn('jspdf import failed:', impErr);
+				if (confirm('La librería `jspdf` no está instalada. ¿Deseas descargar los datos del dashboard en JSON como alternativa?')) {
+					const blob = new Blob([JSON.stringify(dash, null, 2)], { type: 'application/json' });
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = `dashboard-${new Date().toISOString().slice(0, 10)}.json`;
+					a.click();
+					URL.revokeObjectURL(url);
+				}
+				return;
+			}
+			const { jsPDF } = jsPDFModule;
+			const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+			const margin = 40;
+			let y = margin;
+			doc.setFontSize(16);
+			doc.text('Reporte - Dashboard', margin, y);
+			y += 20;
+			doc.setFontSize(10);
+			doc.text(`Fecha: ${new Date().toLocaleString()}`, margin, y);
+			y += 18;
+			// Key metrics (overview)
+			doc.setFontSize(12);
+			doc.text('Resumen rápido', margin, y);
+			y += 14;
+			doc.setFontSize(10);
+			doc.text(`Total ingresos hoy: ${fmtC(dash?.totalRevenueToday)}`, margin, y); y += 12;
+			doc.text(`Total ventas hoy: ${dash?.totalSalesToday ?? 0}`, margin, y); y += 12;
+			doc.text(`Productos vendidos hoy: ${dash?.productsSoldToday ?? 0}`, margin, y); y += 12;
+			doc.text(`Clientes hoy: ${dash?.clientsToday ?? 0}`, margin, y); y += 16;
+			// Monthly summary
+			doc.setFontSize(12);
+			doc.text('Resumen mensual', margin, y); y += 14;
+			doc.setFontSize(10);
+			doc.text(`Ingresos mes: ${fmtC(dash?.totalRevenueMonth)}`, margin, y); y += 12;
+			doc.text(`Facturas mes: ${dash?.invoicesThisMonth ?? 0}`, margin, y); y += 12;
+			doc.text(`Productos vendidos mes: ${dash?.productsSoldMonth ?? 0}`, margin, y); y += 12;
+			doc.text(`Clientes unicos mes: ${dash?.clientsThisMonth ?? 0}`, margin, y); y += 16;
+			// Weekly sales table
+			doc.setFontSize(12);
+			doc.text('Ventas de la semana', margin, y); y += 14;
+			doc.setFontSize(10);
+			if (Array.isArray(dash?.weeklySales) && dash.weeklySales.length) {
+				doc.text('Día', margin, y); doc.text('Monto', margin + 200, y); y += 12;
+				for (const s of dash.weeklySales) {
+					if (y > 750) { doc.addPage(); y = margin; }
+					doc.text(String(s.day || ''), margin, y);
+					doc.text(fmtC(s.amount ?? 0), margin + 200, y);
+					y += 12;
+				}
+			} else { doc.text('Sin datos de ventas semanales', margin, y); y += 12; }
+			y += 8;
+			// Top products table
+			doc.setFontSize(12);
+			doc.text('Productos más vendidos', margin, y); y += 14;
+			doc.setFontSize(10);
+			if (Array.isArray(dash?.topProducts) && dash.topProducts.length) {
+				doc.text('ID', margin, y); doc.text('Producto', margin + 40, y); doc.text('Vendidos', margin + 260, y); doc.text('Total', margin + 340, y); y += 12;
+				for (const p of dash.topProducts) {
+					if (y > 750) { doc.addPage(); y = margin; }
+					doc.text(String(p.id ?? ''), margin, y);
+					doc.text(String(p.product || ''), margin + 40, y);
+					doc.text(String(p.count ?? 0), margin + 260, y);
+					doc.text(fmtC(p.amount ?? 0), margin + 340, y);
+					y += 12;
+				}
+			} else { doc.text('Sin datos de productos', margin, y); y += 12; }
+			y += 8;
+			// Low stock
+			doc.setFontSize(12);
+			doc.text('Alertas de stock', margin, y); y += 14;
+			doc.setFontSize(10);
+			if (Array.isArray(dash?.lowStockProducts) && dash.lowStockProducts.length) {
+				for (const it of dash.lowStockProducts) {
+					if (y > 750) { doc.addPage(); y = margin; }
+					doc.text(`${it.product || ''} — stock: ${it.stock ?? 0} / max: ${it.max || it.maxStock || ''}`, margin, y);
+					y += 12;
+				}
+			} else { doc.text('No hay alertas de stock', margin, y); y += 12; }
+			y += 8;
+			// Recent sales
+			doc.setFontSize(12);
+			doc.text('Ventas', margin, y); y += 14;
+			doc.setFontSize(10);
+			if (Array.isArray(dash?.recentSales) && dash.recentSales.length) {
+				doc.text('ID', margin, y); doc.text('Fecha', margin + 40, y); doc.text('Hora', margin + 120, y); doc.text('Total', margin + 160, y); doc.text('Cliente', margin + 230, y); doc.text('Sucursal', margin + 420, y); y += 12;
+				for (const s of dash.recentSales) {
+					if (y > 750) { doc.addPage(); y = margin; }
+					doc.text(String(s.id ?? ''), margin, y);
+					doc.text(String(s.fecha || ''), margin + 40, y);
+					doc.text(String(s.hora || ''), margin + 120, y);
+					doc.text(fmtC(s.total ?? 0), margin + 160, y);
+					doc.text(String(s.cliente || ''), margin + 230, y);
+					doc.text(String(s.sucursal || ''), margin + 420, y);
+					y += 12;
+				}
+			} else { doc.text('Sin ventas recientes', margin, y); y += 12; }
+			y += 8;
+			// Recent movements
+			doc.setFontSize(12);
+			doc.text('Movimientos recientes', margin, y); y += 14;
+			doc.setFontSize(10);
+			if (Array.isArray(dash?.recentMovements) && dash.recentMovements.length) {
+				for (const m of dash.recentMovements) {
+					if (y > 750) { doc.addPage(); y = margin; }
+					doc.text(`${m.fecha || ''} ${m.hora || ''} — ${m.producto || ''} (${m.tipo || ''}) ${m.sucursal || ''} x${m.cantidad ?? ''}`, margin, y);
+					y += 12;
+				}
+			} else { doc.text('Sin movimientos recientes', margin, y); y += 12; }
+			y += 8;
+			// Stock total
+			doc.setFontSize(12);
+			doc.text(`Stock total: ${dash?.stockTotal ?? 0}`, margin, y); y += 12;
+			// Save PDF
+			const filename = `dashboard-${new Date().toISOString().slice(0, 10)}.pdf`;
+			doc.save(filename);
+		} catch (err) {
+			console.error('Error generando PDF desde dash:', err);
+			alert('Error generando PDF. Abre la consola para más detalles o instala `jspdf` con `npm i jspdf`.');
+		} finally {
+			setGeneratingPdf(false);
+		}
+	}
 
 	return (
 		<div className='w-full p-6 flex flex-col'>
@@ -62,8 +198,9 @@ export default function DashboardOrg() {
 				/>
 				<Button
 					className={"transparent"}
-					text={"Generar Reporte"}
+					text={generatingPdf ? 'Generando...' : 'Generar Reporte'}
 					icon={<BsEye className='h-4 w-4' />}
+					func={() => handleGenerateReport()}
 				/>
 			</section>
 			<section className='w-full grid grid-cols-1 gap-4 xl:grid-cols-4 md:grid-cols-2'>
@@ -71,29 +208,24 @@ export default function DashboardOrg() {
 					CardTitle={"Ventas Hoy"}
 					cardValue={fmtC(dash?.totalRevenueToday)}
 					cardIconColor={"success"}
-					cardChange={12.5}
 					cardIcon={<FiDollarSign className='h-4 w-4 md:h-6 md:w-6 text-success' />}
 				/>
 				<InfoCard
 					CardTitle={"Productos Vendidos"}
 					cardValue={`${dash?.productsSoldToday ?? 0}`}
 					cardIconColor={"primary"}
-					cardChange={8.2}
 					cardIcon={<BsCart2 className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
 				/>
 				<InfoCard
 					CardTitle={"Clientes atendidos"}
 					cardValue={`${dash?.clientsToday ?? 0}`}
 					cardIconColor={"blue"}
-					cardChange={-5}
 					cardIcon={<HiOutlineUserGroup className='h-4 w-4 md:h-6 md:w-6 text-blue' />}
 				/>
 				<InfoCard
 					CardTitle={"Productos en stock"}
 					cardValue={`${dash?.stockTotal ?? 0}`}
 					cardIconColor={"yellow"}
-					cardChange={4}
-					outOfStockIcon={<CiWarning className='h-4 w-4 md:h-6 md:w-6 text-yellow' />}
 					cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-yellow' />}
 				/>
 			</section>
@@ -109,7 +241,7 @@ export default function DashboardOrg() {
 							<div className='bg-primary-light h-3 md:h-5 w-full rounded-full'>
 								<div className='bg-primary h-3 md:h-5 rounded-full transition-all duration-700' style={{ width: `${((data.amount || 0) / maxAmount) * 100}%` }}></div>
 							</div>
-							<span className='text-xs md:text-medium font-bold'>{fmtC(data.amount)}</span>
+							<span className='text-xs md:text-medium font-bold w-15 text-right'>{fmtC(data.amount)}</span>
 						</div>
 					))}
 				</div>
@@ -152,7 +284,7 @@ export default function DashboardOrg() {
 							StockAlerts.map((item, index) => {
 								const max = Number(item.maxStock || item.max || 0) || 1;
 								const val = Math.min(100, Math.max(0, (Number(item.stock || 0) / max) * 100));
-								const status = item.status || (item.stock === 0 ? 'agotado' : (Number(item.stock||0) <= max * 0.3 ? 'bajo' : ''));
+								const status = item.status || (item.stock === 0 ? 'agotado' : (Number(item.stock || 0) <= max * 0.3 ? 'bajo' : ''));
 								return (
 									<div key={index} className='w-full flex justify-center items-center border rounded-lg border-dark/20 p-2'>
 										<div className='w-full flex flex-col'>
@@ -209,30 +341,18 @@ export default function DashboardOrg() {
 					<div className='text-center flex flex-col justify-center items-center'>
 						<h2 className='md:text-xl font-bold text-success'>{fmtC(dash?.totalRevenueMonth)}</h2>
 						<span className='text-sm md:text-medium text-dark/50'>Ingresos Totales</span>
-						<span className='text-success text-sm md:text-medium flex items-center gap-1'>
-							<HiArrowTrendingUp className='text-success' /> +15.6%
-						</span>
 					</div>
 					<div className='text-center flex flex-col justify-center items-center'>
 						<h2 className='md:text-xl font-bold text-primary'>{dash?.productsSoldMonth ?? 0}</h2>
 						<span className='text-sm md:text-medium text-dark/50'>Productos Vendidos</span>
-						<span className='text-success text-sm md:text-medium flex items-center gap-1'>
-							<HiArrowTrendingUp className='text-success' /> +5.6%
-						</span>
 					</div>
 					<div className='text-center flex flex-col justify-center items-center'>
 						<h2 className='md:text-xl font-bold text-blue'>{dash?.clientsThisMonth ?? 0}</h2>
 						<span className='text-sm md:text-medium text-dark/50'>Clientes Unicos</span>
-						<span className='text-success text-sm md:text-medium flex items-center gap-1'>
-							<HiArrowTrendingUp className='text-success' /> +1%
-						</span>
 					</div>
 					<div className='text-center flex flex-col justify-center items-center'>
 						<h2 className='md:text-xl font-bold text-purple-500'>100%</h2>
 						<span className='text-sm md:text-medium text-dark/50'>Satisfaccion</span>
-						<span className='text-success text-sm md:text-medium flex items-center gap-1'>
-							<HiArrowTrendingUp className='text-success' /> +6%
-						</span>
 					</div>
 				</div>
 			</section>

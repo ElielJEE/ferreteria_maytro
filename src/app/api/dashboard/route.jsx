@@ -122,9 +122,15 @@ async function getWeeklySalesSeries(sucursal) {
 	// Fill missing days
 	const days = [];
 	for (let i = 6; i >= 0; i--) {
-		const dt = new Date(); dt.setDate(dt.getDate() - i);
-		const key = dt.toISOString().slice(0,10);
-		const found = rows.find(r => r.d && new Date(r.d).toISOString().slice(0,10) === key);
+		const dt = new Date();
+		dt.setDate(dt.getDate() - i);
+
+		if (dt.getDay() === 0) {
+			continue;
+		}
+
+		const key = dt.toISOString().slice(0, 10);
+		const found = rows.find(r => r.d && new Date(r.d).toISOString().slice(0, 10) === key);
 		const amount = Number(found?.total || 0);
 		// labels: Lun..Dom in es-ES
 		const dayLabel = dt.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
@@ -148,7 +154,7 @@ async function getTopProductsWeek(sucursal) {
 	}
 	base += ' GROUP BY p.ID_PRODUCT, p.PRODUCT_NAME ORDER BY count DESC, amount DESC LIMIT 5';
 	const [rows] = await pool.query(base, params);
-	return rows.map(r => ({ id: r.ID_PRODUCT, product: r.product, count: Number(r.count||0), amount: Number(r.amount||0) }));
+	return rows.map(r => ({ id: r.ID_PRODUCT, product: r.product, count: Number(r.count || 0), amount: Number(r.amount || 0) }));
 }
 
 async function getLowStock(sucursal) {
@@ -205,11 +211,11 @@ async function getRecentSales(sucursal) {
 	}
 	base += ' ORDER BY f.FECHA DESC LIMIT 10';
 	const [rows] = await pool.query(base, params);
-	return rows.map(r => ({ id: r.id, fecha: r.fecha, hora: r.hora, total: Number(r.total||0), cliente: r.cliente || '', sucursal: r.sucursal || '' }));
+	return rows.map(r => ({ id: r.id, fecha: r.fecha, hora: r.hora, total: Number(r.total || 0), cliente: r.cliente || '', sucursal: r.sucursal || '' }));
 }
 
 async function getRecentMovements(sucursal) {
-    let base = `
+	let base = `
 		SELECT mi.id,
 					 DATE_FORMAT(mi.fecha, '%Y-%m-%d') AS fecha,
 					 DATE_FORMAT(mi.fecha, '%H:%i') AS hora,
@@ -221,10 +227,10 @@ async function getRecentMovements(sucursal) {
 		LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = mi.producto_id
 		LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = mi.sucursal_id
         WHERE 1=1`;
-    const params = [];
-    if (sucursal && sucursal !== 'Todas') { base += ' AND mi.sucursal_id = ?'; params.push(sucursal); }
-    base += ' ORDER BY mi.fecha DESC LIMIT 10';
-    const [rows] = await pool.query(base, params);
+	const params = [];
+	if (sucursal && sucursal !== 'Todas') { base += ' AND mi.sucursal_id = ?'; params.push(sucursal); }
+	base += ' ORDER BY mi.fecha DESC LIMIT 10';
+	const [rows] = await pool.query(base, params);
 	const mapTipo = (t) => {
 		if (!t) return '';
 		const v = String(t).toLowerCase();
@@ -279,13 +285,13 @@ export async function GET(req) {
 		// Si no es admin, forzamos su propia sucursal
 		const sucursal = isAdmin ? (requested || 'Todas') : (sucursalId);
 
-			const [totalRevenueToday, totalSalesToday, productsSoldToday, clientsToday, monthly, monthlyUC, weekly, topProducts, lowStock, recentSales, recentMovs, stockTotal] = await Promise.all([
+		const [totalRevenueToday, totalSalesToday, productsSoldToday, clientsToday, monthly, monthlyUC, weekly, topProducts, lowStock, recentSales, recentMovs, stockTotal] = await Promise.all([
 			getRevenueToday(sucursal),
 			getInvoicesToday(sucursal),
 			getProductsSoldToday(sucursal),
 			getClientsToday(sucursal),
 			getMonthlyRevenueAndCount(sucursal),
-				getMonthlyUnitsAndClients(sucursal),
+			getMonthlyUnitsAndClients(sucursal),
 			getWeeklySalesSeries(sucursal),
 			getTopProductsWeek(sucursal),
 			getLowStock(sucursal),

@@ -106,8 +106,6 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 		}
 	};
 
-	console.log(productOpts);
-
 	return (
 		<div>
 			<div className='bg-dark/5 py-2 px-4 rounded-lg flex flex-col mt-4 sm:w-120 w-full'>

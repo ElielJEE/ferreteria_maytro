@@ -36,8 +36,6 @@ export default function Sidebar({ openSidebar, setOpenSidebar }) {
 		fetchUser();
 	}, [])
 
-	console.log(user);
-
 	return (
 		<>
 			{openSidebar && (
