@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import DropdownMenu from './DropdownMenu';
 import Input from './Input';
-import { Button } from '../atoms';
+import { Button, SwitchButton } from '../atoms';
 import { ProductService, ReturnsService } from '@/services';
 
 export default function ReturnView({ returnData, onClose, onSave, productData }) {
@@ -15,6 +15,7 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 	const [subtotalNuevo, setSubtotalNuevo] = useState(0);
 	const [estado, setEstado] = useState('BUENO');
 	const [motivo, setMotivo] = useState('');
+	const [mostrar, setMostrar] = useState(false);
 
 	const productStatus = ['En Buen Estado', 'Dañado'];
 
@@ -32,11 +33,9 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 
 	const totalOriginal = Number(returnData?.total || 0);
 
-	// 🧮 Recalcular total cada vez que cambia el producto o la cantidad
 	useEffect(() => {
 		if (!selectedProduct) return;
 
-		// Total de la venta sin el producto devuelto
 		const totalSinDevuelto = returnData.items
 			.filter(it => it.producto_nombre !== productData.producto_nombre)
 			.reduce((acc, it) => acc + it.cantidad * (it.precio_unit || it.precio || 0), 0);
@@ -47,14 +46,9 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 
 		const totalRestar = productoDevuelto.precio_unit * cantidadDevolver;
 
-		// Nuevo producto con su cantidad y precio
 		const precioNuevo = selectedProduct.value.PRECIO || 0;
 		const subtotalNuevo = precioNuevo * cantidadDevolver;
 		setSubtotalNuevo(subtotalNuevo);
-		console.log(selectedProduct);
-		console.log(subtotalNuevo);
-		console.log(productoDevuelto);
-		console.log(totalRestar);
 
 		const nuevoTotalCalculado = (totalOriginal - totalRestar) + subtotalNuevo;
 		setNuevoTotal(nuevoTotalCalculado);
@@ -99,7 +93,7 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 			}
 			const res = await ReturnsService.createReturn(payload);
 			if (res?.ok) {
-				try { window.dispatchEvent(new CustomEvent('returns:updated')); } catch {}
+				try { window.dispatchEvent(new CustomEvent('returns:updated')); } catch { }
 				onSave && onSave(res);
 				onClose && onClose();
 			} else {
@@ -111,6 +105,8 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 			alert(err?.message || 'Error procesando la devolución');
 		}
 	};
+
+	console.log(productOpts);
 
 	return (
 		<div>
@@ -126,8 +122,8 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 						}
 						return null;
 					})()}
-					 | Cliente: {returnData?.cliente?.nombre || ''}
 				</span>
+				<span className='text-dark/60'>Cliente: {returnData?.cliente?.nombre || ''}</span>
 			</div>
 
 			<form className='grid grid-cols-2 gap-4 mt-4' onSubmit={handleSubmit}>
@@ -146,51 +142,64 @@ export default function ReturnView({ returnData, onClose, onSave, productData })
 					value={cantidadDevolver}
 					onChange={(e) => setCantidadDevolver(Number(e.target.value))}
 				/>
-				<div className='col-span-2'>
-					<DropdownMenu
-						label='Producto nuevo'
-						defaultValue={productData.producto_nombre}
-						options={productOpts}
-						onChange={(opt) => setSelectedProduct(opt)}
-					/>
-				</div>
-				<Input
-					label='Motivo'
-					isTextarea
-					placeholder='Ingrese motivo de la devolución...'
-					inputClass='no icon'
-					value={motivo}
-					onChange={(e) => setMotivo(e.target.value)}
+				<SwitchButton
+					text={"Cambiar por otro?"}
+					onToggle={setMostrar}
 				/>
-
-				{/* Totales */}
-				<div className='flex flex-col gap-2 mt-2'>
-					<div className='flex justify-between'>
-						<span className='font-semibold'>Total original:</span>
-						<span>C$ {totalOriginal.toLocaleString()}</span>
-					</div>
-					<div className='flex justify-between'>
-						<span className='font-semibold'>Total nuevo:</span>
-						<span>C$ {nuevoTotal.toLocaleString()}</span>
-					</div>
-					<div className='flex justify-between'>
-						<span className='font-semibold'>Subtotal:</span>
-						<span>C$ {subtotalNuevo.toLocaleString()}</span>
-					</div>
-					<div className='flex justify-between'>
-						<span className='font-semibold'>Total a pagar:</span>
-						<span className='text-green-600'>
-							{totalAPagar > 0 ? `C$ ${totalAPagar.toLocaleString()}` : 'C$ 0'}
-						</span>
-					</div>
-					<div className='flex justify-between'>
-						<span className='font-semibold'>Total a devolver:</span>
-						<span className='text-red-600'>
-							{totalADevolver > 0 ? `C$ ${totalADevolver.toLocaleString()}` : 'C$ 0'}
-						</span>
+				{
+					mostrar === true &&
+					<>
+						<div className='col-span-2 flex gap-4'>
+							<DropdownMenu
+								label='Producto nuevo'
+								defaultValue={productData.producto_nombre}
+								options={productOpts}
+								onChange={(opt) => setSelectedProduct(opt)}
+							/>
+							<DropdownMenu 
+								label={"Unidad de medida"}
+								defaultValue={productData.unidad_nombre}
+								options={productOpts.unidad_nombre}
+							/>
+						</div>
+					</>
+				}
+				<div className='col-span-2 grid grid-cols-2 gap-4 justify-between w-full' >
+					<Input
+						label='Motivo'
+						isTextarea
+						placeholder='Ingrese motivo de la devolución...'
+						inputClass='no icon'
+						value={motivo}
+						onChange={(e) => setMotivo(e.target.value)}
+					/>
+					<div className='flex flex-col gap-1 mt-2 bg-dark/10 p-2 rounded-lg w-full'>
+						<div className='flex justify-between border-b pb-1 border-dark/30'>
+							<span className='font-semibold'>Total original:</span>
+							<span>C$ {totalOriginal.toLocaleString()}</span>
+						</div>
+						<div className='flex justify-between border-b pb-1 border-dark/30'>
+							<span className='font-semibold'>Total nuevo:</span>
+							<span>C$ {nuevoTotal.toLocaleString()}</span>
+						</div>
+						<div className='flex justify-between border-b pb-1 border-dark/30'>
+							<span className='font-semibold'>Subtotal:</span>
+							<span>C$ {subtotalNuevo.toLocaleString()}</span>
+						</div>
+						<div className='flex justify-between border-b pb-1 border-dark/30'>
+							<span className='font-semibold'>Total a pagar:</span>
+							<span className='text-green-600'>
+								{totalAPagar > 0 ? `C$ ${totalAPagar.toLocaleString()}` : 'C$ 0'}
+							</span>
+						</div>
+						<div className='flex justify-between'>
+							<span className='font-semibold'>Total a devolver:</span>
+							<span className='text-red-600'>
+								{totalADevolver > 0 ? `C$ ${totalADevolver.toLocaleString()}` : 'C$ 0'}
+							</span>
+						</div>
 					</div>
 				</div>
-
 				<div className='flex gap-4 col-span-2'>
 					<Button text='Cerrar' className='secondary' func={onClose} />
 					<Button text='Procesar' className='success' type='submit' />
