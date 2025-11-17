@@ -4,7 +4,8 @@ import React, { useState } from 'react'
 export default function SwitchButton({ text, onToggle }) {
 	const [enabled, setEnabled] = useState(false);
 
-	const handleToggle = () => {
+	const handleToggle = (e) => {
+		e.preventDefault();
 		const newState = !enabled;
 		setEnabled(newState);
 		if (onToggle) onToggle(newState);
