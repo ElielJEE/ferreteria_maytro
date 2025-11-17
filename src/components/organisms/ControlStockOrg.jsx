@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, InfoCard, ModalContainer } from '../atoms'
+import { Button, InfoCard, Loading, ModalContainer } from '../atoms'
 import { FiAlertTriangle, FiBox, FiDollarSign, FiEye, FiFile, FiGlobe, FiMaximize, FiMinus, FiPlus, FiSearch, FiShoppingCart, FiTrendingUp, FiX, FiXCircle } from 'react-icons/fi'
 import { BsBoxSeam, BsBuilding, BsGear } from 'react-icons/bs'
 import { Alerts, Card, Damaged, DropdownMenu, Input, Movements, Reserved, Summary } from '../molecules'
@@ -86,7 +86,7 @@ export default function ControlStockOrg() {
 				}
 			} catch (err) {
 				console.error('Auto-cálculo pérdida total:', err);
-					setFormErrors(prev => ({ ...prev, cantidad: 'Error calculando pérdida total' }));
+				setFormErrors(prev => ({ ...prev, cantidad: 'Error calculando pérdida total' }));
 			}
 		}
 
@@ -212,6 +212,7 @@ export default function ControlStockOrg() {
 	// Top dropdown: selected sucursal for filtering resumen
 	const [topSucursales, setTopSucursales] = useState([]);
 	const [topSucursal, setTopSucursal] = useState('Todas');
+	const [loading, setLoading] = useState(true);
 
 	// Cargar usuario actual y fijar sucursal por defecto
 	useEffect(() => {
@@ -318,7 +319,7 @@ export default function ControlStockOrg() {
 				setCardData({ ...base, valor_total: 'C$ 0' });
 			}
 		};
-
+		setLoading(false);
 		load();
 		const handler = () => load();
 		window.addEventListener('stock:updated', handler);
@@ -542,278 +543,211 @@ export default function ControlStockOrg() {
 
 	return (
 		<>
-			<div className='w-full p-6 flex flex-col'>
-				<section className='flex flex-col md:flex-row w-full gap-1 md:items-center justify-start border border-dark/20 rounded-lg p-4 mb-4'>
-					<div className='flex gap-1 items-center'>
-						<FiGlobe className='h-4 w-4 md:h-5 md:w-5 text-blue' />
-						<h3 className='md:text-lg font-semibold'>Sucursal: </h3>
-					</div>
-					<div className='lg:w-1/3 md:w-1/2'>
-						{isAdmin ? (
-							<DropdownMenu
-								options={[{ label: 'Todas', value: 'Todas' }, ...topSucursales]}
-								defaultValue={topSucursal === 'Todas' ? 'Vista general (Todas las sucursales)' : topSucursal}
-								onChange={(opt) => setTopSucursal(opt.value === 'Todas' ? 'Todas' : opt.label)}
-							/>
-						) : (
-							<div className='flex items-center h-10 px-3 border border-dark/20 rounded-lg bg-light'>
-								<span>{topSucursal || currentUser?.SUCURSAL_NOMBRE || 'Sucursal'}</span>
-							</div>
-						)}
-					</div>
-				</section>
-				<section className='w-full flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide lg:grid lg:grid-cols-4'>
-					{
-						cardsConfig.map((cfg, index) => (
-							<div key={index} className='snap-start shrink-0 w-72 lg:w-auto'>
-								<InfoCard
-									CardTitle={cfg.title}
-									cardValue={cardData[cfg.key]}
-									cardIcon={<cfg.icon className={`h-4 w-4 md:h-6 md:w-6 text-${cfg.color}`} />}
-									cardIconColor={cfg.color}
-								/>
-							</div>
-						))
-					}
-				</section>
-				<section className='w-full mt-6'>
-					<div className='grid grid-cols-5 p-1 h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold'>
-						{tabs.map((tab) => (
-							<div
-								key={tab.label}
-								className={`flex gap-2 items-center justify-center cursor-pointer rounded-sm ${activeTab === tab.label ? "bg-light text-dark" : ""
-									}`}
-								onClick={() => setActiveTab(tab.label)}
-							>
-								{tab.icon}
-								<h2 className='hidden md:block'>{tab.label}</h2>
-							</div>
-						))}
-					</div>
-				</section>
-				<section className='flex mt-4 w-full justify-end'>
-					<div className='gap-2 flex xl:w-[50%] lg:w-[60%] md:w-[70%] sm:w-[80%] w-full md:justify-end'>
-						<Button
-							className={"primary"}
-							text={"Ajustar Stock"}
-							icon={<BsGear className='h-4 w-4' />}
-							func={() => toggleModalType('stock')}
-						/>
-						<Button
-							className={"transparent"}
-							text={"Ajustar Rangos"}
-							icon={<FiMinus className='h-4 w-4' />}
-							iconRight={<FiPlus className='h-4 w-4' />}
-							func={() => toggleModalType('range')}
-						/>
-					</div>
-				</section>
-				<section className='w-full mt-4 border-dark/20 border rounded-lg p-4 flex flex-col'>
-					{activeTab === 'Resumen' && <Summary setIsActiveModal={setIsActiveModal} sucursalFilter={topSucursal} />}
-					{activeTab === 'Movimientos' && <Movements sucursalFilter={topSucursal} />}
-					{activeTab === 'Alertas' && <Alerts sucursalFilter={topSucursal} />}
-					{activeTab === 'Dañados' && <Damaged sucursalFilter={topSucursal} />}
-					{activeTab === 'Reservados' && <Reserved sucursalFilter={topSucursal} />}
-				</section>
-			</div>
-			{isActiveModal && (
-				<ModalContainer
-					setIsActiveModal={setIsActiveModal}
-					txtButton={mode === "stock"
-						? "Registrar Movimiento"
-						: "Guardar Cambios"
-					}
-					modalTitle={mode === "stock"
-						? "Ajustar Stock de Producto"
-						: "Ajustar Rangos de Stock"
-					}
-					modalDescription={mode === "stock"
-						? "Registra un movimiento de inventario"
-						: "Ajusta los rangos mínimos y máximos de stock para productos"
-					}
-				>
-					{
-						mode === "stock" ? (
-							<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={handleSubmit}>
-								{/* 🔹 Sucursal */}
-								<DropdownMenu
-									label={"Sucursal"}
-									options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
-									defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
-									onChange={(opt) => {
-										setSelectedSucursal(opt);
-										if (opt) setFormErrors(prev => ({ ...prev, sucursal: '' }));
-									}}
-									error={formErrors.sucursal}
-								/>
-
-								{/* 🔹 Producto */}
-								<DropdownMenu
-									label={"Producto"}
-									options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
-									defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
-									onChange={(opt) => {
-										setSelectedProducto(opt);
-										if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
-									}}
-									error={formErrors.producto}
-								/>
-
-								{/* 🔹 Tipo de Movimiento */}
-								<DropdownMenu
-									label={"Tipo de Movimiento"}
-									options={movimientos}
-									defaultValue={"Selecciona un tipo"}
-									onChange={(value) => {
-										setTipoMovimiento(value);
-										if (value) setFormErrors(prev => ({ ...prev, tipoMovimiento: '' }));
-									}}
-									error={formErrors.tipoMovimiento}
-								/>
-
-								{/* 🔹 Campos dinámicos */}
-								{tipoMovimiento === "Marcar como Dañado" && (
-									<>
-										{/* Estado del daño */}
-										<DropdownMenu
-											label="Estado"
-											options={["Recuperable", "Perdida Total"]}
-											defaultValue="Selecciona estado"
-											onChange={(opt) => {
-												const value = typeof opt === 'object' ? opt.label : opt;
-												setEstadoDano(value);
-												setFormErrors(prev => ({ ...prev, estadoDano: '' }));
-											}}
-											error={formErrors.estadoDano}
-										/>
-
-										<DropdownMenu
-											label="Unidad de Medida"
-											options={unidadOptions.length ? unidadOptions : [{ label: 'Sin unidades', value: null }]}
-											defaultValue={selectedUnidad ? selectedUnidad.label : 'Selecciona la unidad de medida'}
-											onChange={(opt) => { setSelectedUnidad(opt); setFormErrors(prev => ({ ...prev, unidad: '' })); }}
-											error={formErrors.unidad}
-										/>
-
-										<Input
-											label={estadoDano === 'Perdida Total' ? 'Cantidad (Pérdida Total)' : 'Cantidad Recuperable'}
-											type="number"
-											placeholder="0"
-											inputClass="no icon"
-											value={cantidadMovimiento}
-											onChange={(e) => {
-												setCantidadMovimiento(e.target.value);
-												setFormErrors(prev => ({ ...prev, cantidad: '' }));
-											}}
-											error={formErrors.cantidad}
-										/>
-
-										<DropdownMenu
-											label="Tipo de Daño"
-											options={["Vencido", "Deteriorado", "Defectuoso"]}
-											defaultValue="Selecciona un tipo de daño"
-											onChange={(opt) => {
-												const value = typeof opt === 'object' ? opt.label : opt;
-												setTipoDano(value);
-												setFormErrors(prev => ({ ...prev, tipoDano: '' }));
-											}}
-											error={formErrors.tipoDano}
-										/>
-
-										<Input
-											label="Descripción"
-											placeholder="Describe el daño..."
-											isTextarea={true}
-											inputClass="no icon"
-											isLastElement={true}
-											value={motivoMovimiento}
-											onChange={(e) => {
-												setMotivoMovimiento(e.target.value);
-												setFormErrors(prev => ({ ...prev, motivo: '' }));
-											}}
-											error={formErrors.motivo}
-										/>
-									</>
+			{
+				loading ? (
+					<Loading 
+						pageTitle={"Control de Stock"}
+					/>
+				) : (
+					<div className='w-full p-6 flex flex-col'>
+						<section className='flex flex-col md:flex-row w-full gap-1 md:items-center justify-start border border-dark/20 rounded-lg p-4 mb-4'>
+							<div className='flex gap-1 items-center'>
+								<FiGlobe className='h-4 w-4 md:h-5 md:w-5 text-blue' />
+								<h3 className='md:text-lg font-semibold'>Sucursal: </h3>
+							</div >
+							<div className='lg:w-1/3 md:w-1/2'>
+								{isAdmin ? (
+									<DropdownMenu
+										options={[{ label: 'Todas', value: 'Todas' }, ...topSucursales]}
+										defaultValue={topSucursal === 'Todas' ? 'Vista general (Todas las sucursales)' : topSucursal}
+										onChange={(opt) => setTopSucursal(opt.value === 'Todas' ? 'Todas' : opt.label)}
+									/>
+								) : (
+									<div className='flex items-center h-10 px-3 border border-dark/20 rounded-lg bg-light'>
+										<span>{topSucursal || currentUser?.SUCURSAL_NOMBRE || 'Sucursal'}</span>
+									</div>
 								)}
-
-								{tipoMovimiento === "Marcar como Reservado" && (
-									<>
-										<Input
-											label="Cantidad"
-											type="number"
-											placeholder="0"
-											inputClass="no icon"
-											value={cantidadMovimiento}
-											onChange={(e) => {
-												setCantidadMovimiento(e.target.value);
-												setFormErrors(prev => ({ ...prev, cantidad: '' }));
-											}}
-											error={formErrors.cantidad}
+							</div>
+						</section >
+						<section className='w-full flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide lg:grid lg:grid-cols-4'>
+							{
+								cardsConfig.map((cfg, index) => (
+									<div key={index} className='snap-start shrink-0 w-72 lg:w-auto'>
+										<InfoCard
+											CardTitle={cfg.title}
+											cardValue={cardData[cfg.key]}
+											cardIcon={<cfg.icon className={`h-4 w-4 md:h-6 md:w-6 text-${cfg.color}`} />}
+											cardIconColor={cfg.color}
 										/>
-										<div className="relative">
-											<Input
-												label="Cliente"
-												placeholder="Nombre del cliente"
-												value={cliente}
-												onChange={handleClienteChange}
-												inputClass="no icon"
-												error={formErrors.cliente}
+									</div>
+								))
+							}
+						</section>
+						<section className='w-full mt-6'>
+							<div className='grid grid-cols-5 p-1 h-10 bg-dark/10 rounded-sm text-dark/50 font-semibold'>
+								{tabs.map((tab) => (
+									<div
+										key={tab.label}
+										className={`flex gap-2 items-center justify-center cursor-pointer rounded-sm ${activeTab === tab.label ? "bg-light text-dark" : ""
+											}`}
+										onClick={() => setActiveTab(tab.label)}
+									>
+										{tab.icon}
+										<h2 className='hidden md:block'>{tab.label}</h2>
+									</div>
+								))}
+							</div>
+						</section>
+						<section className='flex mt-4 w-full justify-end'>
+							<div className='gap-2 flex xl:w-[50%] lg:w-[60%] md:w-[70%] sm:w-[80%] w-full md:justify-end'>
+								<Button
+									className={"primary"}
+									text={"Ajustar Stock"}
+									icon={<BsGear className='h-4 w-4' />}
+									func={() => toggleModalType('stock')}
+								/>
+								<Button
+									className={"transparent"}
+									text={"Ajustar Rangos"}
+									icon={<FiMinus className='h-4 w-4' />}
+									iconRight={<FiPlus className='h-4 w-4' />}
+									func={() => toggleModalType('range')}
+								/>
+							</div>
+						</section>
+						<section className='w-full mt-4 border-dark/20 border rounded-lg p-4 flex flex-col'>
+							{activeTab === 'Resumen' && <Summary setIsActiveModal={setIsActiveModal} sucursalFilter={topSucursal} />}
+							{activeTab === 'Movimientos' && <Movements sucursalFilter={topSucursal} />}
+							{activeTab === 'Alertas' && <Alerts sucursalFilter={topSucursal} />}
+							{activeTab === 'Dañados' && <Damaged sucursalFilter={topSucursal} />}
+							{activeTab === 'Reservados' && <Reserved sucursalFilter={topSucursal} />}
+						</section>
+					</div >
+
+				)
+			}
+			{
+				isActiveModal && (
+					<ModalContainer
+						setIsActiveModal={setIsActiveModal}
+						txtButton={mode === "stock"
+							? "Registrar Movimiento"
+							: "Guardar Cambios"
+						}
+						modalTitle={mode === "stock"
+							? "Ajustar Stock de Producto"
+							: "Ajustar Rangos de Stock"
+						}
+						modalDescription={mode === "stock"
+							? "Registra un movimiento de inventario"
+							: "Ajusta los rangos mínimos y máximos de stock para productos"
+						}
+					>
+						{
+							mode === "stock" ? (
+								<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={handleSubmit}>
+									{/* 🔹 Sucursal */}
+									<DropdownMenu
+										label={"Sucursal"}
+										options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
+										defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
+										onChange={(opt) => {
+											setSelectedSucursal(opt);
+											if (opt) setFormErrors(prev => ({ ...prev, sucursal: '' }));
+										}}
+										error={formErrors.sucursal}
+									/>
+
+									{/* 🔹 Producto */}
+									<DropdownMenu
+										label={"Producto"}
+										options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
+										defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
+										onChange={(opt) => {
+											setSelectedProducto(opt);
+											if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
+										}}
+										error={formErrors.producto}
+									/>
+
+									{/* 🔹 Tipo de Movimiento */}
+									<DropdownMenu
+										label={"Tipo de Movimiento"}
+										options={movimientos}
+										defaultValue={"Selecciona un tipo"}
+										onChange={(value) => {
+											setTipoMovimiento(value);
+											if (value) setFormErrors(prev => ({ ...prev, tipoMovimiento: '' }));
+										}}
+										error={formErrors.tipoMovimiento}
+									/>
+
+									{/* 🔹 Campos dinámicos */}
+									{tipoMovimiento === "Marcar como Dañado" && (
+										<>
+											{/* Estado del daño */}
+											<DropdownMenu
+												label="Estado"
+												options={["Recuperable", "Perdida Total"]}
+												defaultValue="Selecciona estado"
+												onChange={(opt) => {
+													const value = typeof opt === 'object' ? opt.label : opt;
+													setEstadoDano(value);
+													setFormErrors(prev => ({ ...prev, estadoDano: '' }));
+												}}
+												error={formErrors.estadoDano}
 											/>
-											{clientesFiltrados.length > 0 && cliente !== "" && (
-												<ul className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10">
-													{clientesFiltrados.map((c) => (
-														<li
-															key={c.id}
-															onClick={() => {
-																setCliente(c.nombre);
-																setTelefono(c.telefono);
-																setClientesFiltrados([]);
-															}}
-															className="px-2 py-1 cursor-pointer hover:bg-primary hover:text-white"
-														>
-															{c.nombre}
-														</li>
-													))}
-												</ul>
-											)}
-										</div>
-										<Input
-											label="Teléfono"
-											placeholder="Número del cliente"
-											value={telefono}
-											onChange={(e) => {
-												setTelefono(e.target.value);
-												setFormErrors(prev => ({ ...prev, telefono: '' }));
-											}}
-											inputClass="no icon"
-											error={formErrors.telefono}
-										/>
 
-										<Input
-											label="Fecha de Entrega"
-											type="date"
-											inputClass="no icon"
-											value={fechaEntrega}
-											onChange={(e) => {
-												setFechaEntrega(e.target.value);
-												setFormErrors(prev => ({ ...prev, fechaEntrega: '' }));
-											}}
-											error={formErrors.fechaEntrega}
-										/>
+											<DropdownMenu
+												label="Unidad de Medida"
+												options={unidadOptions.length ? unidadOptions : [{ label: 'Sin unidades', value: null }]}
+												defaultValue={selectedUnidad ? selectedUnidad.label : 'Selecciona la unidad de medida'}
+												onChange={(opt) => { setSelectedUnidad(opt); setFormErrors(prev => ({ ...prev, unidad: '' })); }}
+												error={formErrors.unidad}
+											/>
 
-										<Input
-											label="Notas"
-											placeholder="Agrega una nota..."
-											isTextarea={true}
-											inputClass="no icon"
-											value={notas}
-											onChange={(e) => setNotas(e.target.value)}
-										/>
-									</>
-								)}
+											<Input
+												label={estadoDano === 'Perdida Total' ? 'Cantidad (Pérdida Total)' : 'Cantidad Recuperable'}
+												type="number"
+												placeholder="0"
+												inputClass="no icon"
+												value={cantidadMovimiento}
+												onChange={(e) => {
+													setCantidadMovimiento(e.target.value);
+													setFormErrors(prev => ({ ...prev, cantidad: '' }));
+												}}
+												error={formErrors.cantidad}
+											/>
 
-								{(tipoMovimiento === "Entrada (Aumentar Stock)" ||
-									tipoMovimiento === "Salida (Reducir Stock)") && (
+											<DropdownMenu
+												label="Tipo de Daño"
+												options={["Vencido", "Deteriorado", "Defectuoso"]}
+												defaultValue="Selecciona un tipo de daño"
+												onChange={(opt) => {
+													const value = typeof opt === 'object' ? opt.label : opt;
+													setTipoDano(value);
+													setFormErrors(prev => ({ ...prev, tipoDano: '' }));
+												}}
+												error={formErrors.tipoDano}
+											/>
+
+											<Input
+												label="Descripción"
+												placeholder="Describe el daño..."
+												isTextarea={true}
+												inputClass="no icon"
+												isLastElement={true}
+												value={motivoMovimiento}
+												onChange={(e) => {
+													setMotivoMovimiento(e.target.value);
+													setFormErrors(prev => ({ ...prev, motivo: '' }));
+												}}
+												error={formErrors.motivo}
+											/>
+										</>
+									)}
+
+									{tipoMovimiento === "Marcar como Reservado" && (
 										<>
 											<Input
 												label="Cantidad"
@@ -827,97 +761,175 @@ export default function ControlStockOrg() {
 												}}
 												error={formErrors.cantidad}
 											/>
+											<div className="relative">
+												<Input
+													label="Cliente"
+													placeholder="Nombre del cliente"
+													value={cliente}
+													onChange={handleClienteChange}
+													inputClass="no icon"
+													error={formErrors.cliente}
+												/>
+												{clientesFiltrados.length > 0 && cliente !== "" && (
+													<ul className="absolute w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10">
+														{clientesFiltrados.map((c) => (
+															<li
+																key={c.id}
+																onClick={() => {
+																	setCliente(c.nombre);
+																	setTelefono(c.telefono);
+																	setClientesFiltrados([]);
+																}}
+																className="px-2 py-1 cursor-pointer hover:bg-primary hover:text-white"
+															>
+																{c.nombre}
+															</li>
+														))}
+													</ul>
+												)}
+											</div>
 											<Input
-												label="Motivo"
-												placeholder="Describe el motivo..."
+												label="Teléfono"
+												placeholder="Número del cliente"
+												value={telefono}
+												onChange={(e) => {
+													setTelefono(e.target.value);
+													setFormErrors(prev => ({ ...prev, telefono: '' }));
+												}}
 												inputClass="no icon"
-												isTextarea={true}
-												value={motivoMovimiento}
-												onChange={(e) => setMotivoMovimiento(e.target.value)}
+												error={formErrors.telefono}
 											/>
-											<Input
-												label="Referencia (opcional)"
-												placeholder="Ej: ORD-001, VEN-1234"
 
+											<Input
+												label="Fecha de Entrega"
+												type="date"
 												inputClass="no icon"
-												value={referenciaMovimiento}
-												onChange={(e) => setReferenciaMovimiento(e.target.value)}
+												value={fechaEntrega}
+												onChange={(e) => {
+													setFechaEntrega(e.target.value);
+													setFormErrors(prev => ({ ...prev, fechaEntrega: '' }));
+												}}
+												error={formErrors.fechaEntrega}
+											/>
+
+											<Input
+												label="Notas"
+												placeholder="Agrega una nota..."
+												isTextarea={true}
+												inputClass="no icon"
+												value={notas}
+												onChange={(e) => setNotas(e.target.value)}
 											/>
 										</>
 									)}
-								{formErrors.general && <span className='text-danger text-center'>{formErrors.general}</span>}
-								<div className='col-span-2 flex gap-2 mt-2'>
-									<Button
-										className={"danger"}
-										text={"Cancelar"}
-										type="button"
-										func={() => setIsActiveModal(false)}
+
+									{(tipoMovimiento === "Entrada (Aumentar Stock)" ||
+										tipoMovimiento === "Salida (Reducir Stock)") && (
+											<>
+												<Input
+													label="Cantidad"
+													type="number"
+													placeholder="0"
+													inputClass="no icon"
+													value={cantidadMovimiento}
+													onChange={(e) => {
+														setCantidadMovimiento(e.target.value);
+														setFormErrors(prev => ({ ...prev, cantidad: '' }));
+													}}
+													error={formErrors.cantidad}
+												/>
+												<Input
+													label="Motivo"
+													placeholder="Describe el motivo..."
+													inputClass="no icon"
+													isTextarea={true}
+													value={motivoMovimiento}
+													onChange={(e) => setMotivoMovimiento(e.target.value)}
+												/>
+												<Input
+													label="Referencia (opcional)"
+													placeholder="Ej: ORD-001, VEN-1234"
+
+													inputClass="no icon"
+													value={referenciaMovimiento}
+													onChange={(e) => setReferenciaMovimiento(e.target.value)}
+												/>
+											</>
+										)}
+									{formErrors.general && <span className='text-danger text-center'>{formErrors.general}</span>}
+									<div className='col-span-2 flex gap-2 mt-2'>
+										<Button
+											className={"danger"}
+											text={"Cancelar"}
+											type="button"
+											func={() => setIsActiveModal(false)}
+										/>
+										<Button
+											className={"success"}
+											text={"Ajustar Stock"}
+											type="submit"
+										/>
+									</div>
+								</form>
+							) : (
+								<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={handleSubmitRange}>
+									<DropdownMenu
+										label={"Sucursal"}
+										options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
+										defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
+										onChange={(opt) => {
+											setSelectedSucursal(opt);
+											if (opt) setFormErrors(prev => ({ ...prev, sucursal: '' }));
+										}}
+										error={formErrors.sucursal}
 									/>
-									<Button
-										className={"success"}
-										text={"Ajustar Stock"}
-										type="submit"
+									<DropdownMenu
+										label={"Producto"}
+										options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
+										defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
+										onChange={(opt) => {
+											setSelectedProducto(opt);
+											if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
+										}}
+										error={formErrors.producto}
 									/>
-								</div>
-							</form>
-						) : (
-							<form className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" onSubmit={handleSubmitRange}>
-								<DropdownMenu
-									label={"Sucursal"}
-									options={sucursales.length > 0 ? sucursales : [{ label: 'Cargando...', value: null }]}
-									defaultValue={selectedSucursal ? selectedSucursal.label : "Selecciona una sucursal"}
-									onChange={(opt) => {
-										setSelectedSucursal(opt);
-										if (opt) setFormErrors(prev => ({ ...prev, sucursal: '' }));
-									}}
-									error={formErrors.sucursal}
-								/>
-								<DropdownMenu
-									label={"Producto"}
-									options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
-									defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
-									onChange={(opt) => {
-										setSelectedProducto(opt);
-										if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
-									}}
-									error={formErrors.producto}
-								/>
-								<Input
-									label="Rango Mínimo de Stock"
-									type="number"
-									placeholder="0"
-									inputClass="no icon"
-									value={minimo}
-									onChange={(e) => { setMinimo(e.target.value); setFormErrors(prev => ({ ...prev, minimo: '' })); }}
-									error={formErrors.minimo}
-								/>
-								<Input
-									label="Rango Máximo de Stock"
-									type="number"
-									placeholder="0"
-									inputClass="no icon"
-									value={maximo}
-									onChange={(e) => { setMaximo(e.target.value); setFormErrors(prev => ({ ...prev, maximo: '' })); }}
-									error={formErrors.maximo}
-								/>
-								<div className='col-span-2 flex gap-2 mt-2'>
-									<Button
-										className={"danger"}
-										text={"Cancelar"}
-										type="button"
-										func={() => setIsActiveModal(false)}
+									<Input
+										label="Rango Mínimo de Stock"
+										type="number"
+										placeholder="0"
+										inputClass="no icon"
+										value={minimo}
+										onChange={(e) => { setMinimo(e.target.value); setFormErrors(prev => ({ ...prev, minimo: '' })); }}
+										error={formErrors.minimo}
 									/>
-									<Button
-										className={"success"}
-										text={"Guardar Rangos"}
-										type="submit"
+									<Input
+										label="Rango Máximo de Stock"
+										type="number"
+										placeholder="0"
+										inputClass="no icon"
+										value={maximo}
+										onChange={(e) => { setMaximo(e.target.value); setFormErrors(prev => ({ ...prev, maximo: '' })); }}
+										error={formErrors.maximo}
 									/>
-								</div>
-							</form>
-						)
-					}
-				</ModalContainer>
-			)}
+									<div className='col-span-2 flex gap-2 mt-2'>
+										<Button
+											className={"danger"}
+											text={"Cancelar"}
+											type="button"
+											func={() => setIsActiveModal(false)}
+										/>
+										<Button
+											className={"success"}
+											text={"Guardar Rangos"}
+											type="submit"
+										/>
+									</div>
+								</form>
+							)
+						}
+					</ModalContainer>
+				)
+			}
 		</>
 	)
 }

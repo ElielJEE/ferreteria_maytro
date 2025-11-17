@@ -225,8 +225,8 @@ export default function CreditosOrg() {
 													</div>
 												</td>
 												<td className='p-2'>
-													<div className={`${item.estado === 'Activa' ? 'bg-success' : 'bg-secondary'} text-light rounded-full text-center px-2 text-sm`}>
-														{item.estado}
+													<div className={`${item.estado === 'activa' ? 'bg-success' : 'bg-dark'} text-light rounded-full text-center px-2 text-sm`}>
+														{item.estado === 'pagada' ? 'cancelada' : item.estado}
 													</div>
 												</td>
 												<td className='p-2 flex justify-center items-center'>

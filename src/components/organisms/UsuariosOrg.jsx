@@ -171,7 +171,6 @@ export default function UsuariosOrg() {
 
 		try {
 			const res = await UsuarioService.createUsuario(newUsuario);
-			alert(res.message || "Usuario creado correctamente.");
 
 			const usuariosActualizados = await UsuarioService.getUsuarios();
 			setUsuarios(usuariosActualizados.usuarios);
