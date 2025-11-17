@@ -202,7 +202,7 @@ export default function Damaged({ sucursalFilter = 'Todas' }) {
 												</td>
 												<td className='p-2 text-danger'>{fmtCordoba(item.perdida)}</td>
 												<td className='p-2'>
-													<div className={`px-2 text-center rounded-full ${cfgEstado.bgColor ?? 'bg-dark/10'}`}>
+													<div className={`px-2 text-center rounded-full ${item.estado === 'recuperado' ? 'bg-success' : 'bg-danger'}`}>
 														<span className='text-sm text-light'>{item.estado}</span>
 													</div>
 												</td>

@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect } from 'react'
-import { Button, InfoCard, ModalContainer } from '@/components/atoms'
+import { Button, InfoCard, Loading, ModalContainer } from '@/components/atoms'
 import { FiAlertTriangle, FiBox, FiDelete, FiEdit, FiPlus, FiSearch, FiTrash, FiTrendingDown, FiTrendingUp } from 'react-icons/fi'
 import { BsBoxSeam, BsFillBoxFill } from 'react-icons/bs'
 import { Card, DropdownMenu, Input } from '../molecules'
@@ -28,6 +28,7 @@ export default function ProductsOrg() {
 	const [errors, setErrors] = useState({});
 	const { message, setMessage } = useMessage();
 	const [confirmDelete, setConfirmDelete] = useState(null);
+	const [loading, setLoading] = useState(true);
 
 	const validateForm = () => {
 		const newErrors = {};
@@ -92,35 +93,36 @@ export default function ProductsOrg() {
 				console.error(error)
 			}
 		}
+		setLoading(false);
 		fetchAll();
 	}, []);
 
 	const toggleModalType = async (action, item = null) => {
 		if (action === 'create') {
 			setEditMode(false);
-					// ensure units loaded before opening modal so dropdown has options
-					let availableUnits = unitsOptions || [];
-					if (!availableUnits.length) {
-						try {
-							const unidades = await UnidadesService.getUnidades();
-							const normalized = (unidades || []).map(u => ({
-								ID_UNIDAD: u.ID_UNIDAD ?? u.id ?? u.ID,
-								NOMBRE: u.NOMBRE ?? u.unidad ?? u.nombre
-							}));
-							setUnitsOptions(normalized);
-							availableUnits = normalized;
-						} catch (e) {
-							console.error('Error loading unidades before opening modal', e);
-						}
-					}
-					setForm({
+			// ensure units loaded before opening modal so dropdown has options
+			let availableUnits = unitsOptions || [];
+			if (!availableUnits.length) {
+				try {
+					const unidades = await UnidadesService.getUnidades();
+					const normalized = (unidades || []).map(u => ({
+						ID_UNIDAD: u.ID_UNIDAD ?? u.id ?? u.ID,
+						NOMBRE: u.NOMBRE ?? u.unidad ?? u.nombre
+					}));
+					setUnitsOptions(normalized);
+					availableUnits = normalized;
+				} catch (e) {
+					console.error('Error loading unidades before opening modal', e);
+				}
+			}
+			setForm({
 				id: '',
 				codigo: '',
 				nombre: '',
 				subcategoria: '',
 				cantidad: '',
 				unidades: [
-						{ unidad: availableUnits.length ? { value: availableUnits[0].ID_UNIDAD, label: availableUnits[0].NOMBRE } : null, precio_venta: '', cantidad_unidad: '1' }
+					{ unidad: availableUnits.length ? { value: availableUnits[0].ID_UNIDAD, label: availableUnits[0].NOMBRE } : null, precio_venta: '', cantidad_unidad: '1' }
 				]
 			});
 			setIsActiveModal(true);
@@ -211,129 +213,148 @@ export default function ProductsOrg() {
 
 	return (
 		<>
-			<div className='w-full p-6 flex flex-col'>
-				<section className='w-full grid grid-cols-1 gap-4 xl:grid-cols-4 md:grid-cols-2'>
-					<InfoCard
-						CardTitle={"Total Productos"}
-						cardValue={products.reduce((acc, prod) => acc + (Number(prod.CANTIDAD) || 0), 0)}
-						cardIconColor={"primary"}
-						cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
+			{
+				loading ? (
+					<Loading
+						pageTitle={"Lista de Productos"}
 					/>
-				</section>
-				<section className='w-full mt-6 border-dark/20 border rounded-lg p-4 flex flex-col'>
-					<div className='w-full flex sm:flex-row flex-col sm:justify-between sm:items-center mb-4 gap-2 md:gap-0'>
-						<div className='flex flex-col'>
-							<h2 className='md:text-2xl font-semibold'>Lista de productos</h2>
-							<span className='text-sm md:text-medium text-dark/50'>Gestiona y administra tu inventario</span>
-						</div>
-						<div className='flex xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%] w-full md:justify-end'>
-							<Button
-								className={"primary"}
-								text={"Agregar Producto"}
-								icon={<FiPlus className='h-4 w-4' />}
-								func={() => toggleModalType('create')}
+				) : (
+					<div className='w-full p-6 flex flex-col'>
+						<section className='w-full grid grid-cols-1 gap-4 xl:grid-cols-4 md:grid-cols-2'>
+							<InfoCard
+								CardTitle={"Total Productos"}
+								cardValue={products.reduce((acc, prod) => acc + (Number(prod.CANTIDAD) || 0), 0)}
+								cardIconColor={"primary"}
+								cardIcon={<BsBoxSeam className='h-4 w-4 md:h-6 md:w-6 text-primary' />}
 							/>
+						</section >
+						<section className='w-full mt-6 border-dark/20 border rounded-lg p-4 flex flex-col'>
+							<div className='w-full flex sm:flex-row flex-col sm:justify-between sm:items-center mb-4 gap-2 md:gap-0'>
+								<div className='flex flex-col'>
+									<h2 className='md:text-2xl font-semibold'>Lista de productos</h2>
+									<span className='text-sm md:text-medium text-dark/50'>Gestiona y administra tu inventario</span>
+								</div>
+								<div className='flex xl:w-[20%] lg:w-[30%] md:w-[40%] sm:w-[50%] w-full md:justify-end'>
+									<Button
+										className={"primary"}
+										text={"Agregar Producto"}
+										icon={<FiPlus className='h-4 w-4' />}
+										func={() => toggleModalType('create')}
+									/>
 
-						</div>
-					</div>
-					<div className='w-full flex flex-col gap-1 sticky top-20 bg-light pt-4'>
-						<Input
-							placeholder={"Buscar producto..."}
-							type={"search"}
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-							iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
-						/>
-						<div className='md:w-1/4 w-full flex gap-2 flex-col md:flex-row'>
-							<DropdownMenu
-								options={['Todas las categorias', ...subcategories.map(sub => sub.NOMBRE_SUBCATEGORIA)]}
-								defaultValue={'Todas las categorias'}
-								onChange={(value) => setSelectedCategory(value)}
-							/>
-						</div>
-					</div>
-					{!isMobile ?
-						(
-							<div className='w-full overflow-x-auto rounded-lg border border-dark/20 mt-2'>
-								<table className='w-full border-collapse'>
-									<thead className=' w-full border-b border-dark/20'>
-										<tr className='w-full'>
-											<th className='text-center text-dark/50 font-semibold p-2'>#</th>
-											<th className='text-center text-dark/50 font-semibold p-2'>Código</th>
-											<th className='text-center text-dark/50 font-semibold p-2'>Producto</th>
-											<th className='text-center text-dark/50 font-semibold p-2'>Categoría</th>
-											<th className='text-center text-dark/50 font-semibold p-2'>Cantidad</th>
-											<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
-										</tr>
-									</thead>
-									<tbody className='w-full'>
-										{filteredProducts.slice(0, visibleItems).map((item, index) => (
-											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
-												<td className='p-2 text-center'>{index + 1}</td>
-												<td className='p-2 text-center'>{item.CODIGO_PRODUCTO}</td>
-												<td className='p-2 max-w-[180px] truncate text-center'>{item.PRODUCT_NAME}</td>
-												<td className='p-2 text-center'>
-													<span className='flex items-center justify-center border border-dark/20 p-1 rounded-full text-xs font-medium'>
-														{item.NOMBRE_SUBCATEGORIA}
-													</span>
-												</td>
-												<td className='p-2 text-center'>{item.CANTIDAD}</td>
-												<td className='p-2 text-center'>
-													<div className='flex gap-2 justify-center'>
-														<Button
-															className={"none"}
-															icon={<FiEdit className='h-4 w-4' />}
-															func={() => toggleModalType('edit', item)}
-														/>
-														<Button
-															className={"none"}
-															icon={<FiTrash className='h-4 w-4' />}
-															func={() => toggleModalType('delete', item)}
-														/>
-													</div>
-												</td>
-											</tr>
-										))}
-									</tbody>
-								</table>
+								</div>
 							</div>
-						) : (
-							<div className='w-full overflow-x-auto mt-2 flex flex-col gap-2'>
-								{
-									filteredProducts.slice(0, visibleItems).map((item, index) => (
-										<Card
-											key={index}
-											id={item.CODIGO_PRODUCTO}
-											productName={item.PRODUCT_NAME}
-											category={item.NOMBRE_SUBCATEGORIA}
-										>
-											<div className='flex flex-col'>
-												<span className='text-sm text-dark/70'>Cantidad</span>
-												<span className='text-lg font-semibold'>{item.CANTIDAD}</span>
-											</div>
-											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
-												<Button className={"none"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('edit', item)} />
-												<Button className={"none"} text={"Eliminar"} icon={<FiTrash />} func={() => toggleModalType('delete', item)} />
-											</div>
-										</Card>
-									))
-								}
-							</div>
-						)
-					}
-					<div className='w-full flex justify-center items-center'>
-						{visibleItems < filteredProducts.length && (
-							<div className='w-full mt-4 md:w-1/4'>
-								<Button
-									className={"transparent"}
-									text={"Ver Mas"}
-									func={loadMore}
+							<div className='w-full flex flex-col gap-1 sticky top-20 bg-light pt-4'>
+								<Input
+									placeholder={"Buscar producto..."}
+									type={"search"}
+									value={searchTerm}
+									onChange={(e) => setSearchTerm(e.target.value)}
+									iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
 								/>
+								<div className='md:w-1/4 w-full flex gap-2 flex-col md:flex-row'>
+									<DropdownMenu
+										options={['Todas las categorias', ...subcategories.map(sub => sub.NOMBRE_SUBCATEGORIA)]}
+										defaultValue={'Todas las categorias'}
+										onChange={(value) => setSelectedCategory(value)}
+									/>
+								</div>
 							</div>
-						)}
-					</div>
-				</section>
-			</div>
+							{
+								products.length > 0 ? (
+									(!isMobile ?
+										(
+											<div className='w-full overflow-x-auto rounded-lg border border-dark/20 mt-2'>
+												<table className='w-full border-collapse'>
+													<thead className=' w-full border-b border-dark/20'>
+														<tr className='w-full'>
+															<th className='text-center text-dark/50 font-semibold p-2'>#</th>
+															<th className='text-center text-dark/50 font-semibold p-2'>Código</th>
+															<th className='text-center text-dark/50 font-semibold p-2'>Producto</th>
+															<th className='text-center text-dark/50 font-semibold p-2'>Categoría</th>
+															<th className='text-center text-dark/50 font-semibold p-2'>Cantidad</th>
+															<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
+														</tr>
+													</thead>
+													<tbody className='w-full'>
+														{filteredProducts.slice(0, visibleItems).map((item, index) => (
+															<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
+																<td className='p-2 text-center'>{index + 1}</td>
+																<td className='p-2 text-center'>{item.CODIGO_PRODUCTO}</td>
+																<td className='p-2 max-w-[180px] truncate text-center'>{item.PRODUCT_NAME}</td>
+																<td className='p-2 text-center'>
+																	<span className='flex items-center justify-center border border-dark/20 p-1 rounded-full text-xs font-medium'>
+																		{item.NOMBRE_SUBCATEGORIA}
+																	</span>
+																</td>
+																<td className='p-2 text-center'>{item.CANTIDAD}</td>
+																<td className='p-2 text-center'>
+																	<div className='flex gap-2 justify-center'>
+																		<Button
+																			className={"none"}
+																			icon={<FiEdit className='h-4 w-4' />}
+																			func={() => toggleModalType('edit', item)}
+																		/>
+																		<Button
+																			className={"none"}
+																			icon={<FiTrash className='h-4 w-4' />}
+																			func={() => toggleModalType('delete', item)}
+																		/>
+																	</div>
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										) : (
+											<div className='w-full overflow-x-auto mt-2 flex flex-col gap-2'>
+												{
+													filteredProducts.slice(0, visibleItems).map((item, index) => (
+														<Card
+															key={index}
+															id={item.CODIGO_PRODUCTO}
+															productName={item.PRODUCT_NAME}
+															category={item.NOMBRE_SUBCATEGORIA}
+														>
+															<div className='flex flex-col'>
+																<span className='text-sm text-dark/70'>Cantidad</span>
+																<span className='text-lg font-semibold'>{item.CANTIDAD}</span>
+															</div>
+															<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
+																<Button className={"none"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalType('edit', item)} />
+																<Button className={"none"} text={"Eliminar"} icon={<FiTrash />} func={() => toggleModalType('delete', item)} />
+															</div>
+														</Card>
+													))
+												}
+											</div>
+										)
+									)
+								) : (
+									<div className='w-full text-2xl font-semibold p-10 text-center'>
+										{
+											products ? "Cargando Lista de Productos..." : "No hay productos registrados."
+										}
+									</div>
+								)
+							}
+							<div className='w-full flex justify-center items-center'>
+								{visibleItems < filteredProducts.length && (
+									<div className='w-full mt-4 md:w-1/4'>
+										<Button
+											className={"transparent"}
+											text={"Ver Mas"}
+											func={loadMore}
+										/>
+									</div>
+								)}
+							</div>
+						</section>
+					</div >
+
+				)
+			}
 			{
 				isActiveModal &&
 				<ModalContainer

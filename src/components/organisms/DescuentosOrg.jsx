@@ -93,7 +93,7 @@ export default function DescuentosOrg() {
 			});
 		} catch (error) {
 			console.error("Error creando descuento:", error)
-			setError({ general: 'Ocurrio un Error al crear el descuenot.' });
+			setError({ general: 'Ocurrio un Error al crear el descuento.' });
 		}
 	}
 
@@ -103,7 +103,11 @@ export default function DescuentosOrg() {
 		try {
 			const dataDiscount = await DescuentoService.updateDescuento(editDiscount);
 
-			setDescuentos([dataDiscount, ...descuentos]);
+			setDescuentos(prev =>
+				prev.map(d =>
+					d.ID_DESCUENTO === dataDiscount.ID_DESCUENTO ? dataDiscount : d
+				)
+			);
 
 			setEditDiscount({
 				codigo_descuento: "",

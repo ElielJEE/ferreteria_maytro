@@ -67,8 +67,8 @@ export default function SucursalesOrg() {
 			// Prefill with current values available
 			setNombre(item?.label || '');
 			setCodigo(item?.value || ''); // codigo bloqueado en edición
-			setDireccion('');
-			setTelefono('');
+			setDireccion(item?.direccion || '');
+			setTelefono(item?.telefono || '');
 			setIsActiveModal(true);
 		} else if (type === 'delete') {
 			setIsActiveModal(true);
