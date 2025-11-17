@@ -364,12 +364,7 @@ export default function PuntoVentaOrg() {
 
 			const res = await SalesService.createSale(payload);
 			console.log(res);
-			await imprimirVoucher({
-				numero: res.numero,
-				facturaId: res.facturaId,
-				total: res.total,
-				cambio: res.cambio
-			});
+			await imprimirVoucher(res);
 			// Mostrar modal de resultado con cambio
 			setMode('confirmar venta');
 			setIsActiveModal(true);
