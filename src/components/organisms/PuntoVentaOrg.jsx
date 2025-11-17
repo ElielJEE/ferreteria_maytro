@@ -7,6 +7,7 @@ import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin, BsKey, BsRulers, BsScrewdriver, BsWrench } from 'react-icons/bs';
 import { useRouter } from 'next/navigation';
+import { imprimirVoucher } from './imprimirVoucher';
 
 export default function PuntoVentaOrg() {
 	const [products, setProducts] = useState([]);
@@ -362,6 +363,8 @@ export default function PuntoVentaOrg() {
 			};
 
 			const res = await SalesService.createSale(payload);
+			console.log(res);
+			imprimirVoucher(res);
 			// Mostrar modal de resultado con cambio
 			setMode('confirmar venta');
 			setIsActiveModal(true);
@@ -1081,25 +1084,25 @@ export default function PuntoVentaOrg() {
 								</div>
 							</div>
 						) : (mode === "credito" ? (
-											<div className='flex flex-col gap-2 mt-2'>
-												{isAdmin && (
-													<span className='text-sm text-dark/70'>
-														Sucursal seleccionada: <span className='font-semibold'>{selectedSucursal?.label || '—'}</span>
-													</span>
-												)}
-												{error?.general && <span className='text-danger text-sm'>{error.general}</span>}
-												<div className='flex gap-2'>
-								<Button
-									text={"Cancelar"}
-									className={"secondary"}
-									func={() => setIsActiveModal(false)}
-								/>
-								<Button
-									className={'success'}
-									text={"Confirmar credito"}
-									func={() => confirmCredito()}
-								/>
-												</div>
+							<div className='flex flex-col gap-2 mt-2'>
+								{isAdmin && (
+									<span className='text-sm text-dark/70'>
+										Sucursal seleccionada: <span className='font-semibold'>{selectedSucursal?.label || '—'}</span>
+									</span>
+								)}
+								{error?.general && <span className='text-danger text-sm'>{error.general}</span>}
+								<div className='flex gap-2'>
+									<Button
+										text={"Cancelar"}
+										className={"secondary"}
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										className={'success'}
+										text={"Confirmar credito"}
+										func={() => confirmCredito()}
+									/>
+								</div>
 							</div>
 						) : (mode === "discount" ? (
 							<div className='flex flex-col gap-2 mt-2'>
