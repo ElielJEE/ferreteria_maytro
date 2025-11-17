@@ -1,23 +1,100 @@
 "use client"
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Button, ModalContainer } from '../atoms'
 import { BsArrowDownCircle } from 'react-icons/bs'
 import { FiRefreshCcw } from 'react-icons/fi'
 import { useActive } from '@/hooks'
 import ReturnView from './ReturnView'
 
-export default function SaleView({ sale, onClose }) {
+const parseNumber = (value) => {
+	const num = Number(value ?? 0);
+	return Number.isFinite(num) ? num : 0;
+};
+
+export default function SaleView({ sale, onClose, onSaleUpdate }) {
 	const { isActiveModal, setIsActiveModal } = useActive();
 	const [productData, setProductData] = useState({});
+	const [currentSale, setCurrentSale] = useState(sale || null);
+
+	useEffect(() => {
+		setCurrentSale(sale || null);
+	}, [sale]);
+
+	const subtotalActual = useMemo(() => {
+		if (!currentSale) return 0;
+		const subtotal = parseNumber(currentSale?.subtotal ?? currentSale?.SUBTOTAL);
+		if (subtotal) return subtotal;
+		const itemsSubtotal = Array.isArray(currentSale?.items)
+			? currentSale.items.reduce((acc, item) => {
+				const qty = parseNumber(item?.cantidad ?? item?.AMOUNT ?? item?.qty);
+				const price = parseNumber(item?.precio_unit ?? item?.PRECIO_UNIT ?? item?.precio ?? item?.PRECIO);
+				const sub = parseNumber(item?.subtotal ?? item?.SUB_TOTAL);
+				return acc + (sub || qty * price);
+			}, 0)
+			: 0;
+		if (itemsSubtotal) return itemsSubtotal;
+		return parseNumber(currentSale?.total ?? currentSale?.total_venta ?? currentSale?.TOTAL);
+	}, [currentSale]);
+
+	const descuentoActual = useMemo(() => {
+		if (!currentSale) return 0;
+		const direct = parseNumber(currentSale?.descuento ?? currentSale?.DESCUENTO);
+		if (direct) return direct;
+		const discountObj = currentSale?.discount;
+		if (discountObj && typeof discountObj === 'object') {
+			return parseNumber(discountObj?.monto ?? discountObj?.MONTO ?? discountObj?.valor);
+		}
+		return 0;
+	}, [currentSale]);
+
+	const totalActual = useMemo(() => {
+		if (!currentSale) return 0;
+		const direct = parseNumber(currentSale?.total ?? currentSale?.total_venta ?? currentSale?.TOTAL);
+		if (direct) return direct;
+		return Math.max(0, subtotalActual - descuentoActual);
+	}, [currentSale, subtotalActual, descuentoActual]);
 
 	const handleProductReturn = (product) => {
 		setIsActiveModal(true);
 		setProductData(product);
-	}
+	};
 
-	console.log(sale);
+	const handleReturnSaved = (res, context) => {
+		if (!res?.ok) return;
+		const totals = context?.totals;
+		setCurrentSale((prev) => {
+			if (!prev) return prev;
+			const updated = { ...prev };
+			if (totals) {
+				if (typeof totals.subtotal_nuevo !== 'undefined') {
+					updated.subtotal = parseNumber(totals.subtotal_nuevo);
+					updated.SUBTOTAL = parseNumber(totals.subtotal_nuevo);
+				}
+				if (typeof totals.descuento !== 'undefined') {
+					updated.descuento = parseNumber(totals.descuento);
+					updated.DESCUENTO = parseNumber(totals.descuento);
+				}
+				if (typeof totals.total_nuevo !== 'undefined') {
+					const newTotal = parseNumber(totals.total_nuevo);
+					updated.total = newTotal;
+					updated.total_venta = newTotal;
+					updated.TOTAL = newTotal;
+				}
+			}
+			return updated;
+		});
+		if (totals) {
+			const baseSale = currentSale || sale || {};
+			onSaleUpdate && onSaleUpdate({
+				id: baseSale?.id ?? baseSale?.ID_FACTURA ?? baseSale?.ID ?? context?.payload?.factura_id ?? null,
+				subtotal: parseNumber(totals.subtotal_nuevo),
+				descuento: parseNumber(totals.descuento),
+				total: parseNumber(totals.total_nuevo),
+			});
+		}
+	};
 
-	if (!sale) return (
+	if (!currentSale) return (
 		<div className='py-4'>No hay información de la venta.</div>
 	)
 	return (
@@ -26,37 +103,37 @@ export default function SaleView({ sale, onClose }) {
 				<div className='grid grid-cols-2 gap-4 border-b border-dark/10'>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>N° Factura</div>
-						<div className='font-semibold'>{sale.numero ?? ''}</div>
+						<div className='font-semibold'>{currentSale?.numero ?? ''}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Cliente</div>
-						<div className='font-semibold'>{sale.cliente?.nombre || 'Consumidor Final'}</div>
+						<div className='font-semibold'>{currentSale?.cliente?.nombre || 'Consumidor Final'}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Telefono</div>
-						<div className='font-semibold'>{sale.cliente?.telefono || 'N/A'}</div>
+						<div className='font-semibold'>{currentSale?.cliente?.telefono || 'N/A'}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Fecha</div>
-						<div className='font-semibold'>{sale?.fecha ? new Date(sale.fecha).toLocaleDateString() : ''}</div>
+						<div className='font-semibold'>{currentSale?.fecha ? new Date(currentSale.fecha).toLocaleDateString() : ''}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Hora</div>
-						<div className='font-semibold'>{sale?.fecha ? new Date(sale.fecha).toLocaleTimeString() : ''}</div>
+						<div className='font-semibold'>{currentSale?.fecha ? new Date(currentSale.fecha).toLocaleTimeString() : ''}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Sucursal</div>
-						<div className='font-semibold'>{sale?.sucursal?.nombre || 'N/A'}</div>
+						<div className='font-semibold'>{currentSale?.sucursal?.nombre || 'N/A'}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Vendedor</div>
-						<div className='font-semibold'>{sale?.usuario?.nombre || 'N/A'}</div>
+						<div className='font-semibold'>{currentSale?.usuario?.nombre || 'N/A'}</div>
 					</div>
 					<div className='mb-2 flex flex-col'>
 						<div className='text-dark/70 font-semibold'>Descuento</div>
 						<div className='font-semibold'>
 							{(() => {
-								const d = sale?.discount || null;
+								const d = currentSale?.discount || null;
 								if (!d) return 'Sin descuento';
 								return (
 									d.codigo || d.CODIGO_DESCUENTO || d.nombre || 'Descuento aplicado'
@@ -67,7 +144,7 @@ export default function SaleView({ sale, onClose }) {
 				</div>
 				<div className='mb-2'>
 					<div className='mt-1'>
-						{Array.isArray(sale.items) && sale.items.length ? (
+						{Array.isArray(currentSale?.items) && currentSale.items.length ? (
 							<div className='w-2xl'>
 								<table className='w-full border-collapse text-sm'>
 									<thead>
@@ -82,7 +159,7 @@ export default function SaleView({ sale, onClose }) {
 										</tr>
 									</thead>
 									<tbody>
-										{sale.items.map((it, i) => (
+										{currentSale.items.map((it, i) => (
 											<tr key={i} className='border-b border-dark/10'>
 												<td className='p-2 text-center'>{it.cantidad ?? it.qty ?? '-'}</td>
 												<td className='p-2'>{it.codigo || it.producto_codigo || it.sku || '-'}</td>
@@ -122,16 +199,16 @@ export default function SaleView({ sale, onClose }) {
 				<div className='mt-4 flex flex-col'>
 					<div className='flex justify-between'>
 						<div className='text-md font-semibold'>Subtotal:</div>
-						<div className='text-md font-semibold'>{sale.subtotal ? `C$ ${sale.subtotal}` : (sale.total_venta ? `C$${sale.total_venta}` : '-')}</div>
+						<div className='text-md font-semibold'>{subtotalActual ? `C$ ${subtotalActual.toLocaleString()}` : '-'}</div>
 					</div>
 					<div className='flex justify-between'>
 						<div className='text-md font-semibold'>Descuento:</div>
-						<div className='text-md font-semibold'>{sale.descuento === 0 ? "N/A" : "C$ " + sale.descuento}</div>
+						<div className='text-md font-semibold'>{descuentoActual ? `C$ ${descuentoActual.toLocaleString()}` : 'N/A'}</div>
 					</div>
 				</div>
 				<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>
 					<div className='text-lg font-bold'>Total:</div>
-					<div className='text-lg font-bold text-primary'>{sale.total ? `C$ ${Number(sale.total).toLocaleString()}` : (sale.total_venta ? `C$${Number(sale.total_venta).toLocaleString()}` : '-')}</div>
+					<div className='text-lg font-bold text-primary'>{totalActual ? `C$ ${totalActual.toLocaleString()}` : '-'}</div>
 				</div>
 			</div>
 			{
@@ -141,8 +218,9 @@ export default function SaleView({ sale, onClose }) {
 						isForm={true}
 					>
 						<ReturnView
-							returnData={sale}
+							returnData={currentSale}
 							onClose={() => setIsActiveModal(false)}
+							onSave={handleReturnSaved}
 							productData={productData}
 						/>
 					</ModalContainer>

@@ -94,6 +94,9 @@ function fitWithSuffix(base, maxLen, suffix = '') {
   return suffix ? `${head}-${suffix}`.slice(0, maxLen) : head.slice(0, maxLen);
 }
 
+// Util: redondear a 2 decimales y convertir a número
+const toMoney = (value) => Number(Number(value || 0).toFixed(2));
+
 // Util: detectar columnas existentes en una tabla
 async function detectColumns(conn, table, cols) {
   try {
@@ -121,6 +124,15 @@ export async function POST(req) {
     let sucursalId = tokenSucursal;
   let clienteId = null;
     let facturaSucursal = null;
+    let facturaSubtotalAntes = null;
+    let facturaTotalAntes = null;
+    let facturaSubtotalDespues = null;
+    let facturaTotalDespues = null;
+    let facturaDescuento = 0;
+    let replacementSubtotal = 0;
+    let subtotalAntesDetalles = null;
+    let descuentoDevuelto = 0;
+    let lineaBrutaDevuelta = 0;
 
     // Detectar columnas opcionales para compatibilidad con esquemas antiguos
     const devCols = await detectColumns(conn, 'DEVOLUCION', [
@@ -128,6 +140,9 @@ export async function POST(req) {
     ]);
 
     await conn.beginTransaction();
+
+    // Monto de reembolso (solo aplica cuando NO hay reemplazo)
+    let refundAmount = 0;
 
     // Validar que la cantidad solicitada no exceda lo vendido en el detalle (acumulado)
     // Además obtener el detalle de factura (FOR UPDATE) para leer CANTIDAD_POR_UNIDAD cuando exista
@@ -157,11 +172,14 @@ export async function POST(req) {
     if (detalle_id && detalleRow) {
       // Usar ID_FACTURA obtenido al leer el detalle
       try {
-        const [frows] = await conn.query('SELECT ID_SUCURSAL, ID_CLIENTES FROM FACTURA WHERE ID_FACTURA = ? LIMIT 1', [detalleRow.ID_FACTURA]);
+        const [frows] = await conn.query('SELECT ID_SUCURSAL, ID_CLIENTES, SUBTOTAL, TOTAL, DESCUENTO FROM FACTURA WHERE ID_FACTURA = ? LIMIT 1 FOR UPDATE', [detalleRow.ID_FACTURA]);
         if (frows?.length) {
           facturaSucursal = frows[0].ID_SUCURSAL || null;
           sucursalId = sucursalId || facturaSucursal || null;
           clienteId = frows[0].ID_CLIENTES || null;
+          facturaSubtotalAntes = toMoney(frows[0].SUBTOTAL || 0);
+          facturaTotalAntes = toMoney(frows[0].TOTAL || 0);
+          facturaDescuento = toMoney(frows[0].DESCUENTO || 0);
         }
       } catch {}
     }
@@ -315,13 +333,61 @@ export async function POST(req) {
   const sqlInsert = `INSERT INTO DEVOLUCION (${insertCols.join(',')}) VALUES (${placeholders})`;
   await conn.query(sqlInsert, values);
 
-  // Si se envía reemplazo, actualizar detalles de factura y stock del producto nuevo
+    // Si se envía reemplazo, actualizar detalles de factura y stock del producto nuevo.
+    // Nueva lógica: validar que el producto de reemplazo comparte el mismo conjunto de unidades
+    // que el producto original y permitir especificar unidad concreta para el reemplazo.
     if (reemplazo && (reemplazo.producto_id || reemplazo.productoId)) {
       const nuevoProdId = Number(reemplazo.producto_id || reemplazo.productoId);
-      const qtyReemp = Number(reemplazo.cantidad || cantidad);
+      // La cantidad del reemplazo debe ser exactamente la cantidad devuelta (ignoramos reemplazo.cantidad si difiere)
+      const qtyReemp = Number(cantidad);
+      // Unidad seleccionada para el producto nuevo (puede venir como unidad_id / unidadId)
+      const unidadReemplazoId = reemplazo.unidad_id || reemplazo.unidadId || null;
       if (!nuevoProdId || qtyReemp <= 0) {
         await conn.rollback();
         return Response.json({ error: 'Datos de reemplazo inválidos' }, { status: 400 });
+      }
+
+      if (detalleRow) {
+        const precioUnitOriginal = Number(detalleRow.PRECIO_UNIT ?? detalleRow.precio_unit ?? 0);
+        lineaBrutaDevuelta = toMoney(Number(cantidad) * precioUnitOriginal);
+        if (facturaSubtotalAntes == null && detalleRow.ID_FACTURA) {
+          try {
+            const [[sumPrev]] = await conn.query('SELECT COALESCE(SUM(SUB_TOTAL),0) AS SUBT FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [detalleRow.ID_FACTURA]);
+            facturaSubtotalAntes = toMoney(sumPrev?.SUBT || 0);
+          } catch {}
+        }
+        if (facturaTotalAntes == null && facturaSubtotalAntes != null) {
+          facturaTotalAntes = toMoney(facturaSubtotalAntes - facturaDescuento);
+        }
+        if ((facturaSubtotalAntes || 0) > 0 && facturaDescuento > 0) {
+          descuentoDevuelto = toMoney((lineaBrutaDevuelta / facturaSubtotalAntes) * facturaDescuento);
+        }
+      }
+
+      // 0) Validar set de unidades iguales entre producto original y nuevo
+      try {
+        const [unidadesOriginalRows] = await conn.query('SELECT UNIDAD_ID FROM producto_unidades WHERE PRODUCT_ID = ?', [producto_id]);
+        const [unidadesNuevoRows] = await conn.query('SELECT UNIDAD_ID FROM producto_unidades WHERE PRODUCT_ID = ?', [nuevoProdId]);
+        const setOriginal = new Set(unidadesOriginalRows.map(r => r.UNIDAD_ID));
+        const setNuevo = new Set(unidadesNuevoRows.map(r => r.UNIDAD_ID));
+        // Condición: ambos conjuntos deben ser exactamente iguales (mismo tamaño y mismos elementos)
+        const conjuntosIguales = setOriginal.size === setNuevo.size && [...setOriginal].every(u => setNuevo.has(u));
+        if (!conjuntosIguales) {
+          await conn.rollback();
+          return Response.json({ error: 'El producto de reemplazo no posee el mismo conjunto de unidades de medida' }, { status: 400 });
+        }
+        // Si se especificó unidadReemplazoId, validar que esté en ambos sets
+        if (unidadReemplazoId && !setOriginal.has(unidadReemplazoId)) {
+          await conn.rollback();
+          return Response.json({ error: 'La unidad seleccionada no pertenece al producto original' }, { status: 400 });
+        }
+        if (unidadReemplazoId && !setNuevo.has(unidadReemplazoId)) {
+          await conn.rollback();
+          return Response.json({ error: 'La unidad seleccionada no pertenece al producto de reemplazo' }, { status: 400 });
+        }
+      } catch (e) {
+        await conn.rollback();
+        return Response.json({ error: 'Error validando unidades de medida para reemplazo' }, { status: 400 });
       }
 
       // 1) Actualizar detalle original: reducir cantidad o eliminar
@@ -345,14 +411,39 @@ export async function POST(req) {
         const [d] = await conn.query('SELECT ID_FACTURA FROM FACTURA_DETALLES WHERE ID_DETALLES_FACTURA = ? LIMIT 1', [detalle_id]);
         if (d?.length) facId = d[0].ID_FACTURA;
       }
-      const [ppn] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [nuevoProdId]);
+      // 1b) Obtener precio y factor de la unidad seleccionada (o default si no se envía)
       let precioNuevo = 0;
-      if (ppn?.length) precioNuevo = Number(ppn[0].PRECIO || 0);
-      else {
-        const [ppn2] = await conn.query('SELECT PRECIO FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [nuevoProdId]);
-        if (ppn2?.length) precioNuevo = Number(ppn2[0].PRECIO || 0);
+      let unidadFactorNuevo = 1;
+      let unidadNombreNuevo = null;
+      if (unidadReemplazoId) {
+        const [rowUn] = await conn.query(
+          'SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE_UNIDAD FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? AND UNIDAD_ID = ? LIMIT 1',
+          [nuevoProdId, unidadReemplazoId]
+        );
+        if (!rowUn?.length) {
+          await conn.rollback();
+          return Response.json({ error: 'Unidad de medida seleccionada inválida para el producto de reemplazo' }, { status: 400 });
+        }
+        precioNuevo = Number(rowUn[0].PRECIO || 0);
+        unidadFactorNuevo = Number(rowUn[0].CANTIDAD_POR_UNIDAD || 1) || 1;
+        unidadNombreNuevo = rowUn[0].UNIDAD_NOMBRE || null;
+      } else {
+        const [ppn] = await conn.query('SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE_UNIDAD FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? AND ES_POR_DEFECTO = 1 LIMIT 1', [nuevoProdId]);
+        if (ppn?.length) {
+          precioNuevo = Number(ppn[0].PRECIO || 0);
+          unidadFactorNuevo = Number(ppn[0].CANTIDAD_POR_UNIDAD || 1) || 1;
+          unidadNombreNuevo = ppn[0].UNIDAD_NOMBRE || null;
+        } else {
+          const [ppn2] = await conn.query('SELECT PRECIO, CANTIDAD_POR_UNIDAD, UNIDAD_ID, (SELECT NOMBRE_UNIDAD FROM unidades_medidas WHERE ID_UNIDAD = UNIDAD_ID LIMIT 1) AS UNIDAD_NOMBRE FROM producto_unidades WHERE PRODUCT_ID = ? LIMIT 1', [nuevoProdId]);
+          if (ppn2?.length) {
+            precioNuevo = Number(ppn2[0].PRECIO || 0);
+            unidadFactorNuevo = Number(ppn2[0].CANTIDAD_POR_UNIDAD || 1) || 1;
+            unidadNombreNuevo = ppn2[0].UNIDAD_NOMBRE || null;
+          }
+        }
       }
       const subNuevo = Number((precioNuevo * qtyReemp).toFixed(2));
+      replacementSubtotal = toMoney(subNuevo);
       if (facId) {
         // Detectar si FACTURA_DETALLES tiene columnas de unidad para propagar metadata
         const fdCols = await detectColumns(conn, 'FACTURA_DETALLES', ['UNIDAD_ID','CANTIDAD_POR_UNIDAD','UNIDAD_NOMBRE']);
@@ -378,6 +469,13 @@ export async function POST(req) {
             } catch {}
           }
 
+          // Overwrite con unidad elegida explícitamente si vino del frontend
+          if (unidadReemplazoId) {
+            unidadIdUse = unidadReemplazoId;
+            cantidadPorUnidadUse = unidadFactorNuevo;
+            unidadNombreUse = unidadNombreNuevo || unidadNombreUse;
+          }
+
           if (fdCols.UNIDAD_ID) { insCols.push('UNIDAD_ID'); insVals.push(unidadIdUse); }
           if (fdCols.CANTIDAD_POR_UNIDAD) { insCols.push('CANTIDAD_POR_UNIDAD'); insVals.push(cantidadPorUnidadUse != null ? cantidadPorUnidadUse : 1); }
           if (fdCols.UNIDAD_NOMBRE) { insCols.push('UNIDAD_NOMBRE'); insVals.push(unidadNombreUse); }
@@ -391,7 +489,7 @@ export async function POST(req) {
       // 3) Descontar stock para el producto de reemplazo (salida)
       if (devCols.ID_SUCURSAL && stockSucursalId != null) {
         // Si el nuevo detalle incluye cantidad_por_unidad tomada del detalle devuelto, usarla para descontar stock real
-        let replacementFactor = 1;
+        let replacementFactor = unidadReemplazoId ? unidadFactorNuevo : 1;
         try {
           // Buscar en FACTURA_DETALLES recién insertado (último insert id) la CANTIDAD_POR_UNIDAD si existe
           // pero preferir la metadata copiada desde detalleRow si estaba presente
@@ -428,34 +526,104 @@ export async function POST(req) {
         const desc = Number(descRow?.DESCUENTO || 0);
         const nuevoTotal = Math.max(0, Number((nuevoSubtotal - desc).toFixed(2)));
         await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, TOTAL = ? WHERE ID_FACTURA = ?', [nuevoSubtotal, nuevoTotal, facId]);
+        facturaSubtotalDespues = toMoney(nuevoSubtotal);
+        facturaTotalDespues = toMoney(nuevoTotal);
+        facturaDescuento = toMoney(desc);
       }
     } else if (detalle_id) {
-      // No hay reemplazo: reducir cantidad del detalle original y recalcular totales
-      const [dRows] = await conn.query('SELECT ID_FACTURA, AMOUNT, PRECIO_UNIT FROM FACTURA_DETALLES WHERE ID_DETALLES_FACTURA = ? FOR UPDATE', [detalle_id]);
+      // No hay reemplazo: calcular reembolso y luego reducir/eliminar detalle y recalcular factura
+      const [dRows] = await conn.query('SELECT ID_FACTURA, AMOUNT, PRECIO_UNIT, SUB_TOTAL FROM FACTURA_DETALLES WHERE ID_DETALLES_FACTURA = ? FOR UPDATE', [detalle_id]);
       if (dRows?.length) {
         const det = dRows[0];
-        const nuevaCantidad = Math.max(0, Number(det.AMOUNT || 0) - Number(cantidad));
-        const facId = dRows[0].ID_FACTURA;
+        const facId = det.ID_FACTURA;
+        const cantidadDevuelta = Number(cantidad);
+        const precioUnit = Number(det.PRECIO_UNIT || 0);
+        const brutoLinea = Number((cantidadDevuelta * precioUnit).toFixed(2));
+        lineaBrutaDevuelta = toMoney(brutoLinea);
+        // Obtener subtotal actual completo de la factura (antes de modificar) y descuento para prorrateo
+        let subtotalAntes = 0; let descuentoFactura = 0;
+        if (facId) {
+          try {
+            const [[sumRowAntes]] = await conn.query('SELECT COALESCE(SUM(SUB_TOTAL),0) AS SUBT FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [facId]);
+            subtotalAntes = Number(sumRowAntes?.SUBT || 0);
+            const [[descRow]] = await conn.query('SELECT DESCUENTO FROM FACTURA WHERE ID_FACTURA = ?', [facId]);
+            descuentoFactura = Number(descRow?.DESCUENTO || 0);
+          } catch {}
+        }
+        subtotalAntesDetalles = toMoney(subtotalAntes);
+        if (facturaSubtotalAntes == null) facturaSubtotalAntes = subtotalAntesDetalles;
+        facturaDescuento = toMoney(descuentoFactura);
+        if (facturaTotalAntes == null && facturaSubtotalAntes != null) {
+          facturaTotalAntes = toMoney(facturaSubtotalAntes - facturaDescuento);
+        }
+        // Prorratear descuento sobre la porción devuelta
+        let descuentoProporcional = 0;
+        if (subtotalAntes > 0 && descuentoFactura > 0) {
+          descuentoProporcional = Number(((brutoLinea / subtotalAntes) * descuentoFactura).toFixed(2));
+        }
+        descuentoDevuelto = toMoney(descuentoProporcional);
+        refundAmount = Math.max(0, Number((brutoLinea - descuentoProporcional).toFixed(2)));
+        refundAmount = toMoney(refundAmount);
+
+        // Ajustar detalle
+        const nuevaCantidad = Math.max(0, Number(det.AMOUNT || 0) - cantidadDevuelta);
         if (nuevaCantidad === 0) {
           await conn.query('DELETE FROM FACTURA_DETALLES WHERE ID_DETALLES_FACTURA = ?', [detalle_id]);
         } else {
-          const nuevoSub = Number((nuevaCantidad * Number(det.PRECIO_UNIT || 0)).toFixed(2));
+          const nuevoSub = Number((nuevaCantidad * precioUnit).toFixed(2));
           await conn.query('UPDATE FACTURA_DETALLES SET AMOUNT = ?, SUB_TOTAL = ? WHERE ID_DETALLES_FACTURA = ?', [nuevaCantidad, nuevoSub, detalle_id]);
         }
-        // Recalcular totales de la factura
+        // Recalcular factura usando nuevos detalles
         if (facId) {
           const [[sumRow]] = await conn.query('SELECT COALESCE(SUM(SUB_TOTAL),0) AS SUBT FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [facId]);
           const nuevoSubtotal = Number(sumRow?.SUBT || 0);
-          const [[descRow]] = await conn.query('SELECT DESCUENTO FROM FACTURA WHERE ID_FACTURA = ?', [facId]);
-          const desc = Number(descRow?.DESCUENTO || 0);
-          const nuevoTotal = Math.max(0, Number((nuevoSubtotal - desc).toFixed(2)));
+          const nuevoTotal = Math.max(0, Number((nuevoSubtotal - descuentoFactura).toFixed(2)));
           await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, TOTAL = ? WHERE ID_FACTURA = ?', [nuevoSubtotal, nuevoTotal, facId]);
+          facturaSubtotalDespues = toMoney(nuevoSubtotal);
+          facturaTotalDespues = toMoney(nuevoTotal);
         }
       }
     }
 
     await conn.commit();
-  return Response.json({ ok: true, devolucion_id: devId });
+
+    const subtotalOriginal = facturaSubtotalAntes != null ? toMoney(facturaSubtotalAntes) : toMoney(subtotalAntesDetalles);
+    const descuentoFacturaTotal = toMoney(facturaDescuento);
+    const totalOriginal = facturaTotalAntes != null
+      ? toMoney(facturaTotalAntes)
+      : toMoney(subtotalOriginal - descuentoFacturaTotal);
+    const subtotalNuevo = facturaSubtotalDespues != null ? toMoney(facturaSubtotalDespues) : subtotalOriginal;
+    const totalNuevo = facturaTotalDespues != null
+      ? toMoney(facturaTotalDespues)
+      : toMoney(subtotalNuevo - descuentoFacturaTotal);
+    const refundRounded = toMoney(refundAmount);
+
+    const diffTotals = toMoney(totalNuevo - totalOriginal);
+    let totalAPagar = 0;
+    let totalADevolver = refundRounded;
+    if (diffTotals > 0) {
+      totalAPagar = diffTotals;
+      totalADevolver = 0;
+    } else if (diffTotals < 0) {
+      const absDiff = Math.abs(diffTotals);
+      if (absDiff > totalADevolver) totalADevolver = absDiff;
+      totalAPagar = 0;
+    }
+
+    const totals = {
+      subtotal_original: subtotalOriginal,
+      subtotal_nuevo: subtotalNuevo,
+      descuento: descuentoFacturaTotal,
+      total_original: totalOriginal,
+      total_nuevo: totalNuevo,
+      total_a_pagar: toMoney(totalAPagar),
+      total_a_devolver: toMoney(totalADevolver),
+      linea_bruta_devuelta: toMoney(lineaBrutaDevuelta),
+      descuento_prorrateado: toMoney(descuentoDevuelto),
+      subtotal_reemplazo: toMoney(replacementSubtotal),
+    };
+
+    return Response.json({ ok: true, devolucion_id: devId, refund: refundRounded, totals });
   } catch (e) {
     try { await conn.rollback(); } catch {}
     return Response.json({ error: e.message || 'Error al crear devolución' }, { status: 400 });

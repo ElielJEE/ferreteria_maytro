@@ -84,6 +84,37 @@ export default function SalesBackgroundOrg() {
 	const [mode, setMode] = React.useState('')
 	const [selectedSale, setSelectedSale] = React.useState(null)
 
+	const handleSaleUpdate = React.useCallback((update) => {
+		if (!update) return;
+		setSelectedSale((prev) => {
+			if (!prev) return prev;
+			const matches = (prev?.id && update.id && prev.id === update.id) ||
+				(prev?.ID_FACTURA && update.id && prev.ID_FACTURA === update.id);
+			if (!matches) return { ...prev, ...update };
+			return {
+				...prev,
+				subtotal: typeof update.subtotal !== 'undefined' ? update.subtotal : prev.subtotal,
+				descuento: typeof update.descuento !== 'undefined' ? update.descuento : prev.descuento,
+				total: typeof update.total !== 'undefined' ? update.total : prev.total,
+				TOTAL: typeof update.total !== 'undefined' ? update.total : prev.TOTAL,
+				total_venta: typeof update.total !== 'undefined' ? update.total : prev.total_venta,
+			};
+		});
+		if (update.id) {
+			setData((prevData) => (Array.isArray(prevData) ? prevData.map((item) => {
+				const sameId = item?.id === update.id || item?.ID_FACTURA === update.id;
+				if (!sameId) return item;
+				return {
+					...item,
+					total: typeof update.total !== 'undefined' ? update.total : item.total,
+					total_venta: typeof update.total !== 'undefined' ? update.total : item.total_venta,
+					TOTAL: typeof update.total !== 'undefined' ? update.total : item.TOTAL,
+					subtotal: typeof update.subtotal !== 'undefined' ? update.subtotal : item.subtotal,
+				};
+			}) : prevData));
+		}
+	}, []);
+
 	const toggleModalType = async (type, item = null) => {
 		setMode(type)
 		if (type === 'ver' && item?.id) {
@@ -249,7 +280,7 @@ export default function SalesBackgroundOrg() {
 						modalDescription={mode === 'ver' ? 'Información completa de la transacción' : mode === 'editar' ? 'Editar venta' : mode === 'eliminar' ? 'Eliminar venta' : ''}
 						isForm={mode === 'editar' ? true : false}
 					>
-						{mode === 'ver' && <SaleView sale={selectedSale} onClose={() => setIsActiveModal(false)} />}
+						{mode === 'ver' && <SaleView sale={selectedSale} onClose={() => setIsActiveModal(false)} onSaleUpdate={handleSaleUpdate} />}
 						{mode === 'editar' && <SaleEdit sale={selectedSale} onClose={() => setIsActiveModal(false)} onSaved={() => fetchSales()} />}
 						{mode === 'eliminar' && <SaleDelete sale={selectedSale} onClose={() => setIsActiveModal(false)} onDeleted={() => fetchSales()} />}
 					</ModalContainer>
