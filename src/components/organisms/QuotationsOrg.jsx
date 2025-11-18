@@ -237,7 +237,12 @@ export default function QuotationsOrg() {
 													<div className='flex gap-2 justify-center w-1/2'>
 														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalMode('ver', item)} />
 														<Button className={'blue'} icon={<FiEdit />} func={() => toggleModalMode('edit', item)} disabled={isExpired(item)} />
-														<Button className={'success'} icon={<FiPrinter />} />
+														<Button className={'success'} icon={<FiPrinter />} func={async () => {
+															try {
+																const mod = await import('@/utils/imprimirVoucher');
+																if (mod && mod.imprimirVoucherCotizacion) mod.imprimirVoucherCotizacion({ quoteId: item.id });
+															} catch (e) { console.error('Print error', e); }
+														}} />
 													</div>
 												</td>
 											</tr>
@@ -281,7 +286,12 @@ export default function QuotationsOrg() {
 											<div className='w-full flex justify-between items-center gap-2 mt-4 col-span-2'>
 												<Button className={"primary"} text={"Ver"} icon={<FiEye />} func={() => toggleModalMode('ver', item)} />
 												<Button className={"blue"} text={"Editar"} icon={<FiEdit />} func={() => toggleModalMode('edit', item)} disabled={isExpired(item)} />
-												<Button className={'success'} text={"Imprimir"} icon={<FiPrinter />} />
+												<Button className={'success'} text={"Imprimir"} icon={<FiPrinter />} func={async () => {
+													try {
+														const mod = await import('@/utils/imprimirVoucher');
+														if (mod && mod.imprimirVoucherCotizacion) mod.imprimirVoucherCotizacion({ quoteId: item.id });
+													} catch (e) { console.error('Print error', e); }
+												}} />
 											</div>
 										</Card>
 									</div>

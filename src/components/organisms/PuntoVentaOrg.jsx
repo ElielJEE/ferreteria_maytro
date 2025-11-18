@@ -7,7 +7,7 @@ import { useActive, useFilter, useIsMobile } from '@/hooks';
 import { Button, ModalContainer } from '../atoms';
 import { BsCalculator, BsCashCoin, BsKey, BsRulers, BsScrewdriver, BsWrench } from 'react-icons/bs';
 import { useRouter } from 'next/navigation';
-import { imprimirVoucher } from './imprimirVoucher';
+import { imprimirVoucher } from '@/utils/imprimirVoucher';
 
 export default function PuntoVentaOrg() {
 	const [products, setProducts] = useState([]);
@@ -364,8 +364,20 @@ export default function PuntoVentaOrg() {
 
 			const res = await SalesService.createSale(payload);
 			console.log(res);
+			console.log(payload);
+
+			const dataParaVoucher = {
+				numero: res.numero,
+				facturaId: res.facturaId,
+				total: res.total,
+				cambio: res.cambio,
+				items: payload.items,
+			};
+
+			console.log(dataParaVoucher);
+
 			await imprimirVoucher(res);
-			// Mostrar modal de resultado con cambio
+
 			setMode('confirmar venta');
 			setIsActiveModal(true);
 			setCambio(res?.cambio ?? cambio);
