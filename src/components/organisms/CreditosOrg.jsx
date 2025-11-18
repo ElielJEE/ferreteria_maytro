@@ -234,7 +234,14 @@ export default function CreditosOrg() {
 														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalType('ver', item)} />
 														<Button className={'blue'} icon={<FiEdit />} func={() => toggleModalType('editar', item)} />
 														<Button className={'purple'} icon={<BsCashCoin />} func={() => toggleModalType('payment', item)} />
-														<Button className={'success'} icon={<FiPrinter />} func={() => toggleModalType('print', item)} />
+														<Button className={'success'} icon={<FiPrinter />} func={async () => {
+															try {
+																const { imprimirVoucherCredito } = await import('@/utils/imprimirVoucher');
+																if (imprimirVoucherCredito) imprimirVoucherCredito({ creditId: item.id });
+															} catch (e) {
+																console.error('Error printing credit voucher', e);
+															}
+														}} />
 													</div>
 												</td>
 											</tr>

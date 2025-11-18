@@ -67,3 +67,19 @@ export const payCredit = async (payload) => {
 }
 
 export default { createCredit, getCredits, updateCredit, payCredit };
+
+export const getCreditDetail = async (id) => {
+  if (!id) return { success: false, message: 'ID requerido' };
+  try {
+    const res = await fetch(API_URL, { credentials: 'include' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { success: false, message: data?.error || 'Error al obtener creditos' };
+    const creditos = data?.creditos || [];
+    const cred = creditos.find(c => String(c.id) === String(id));
+    if (!cred) return { success: false, message: 'Credito no encontrado' };
+    return { success: true, credito: cred };
+  } catch (e) {
+    console.error('getCreditDetail error:', e);
+    return { success: false, message: e?.message || 'Error de conexión' };
+  }
+}
