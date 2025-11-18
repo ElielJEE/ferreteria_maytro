@@ -1,4 +1,4 @@
-import { imprimirVoucher } from '../../utils/printVoucherTCP';
+import imprimirVoucher from '@/utils/imprimirVoucher';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
