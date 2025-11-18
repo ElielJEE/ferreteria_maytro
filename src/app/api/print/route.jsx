@@ -1,17 +1,12 @@
-import imprimirVoucher from '@/utils/imprimirVoucher';
+import { imprimirVoucher } from '@/utils/imprimirVoucher';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método no permitido' });
-  }
-
-  const data = req.body;
-
+export async function POST(req) {
   try {
+    const data = await req.json();
     await imprimirVoucher(data);
-    res.status(200).json({ ok: true });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (err) {
     console.error("Error imprimiendo voucher:", err);
-    res.status(500).json({ ok: false, error: err.message });
+    return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
   }
 }

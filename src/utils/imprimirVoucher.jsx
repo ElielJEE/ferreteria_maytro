@@ -1,13 +1,7 @@
-'use strict';
+'use server'; // Asegura que solo se ejecute en el servidor
 
-import { Network, Printer } from 'escpos';
-
-// Conexión por TCP/IP
-const printerIP = '192.168.123.100'; // IP de tu impresora
-const printerPort = 9100;             // Puerto TCP estándar de impresoras POS
-
-const device = new Network(printerIP, printerPort);
-const printer = new Printer(device);
+import escpos from 'escpos';
+import Network from 'escpos-network';
 
 /**
  * data: {
@@ -17,7 +11,13 @@ const printer = new Printer(device);
  *   cambio: number
  * }
  */
-async function imprimirVoucher(data) {
+export async function imprimirVoucher(data) {
+  const printerIP = '192.168.123.100'; // Cambia a la IP de tu impresora
+  const printerPort = 9100;            // Puerto TCP estándar de impresoras POS
+
+  const device = new Network(printerIP, printerPort);
+  const printer = new escpos.Printer(device);
+
   return new Promise((resolve, reject) => {
     device.open((err) => {
       if (err) return reject(err);
@@ -47,5 +47,3 @@ async function imprimirVoucher(data) {
     });
   });
 }
-
-export default { imprimirVoucher };
