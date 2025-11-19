@@ -192,10 +192,10 @@ export default function PurchasesOrderOrg() {
 					<div className='flex flex-col md:flex-row justify-between'>
 						<div>
 							<h2 className='md:text-2xl font-semibold'>
-								Gestion de Cotizaciones
+								Gestion de Compras
 							</h2>
 							<span className='text-sm md:text-medium text-dark/50'>
-								Administra cotizaciones para clientes.
+								Administra y recepciona las compras.
 							</span>
 						</div>
 						<div>
@@ -329,12 +329,16 @@ export default function PurchasesOrderOrg() {
 						<div className='py-4'>
 							<div className='grid grid-cols-3 gap-4'>
 								<div className='mb-2 flex flex-col'>
-									<div className='text-dark/70 font-semibold'>Cliente</div>
+									<div className='text-dark/70 font-semibold'>Proveedor</div>
 									<div className='font-semibold'>{purchaseData?.proveedor?.nombre || 'Consumidor Final'}</div>
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Telefono</div>
 									<div className='font-semibold'>{purchaseData?.proveedor?.telefono || 'N/A'}</div>
+								</div>
+								<div className='mb-2 flex flex-col'>
+									<div className='text-dark/70 font-semibold'>Empresa</div>
+									<div className='font-semibold'>{purchaseData?.empresa?.telefono || 'N/A'}</div>
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Fecha Creada</div>

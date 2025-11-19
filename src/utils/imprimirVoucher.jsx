@@ -1,6 +1,28 @@
 'use client'
 
 import { SalesService, CotizacionesService, CreditosService } from "@/services";
+import { Flavors } from "next/font/google";
+
+async function urlToBase64(url) {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`No se pudo cargar la imagen: ${url}`);
+  }
+
+  const blob = await response.blob();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 
 export const imprimirVoucher = async (data) => {
 
@@ -33,13 +55,17 @@ export const imprimirVoucher = async (data) => {
       const unidad = item.unidad_nombre ?? "";
       lineasProductos += ` ${qty} ${unidad} x C$${precio}   ->   C$${sub}\n`;
     }
+    const imageUrl = "public/images/logo_thermal_bw.png";
+    const base64Image = await urlToBase64(imageUrl);
+    console.log(base64Image);
+
 
     const contenido = [
       "\x1B\x40", // Reset impresora
 
       // ENCABEZADO
       "\x1B\x61\x01",
-      "Ferreteria El Maytro\n",
+      "FERRETERIA EL MAYTRO",
       "\x1B\x61\x00",
       `Sucursal: ${sucursalNombre}\n`,
       `Vendedor: ${usuarioNombre}\n`,
@@ -52,7 +78,7 @@ export const imprimirVoucher = async (data) => {
       "------------------------------------------\n",
 
       // PRODUCTOS
-      "ARTÍCULOS:\n",
+      "ARTiCULOS:\n",
       lineasProductos,
       "------------------------------------------\n",
 
@@ -68,6 +94,9 @@ export const imprimirVoucher = async (data) => {
       "\x1B\x61\x01",
       "¡Gracias por su compra!\n",
       "Vuelva pronto\n",
+      "'Encomienda a Jehova tus obras, y tus\n",
+      "pensamientos serán afirmados.'\n",
+      "Proverbios 16:3\n",
       "---------------------------------------------\n",
 
       "\n\n\n\n",
@@ -121,7 +150,7 @@ export const imprimirVoucherCotizacion = async (data) => {
     const contenido = [
       '\x1B\x40',
       '\x1B\x61\x01',
-      'Ferreteria El Maytro\n',
+      'FERRETERIA El MAYTRO\n',
       '\x1B\x61\x00',
       `Sucursal: ${sucursalNombre}\n`,
       `Vendedor: ${usuarioNombre}\n`,
@@ -164,7 +193,7 @@ export const imprimirVoucherCredito = async (data) => {
     const hora = now.toLocaleTimeString();
 
     const id = data.creditId || data.id;
-    const { success, credito, message } = await CreditosService.getCreditDetail ? await CreditosService.getCreditDetail(id) : { success: false, message: 'No detail method' };
+    const { success, credito, message } = CreditosService.getCreditDetail ? await CreditosService.getCreditDetail(id) : { success: false, message: 'No detail method' };
     if (!success || !credito) {
       console.error('No se encontró el crédito para imprimir', message);
       return;
@@ -188,7 +217,7 @@ export const imprimirVoucherCredito = async (data) => {
     const contenido = [
       '\x1B\x40',
       '\x1B\x61\x01',
-      'Ferreteria El Maytro - CREDITO\n',
+      'FERRETERIA EL MAYTRO - CREDITO\n',
       '\x1B\x61\x00',
       `Sucursal: ${sucursalNombre}\n`,
       `Vendedor: ${usuarioNombre}\n`,
