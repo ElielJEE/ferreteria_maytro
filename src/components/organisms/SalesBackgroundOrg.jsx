@@ -131,6 +131,19 @@ export default function SalesBackgroundOrg() {
 			}
 
 		} else if (type === 'print') {
+			try {
+				const mod = await import('@/utils/imprimirVoucher');
+				const imprimir = mod?.imprimirVoucher;
+				const facturaId = item?.id || item?.ID_FACTURA || item?.factura_id || item?.numero || item?.numeroFactura;
+				if (imprimir && facturaId) {
+					// Call print function with expected payload
+					imprimir({ facturaId, total: item.total || item.TOTAL || item.total_venta, cambio: item.cambio || 0 });
+				} else {
+					console.warn('No se encontró imprimirVoucher o facturaId inválido', { imprimir: !!imprimir, facturaId });
+				}
+			} catch (e) {
+				console.error('Error al iniciar impresión:', e);
+			}
 
 		}
 	}
