@@ -22,6 +22,7 @@ export default function QueoteView({ quote, onClose, onProcess }) {
 
 	// Deshabilitar si ya fue procesada o está expirada
 	const disableProcess = (quote?.estado && ['procesada'].includes(String(quote.estado).toLowerCase())) || isExpired;
+	console.log(quote);
 
 	return (
 		<div className='py-4'>
@@ -113,6 +114,10 @@ export default function QueoteView({ quote, onClose, onProcess }) {
 				<div className='flex justify-between'>
 					<div className='text-md font-semibold'>Descuento:</div>
 					<div className='text-md font-semibold'>{quote?.descuento === 0 ? "N/A" : quote?.descuento}</div>
+				</div>
+				<div className='flex justify-between'>
+					<div className='text-md font-semibold'>Transporte:</div>
+					<div className='text-md font-semibold'>{quote?.servicio_transporte === 0 ? "N/A" : quote?.servicio_transporte}</div>
 				</div>
 			</div>
 			<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>

@@ -65,7 +65,7 @@ export const imprimirVoucher = async (data) => {
 
       // ENCABEZADO
       "\x1B\x61\x01",
-      "FERRETERIA EL MAYTRO",
+      "FERRETERIA EL MAYTRO\n",
       "\x1B\x61\x00",
       `Sucursal: ${sucursalNombre}\n`,
       `Vendedor: ${usuarioNombre}\n`,
@@ -85,6 +85,7 @@ export const imprimirVoucher = async (data) => {
       // TOTALES
       `SUBTOTAL:  C$ ${factura.subtotal}\n`,
       `DESCUENTO: C$ ${factura.descuento}\n`,
+      `TRANSPORTE: C$ ${factura.servicio_transporte}\n`,
       `TOTAL:     C$ ${factura.total}\n`,
       `PAGO:      C$ ${data.total + (data.cambio ?? 0)}\n`,
       `CAMBIO:    C$ ${data.cambio}\n`,

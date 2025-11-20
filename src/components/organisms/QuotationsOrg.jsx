@@ -105,6 +105,8 @@ export default function QuotationsOrg() {
 		}
 	}
 
+	console.log(quotes);
+
 	const handleProcessQuote = async () => {
 		if (!selectedQuote?.id) return;
 		try {
