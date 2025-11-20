@@ -166,6 +166,7 @@ export const imprimirVoucherCotizacion = async (data) => {
       '------------------------------------------\n',
       `SUBTOTAL:  C$ ${cotizacion.subtotal ?? cotizacion.SUBTOTAL ?? 0}\n`,
       `DESCUENTO: C$ ${cotizacion.descuento ?? cotizacion.DESCUENTO ?? 0}\n`,
+      `TRANSPORTE: C$ ${cotizacion.transporte ?? cotizacion.SERVICIO_TRANSPORTE ?? 0}\n`,
       `TOTAL:     C$ ${cotizacion.total ?? cotizacion.TOTAL ?? 0}\n`,
       '------------------------------------------\n',
       '\x1B\x61\x01',

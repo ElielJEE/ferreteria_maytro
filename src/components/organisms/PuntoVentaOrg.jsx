@@ -346,8 +346,8 @@ export default function PuntoVentaOrg() {
 				items,
 				subtotal: Number(subtotal.toFixed(2)),
 				descuento: Number(descuento || 0),
-					total: Number(total.toFixed(2)),
-					servicio_transporte: Number(transportation || 0),
+				total: Number(total.toFixed(2)),
+				servicio_transporte: Number(transportation || 0),
 				// Información del descuento aplicado (si existe)
 				discount: appliedDiscount ? {
 					id: appliedDiscount.ID_DESCUENTO || appliedDiscount.id || appliedDiscount.value || null,
@@ -533,6 +533,7 @@ export default function PuntoVentaOrg() {
 			items,
 			subtotal: Number(subtotal.toFixed(2)),
 			descuento: Number(descuento || 0),
+			transporte: Number(transportation || 0),
 			total: Number(total.toFixed(2)),
 			cliente: { nombre: clienteNombre, telefono: clienteTelefono },
 			fecha_vencimiento: fechaVencimiento,
@@ -930,7 +931,7 @@ export default function PuntoVentaOrg() {
 								</div>
 							</div>
 							<div className='flex justify-between'>
-								
+
 								<span className='text-dark/70'>Transporte:</span>
 								<div className='flex gap-1'>
 									{transportation > 0 && (

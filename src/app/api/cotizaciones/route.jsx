@@ -77,9 +77,9 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
     );
     if (!cRows?.length) { await conn.rollback(); conn.release(); return false; }
     const ch = cRows[0];
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const expDate = ch.FECHA_VENCIMIENTO ? new Date(ch.FECHA_VENCIMIENTO) : null;
-    if (expDate) expDate.setHours(0,0,0,0);
+    if (expDate) expDate.setHours(0, 0, 0, 0);
     const isExpiredNow = expDate ? (expDate <= today) : false;
     if (!(ch.ESTADO === 'activa' && isExpiredNow)) {
       await conn.rollback(); conn.release();
@@ -133,8 +133,8 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
     conn.release();
     return true;
   } catch (e) {
-    try { await conn.rollback(); } catch {}
-    try { conn.release(); } catch {}
+    try { await conn.rollback(); } catch { }
+    try { conn.release(); } catch { }
     return false;
   }
 }
@@ -174,7 +174,7 @@ export async function POST(req) {
   const conn = await pool.getConnection();
   try {
     const body = await req.json();
-    const { items, subtotal, descuento = 0, total, cliente = {}, fecha_vencimiento, notas } = body || {};
+    const { items, subtotal, descuento = 0, total, cliente = {}, fecha_vencimiento, notas, transporte = 0 } = body || {};
 
     if (!Array.isArray(items) || items.length === 0) {
       return Response.json({ error: 'No hay items en la cotización' }, { status: 400 });
@@ -212,7 +212,7 @@ export async function POST(req) {
         const [suc] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
         if (suc && suc[0] && suc[0].ID_SUCURSAL) sucursalId = suc[0].ID_SUCURSAL;
       }
-    } catch {}
+    } catch { }
 
     await conn.beginTransaction();
 
@@ -226,7 +226,8 @@ export async function POST(req) {
     }
     const subtotalOk = Number.isFinite(Number(subtotal)) ? Number(subtotal) : computedSubtotal;
     const descuentoOk = Number(descuento || 0);
-    const totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk);
+    const transporteOk = Number(transporte || 0);
+    const totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk + transporteOk);
 
     const clienteId = await getOrCreateCliente(conn, clienteNombre, clienteTelefono);
     const fechaCreacion = new Date();
@@ -243,10 +244,10 @@ export async function POST(req) {
     const newId = `COT-${y}${m}${d}-${hh}${mm}${ss}-${rand}`;
 
     await conn.query(
-      `INSERT INTO COTIZACION (ID_COTIZACION, FECHA_CREACION, FECHA_VENCIMIENTO, SUBTOTAL, DESCUENTO, TOTAL, ESTADO, ID_CLIENTES, ID_SUCURSAL, ID_USUARIO, NOTAS)
-       VALUES (?, ?, ?, ?, ?, ?, 'activa', ?, ?, ?, ?)`,
+      `INSERT INTO COTIZACION (ID_COTIZACION, FECHA_CREACION, FECHA_VENCIMIENTO, SUBTOTAL, DESCUENTO, SERVICIO_TRANSPORTE, TOTAL, ESTADO, ID_CLIENTES, ID_SUCURSAL, ID_USUARIO, NOTAS)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'activa', ?, ?, ?, ?)`,
       // Pass a pure date string to avoid timezone conversion in MySQL DATE column
-      [newId, fechaCreacion, expStr, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null, usuarioId || null, notas || null]
+      [newId, fechaCreacion, expStr, subtotalOk, descuentoOk, transporteOk, totalOk, clienteId || null, sucursalId || null, usuarioId || null, notas || null]
     );
 
     // Insertar detalles (no afecta stock)
@@ -271,10 +272,10 @@ export async function POST(req) {
       let cantidadPorUnidad = 1;
       let unidadNombre = null;
       if (hasUnidadCols) {
-      // asignar valores si las columnas están presentes (aceptar formas camelCase y english keys)
-      unidadId = it.UNIDAD_ID || it.unidad_id || it.unit_id || it.unit || null;
-      cantidadPorUnidad = Number((it.cantidad_por_unidad ?? it.cantidadPorUnidad ?? it.CANTIDAD_POR_UNIDAD ?? 1)) || 1;
-      unidadNombre = it.UNIDAD_NOMBRE || it.unidad_nombre || it.unit_name || it.unit || null;
+        // asignar valores si las columnas están presentes (aceptar formas camelCase y english keys)
+        unidadId = it.UNIDAD_ID || it.unidad_id || it.unit_id || it.unit || null;
+        cantidadPorUnidad = Number((it.cantidad_por_unidad ?? it.cantidadPorUnidad ?? it.CANTIDAD_POR_UNIDAD ?? 1)) || 1;
+        unidadNombre = it.UNIDAD_NOMBRE || it.unidad_nombre || it.unit_name || it.unit || null;
         [detRes] = await conn.query(
           `INSERT INTO COTIZACION_DETALLES (ID_COTIZACION, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -323,7 +324,7 @@ export async function POST(req) {
             measureUnit: meta.NOMBRE_UNIDAD || null,
           };
         });
-      } catch {}
+      } catch { }
     }
 
     // ---- Descontar stock de la sucursal (nuevo requisito) ----
@@ -371,7 +372,7 @@ export async function POST(req) {
           [idProd, sucursalId, usuarioId || null, tipoMovimiento, qtyNeeded, `Cotizacion ${newId}`, newId, actual, nuevo]
         );
         movimientosRegistrados++;
-      } catch {/* ignore movement errors */}
+      } catch {/* ignore movement errors */ }
     }
 
     await conn.commit();
@@ -388,10 +389,10 @@ export async function POST(req) {
       warning: detallesInsertados === 0 ? 'No se insertaron detalles: verifique que la tabla COTIZACION_DETALLES tenga ID_COTIZACION VARCHAR(30)' : undefined,
     });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
+    try { await conn.rollback(); } catch { }
     return Response.json({ error: e?.message || 'Error al crear la cotización' }, { status: 400 });
   } finally {
-    try { conn.release(); } catch {}
+    try { conn.release(); } catch { }
   }
 }
 
@@ -402,7 +403,7 @@ export async function GET(req) {
     if (id) {
       // Detalle
       const [rows] = await pool.query(
-        `SELECT c.ID_COTIZACION, c.FECHA_CREACION, c.FECHA_VENCIMIENTO, c.SUBTOTAL, c.DESCUENTO, c.TOTAL, c.ESTADO,
+        `SELECT c.ID_COTIZACION, c.FECHA_CREACION, c.FECHA_VENCIMIENTO, c.SUBTOTAL, c.DESCUENTO, c.SERVICIO_TRANSPORTE, c.TOTAL, c.ESTADO,
                 c.ID_CLIENTES, cli.NOMBRE_CLIENTE, cli.TELEFONO_CLIENTE,
                 c.ID_SUCURSAL, s.NOMBRE_SUCURSAL,
                 c.ID_USUARIO, COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') AS USUARIO
@@ -419,14 +420,14 @@ export async function GET(req) {
       // Auto-expirar y devolver stock si corresponde (inclusive <= hoy)
       try {
         if (c.ESTADO === 'activa' && c.FECHA_VENCIMIENTO) {
-          const today = new Date(); today.setHours(0,0,0,0);
-          const expDate = new Date(c.FECHA_VENCIMIENTO); expDate.setHours(0,0,0,0);
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const expDate = new Date(c.FECHA_VENCIMIENTO); expDate.setHours(0, 0, 0, 0);
           if (expDate <= today) {
             await expireCotizacionAndReturnStock(id);
             c.ESTADO = 'expirada';
           }
         }
-      } catch {}
+      } catch { }
 
       // Detectar columnas de unidad en COTIZACION_DETALLES para seleccionar si existen
       let hasUnidadColsLocal = false;
@@ -501,6 +502,7 @@ export async function GET(req) {
           fechaExp: c.FECHA_VENCIMIENTO,
           subtotal: Number(c.SUBTOTAL || 0),
           descuento: Number(c.DESCUENTO || 0),
+          transporte: Number(c.SERVICIO_TRANSPORTE || 0),
           total: Number(c.TOTAL || 0),
           estado: c.ESTADO,
           cliente: c.NOMBRE_CLIENTE || '',
@@ -548,7 +550,7 @@ export async function GET(req) {
       params
     );
     // Batch auto-expirar activas y devolver stock
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const updates = [];
     for (const r of rows || []) {
       if (r.estado === 'activa' && r.fechaExp) {
@@ -556,9 +558,9 @@ export async function GET(req) {
           // Parse 'YYYY-MM-DD' as a local date to avoid UTC off-by-one
           const m = String(r.fechaExp).match(/^(\d{4})-(\d{2})-(\d{2})$/);
           const exp = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(r.fechaExp);
-          exp.setHours(0,0,0,0);
+          exp.setHours(0, 0, 0, 0);
           if (exp <= today) updates.push(r.id);
-        } catch {}
+        } catch { }
       }
     }
     // Map final including updated estado
@@ -616,8 +618,8 @@ export async function PUT(req) {
         }
         // No permitir procesar si expirada
         if (c.FECHA_VENCIMIENTO) {
-          const today = new Date(); today.setHours(0,0,0,0);
-          const exp = new Date(c.FECHA_VENCIMIENTO); exp.setHours(0,0,0,0);
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const exp = new Date(c.FECHA_VENCIMIENTO); exp.setHours(0, 0, 0, 0);
           if (exp <= today) {
             await conn.rollback();
             return Response.json({ error: 'La cotización está expirada' }, { status: 400 });
@@ -659,7 +661,7 @@ export async function PUT(req) {
         // Generar número público de factura (FAC-YYYYMMDD-HHMMSS) sin sufijo aleatorio
         const pad = (n) => String(n).padStart(2, '0');
         const y = fecha.getFullYear();
-        const mo = pad(fecha.getMonth()+1);
+        const mo = pad(fecha.getMonth() + 1);
         const da = pad(fecha.getDate());
         const hh = pad(fecha.getHours());
         const mi = pad(fecha.getMinutes());
@@ -722,10 +724,10 @@ export async function PUT(req) {
               `INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL${fdCols.UNIDAD_ID ? ', UNIDAD_ID' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : ''}${fdCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : ''}, ID_USUARIO)
                VALUES (?, ?, ?, ?, ?${fdCols.UNIDAD_ID ? ', ?' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', ?' : ''}${fdCols.UNIDAD_NOMBRE ? ', ?' : ''}, ?)`,
               [facturaId, idProd, qty, precio, sub]
-              .concat(fdCols.UNIDAD_ID ? [unidadId] : [])
-              .concat(fdCols.CANTIDAD_POR_UNIDAD ? [cantidadPorUnidad] : [])
-              .concat(fdCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
-              .concat([c.ID_USUARIO || null])
+                .concat(fdCols.UNIDAD_ID ? [unidadId] : [])
+                .concat(fdCols.CANTIDAD_POR_UNIDAD ? [cantidadPorUnidad] : [])
+                .concat(fdCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
+                .concat([c.ID_USUARIO || null])
             );
           } else {
             await conn.query(
@@ -735,13 +737,13 @@ export async function PUT(req) {
           }
         }
 
-  // Marcar cotización como procesada (no le afecta fecha de vencimiento)
-  await conn.query('UPDATE COTIZACION SET ESTADO = ? WHERE ID_COTIZACION = ?', ['procesada', id]);
+        // Marcar cotización como procesada (no le afecta fecha de vencimiento)
+        await conn.query('UPDATE COTIZACION SET ESTADO = ? WHERE ID_COTIZACION = ?', ['procesada', id]);
 
         await conn.commit();
-  return Response.json({ ok: true, facturaId, numero: hasFacturaNumero ? numeroFactura : null });
+        return Response.json({ ok: true, facturaId, numero: hasFacturaNumero ? numeroFactura : null });
       } catch (e) {
-        try { await conn.rollback(); } catch {}
+        try { await conn.rollback(); } catch { }
         return Response.json({ error: e?.message || 'Error al procesar la cotización' }, { status: 400 });
       }
     }
@@ -758,7 +760,7 @@ export async function PUT(req) {
     // Validar fecha vencimiento si se envía
     let fechaV = cRows[0].FECHA_VENCIMIENTO;
     if (fecha_vencimiento) {
-      const today = new Date(); today.setHours(0,0,0,0);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
       const expStr = toYMDString(fecha_vencimiento);
       const exp = expStr ? new Date(expStr + 'T00:00:00') : null;
       if (!expStr || isNaN(exp?.getTime()) || exp < today) {
@@ -838,10 +840,10 @@ export async function PUT(req) {
     await conn.commit();
     return Response.json({ ok: true, id, total: totalOk });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
+    try { await conn.rollback(); } catch { }
     return Response.json({ error: e?.message || 'Error al actualizar cotización' }, { status: 400 });
   } finally {
-    try { conn.release(); } catch {}
+    try { conn.release(); } catch { }
   }
 }
 
@@ -863,6 +865,6 @@ export async function DELETE(req) {
   } catch (e) {
     return Response.json({ error: e?.message || 'Error al eliminar cotización' }, { status: 400 });
   } finally {
-    try { conn.release(); } catch {}
+    try { conn.release(); } catch { }
   }
 }
