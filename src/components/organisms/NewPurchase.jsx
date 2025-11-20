@@ -17,7 +17,6 @@ export default function NewPurchase() {
 	const [productList, setProductList] = useState([]);
 	const [error, setError] = useState(null);
 	const [proveedorNombre, setProveedorNombre] = useState('');
-	const [empresaNombre, setEmpresaNombre] = useState('');
 	const [proveedorTelefono, setProveedorTelefono] = useState('');
 	const [proveedorEmpresa, setProveedorEmpresa] = useState('');
 	const [fechaEntrega, setFechaEntrega] = useState('');
@@ -391,14 +390,6 @@ export default function NewPurchase() {
 									setError(prev => ({ ...(prev || {}), telefono: '' }))
 								}}
 								error={error && error.telefono}
-							/>
-							<Input
-								label={"Empresa"}
-								placeholder={"Ingrese nombre de la Empresa"}
-								inputClass={"no icon"}
-								value={empresaNombre}
-								onChange={handleProveedoresChange}
-								error={error && error.empresaNombre}
 							/>
 							<Input
 								label={'Fecha Estimada de Entrega'}
