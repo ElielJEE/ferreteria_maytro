@@ -68,11 +68,11 @@ export default function CreditosView({ creditData, onClose }) {
 			</div>
 			<div className='mt-4 flex justify-between gap-5 border-dark/10 pt-2'>
 				<div className='font-semibold'>Transporte:</div>
-				<div className='font-semibold'>{creditData.servicio_transporte ? `C$ ${Number(creditData.servicio_transporte).toLocaleString()}` : 'N/A'}</div>
+				<div className='font-semibold'>{creditData.transporte ? `C$ ${Number(creditData.transporte).toFixed(2)}` : 'N/A'}</div>
 			</div>
 			<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>
 				<div className='text-lg font-bold'>Total:</div>
-				<div className='text-lg font-bold text-primary'>{creditData.deudaInicio ? `C$ ${Number(creditData.deudaInicio).toLocaleString()}` : '-'}</div>
+				<div className='text-lg font-bold text-primary'>{creditData.deudaInicio ? `C$ ${Number(creditData.deudaInicio).toFixed(2)}` : '-'}</div>
 			</div>
 		</div>
 	)

@@ -643,6 +643,7 @@ export default function PuntoVentaOrg() {
 				items,
 				subtotal: Number(subtotal.toFixed(2)),
 				descuento: Number(descuento || 0),
+				transporte: Number(transportation || 0),
 				total: Number(total.toFixed(2)),
 				cliente: { nombre: clienteNombre, telefono: clienteTelefono },
 				sucursal_id: currentUser?.ID_SUCURSAL || (selectedSucursal?.value ?? null),
