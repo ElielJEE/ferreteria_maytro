@@ -19,10 +19,11 @@ export default function NewPurchase() {
 	const [proveedorNombre, setProveedorNombre] = useState('');
 	const [empresaNombre, setEmpresaNombre] = useState('');
 	const [proveedorTelefono, setProveedorTelefono] = useState('');
+	const [proveedorEmpresa, setProveedorEmpresa] = useState('');
 	const [fechaEntrega, setFechaEntrega] = useState('');
 	const isMobile = useIsMobile({ breakpoint: 1024 })
-	const [proveedores, setProveedores] = useState({});
-	const [proveedoresFiltrados, setProveedoresFiltrados] = useState({});
+	const [proveedores, setProveedores] = useState([]);
+	const [proveedoresFiltrados, setProveedoresFiltrados] = useState([]);
 	const router = useRouter();
 	const { isActiveModal, setIsActiveModal } = useActive();
 	const [mode, setMode] = useState('');
@@ -171,7 +172,7 @@ export default function NewPurchase() {
 		}
 
 		if (!productList || productList.length === 0) {
-			setError(prev => ({ ...prev, lista: 'La lista de productos está vacía' }));
+			setError(prev => ({ ...(prev || {}), lista: 'La lista de productos está vacía' }));
 			return;
 		}
 
@@ -192,6 +193,7 @@ export default function NewPurchase() {
 			const payload = {
 				proveedorNombre: proveedorNombre || null,
 				proveedorTelefono: proveedorTelefono || null,
+				proveedorEmpresa: proveedorEmpresa || null,
 				usuarioId: usuarioId,
 				id_sucursal: usuarioSucursal,
 				fecha_pedido: new Date().toISOString().slice(0, 10),
@@ -208,7 +210,7 @@ export default function NewPurchase() {
 			router.push('/compras');
 		} catch (err) {
 			console.error('Error procesando compra', err);
-			setError(prev => ({ ...prev, submit: err?.message || 'Error al crear compra' }));
+			setError(prev => ({ ...(prev || {}), submit: err?.message || 'Error al crear compra' }));
 		}
 	};
 
@@ -230,20 +232,26 @@ export default function NewPurchase() {
 		const value = e.target.value;
 		setProveedorNombre(value);
 
-		setError(prev => ({ ...prev, nombre: '' }))
+		setError(prev => ({ ...(prev || {}), nombre: '' }))
 
-		const resultados = proveedores.filter(proveedor =>
-			proveedor.nombre.toLowerCase().includes(value.toLowerCase())
-		);
+		const term = value.toLowerCase();
+		const resultados = Array.isArray(proveedores)
+			? proveedores.filter(proveedor =>
+				(proveedor.nombre || '').toLowerCase().includes(term) ||
+				(proveedor.empresa || '').toLowerCase().includes(term)
+			)
+			: [];
 		setProveedoresFiltrados(resultados);
 
-		const proveedorExiste = proveedores.find(proveedor =>
-			proveedor.nombre.toLowerCase() === value.toLowerCase()
-		);
+		const proveedorExiste = Array.isArray(proveedores)
+			? proveedores.find(proveedor => (proveedor.nombre || '').toLowerCase() === term)
+			: null;
 		if (proveedorExiste) {
-			setProveedorTelefono(proveedorExiste.telefono);
+			setProveedorTelefono(proveedorExiste.telefono || '');
+			setProveedorEmpresa(proveedorExiste.empresa || '');
 		} else {
-			setProveedorTelefono("");
+			setProveedorTelefono('');
+			setProveedorEmpresa('');
 		}
 	}
 
@@ -344,22 +352,35 @@ export default function NewPurchase() {
 								/>
 								{proveedoresFiltrados.length > 0 && proveedorNombre !== "" && (
 									<ul className='w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto z-10'>
-										{proveedoresFiltrados.map((proveedores, index) => (
+										{proveedoresFiltrados.map((proveedorItem, index) => (
 											<li
 												key={index}
 												onClick={() => {
-													setProveedorNombre(proveedores.nombre)
-													setProveedorTelefono(proveedores.telefono)
-													setProveedoresFiltrados({})
+													setProveedorNombre(proveedorItem.nombre)
+													setProveedorTelefono(proveedorItem.telefono)
+													setProveedorEmpresa(proveedorItem.empresa || '')
+													setProveedoresFiltrados([])
 												}}
 												className='px-2 py-1 cursor-pointer hover:bg-primary hover:text-white'
 											>
-												{proveedores.nombre}
+												<div className='flex flex-col'>
+													<span>{proveedorItem.nombre}</span>
+													{proveedorItem.empresa && (
+														<span className='text-xs text-dark/70'>{proveedorItem.empresa}</span>
+													)}
+												</div>
 											</li>
 										))}
 									</ul>
 								)}
 							</div>
+							<Input
+								label={"Empresa del Proveedor"}
+								placeholder={"Ingrese nombre de la empresa"}
+								inputClass={'no icon'}
+								value={proveedorEmpresa}
+								onChange={(e) => setProveedorEmpresa(e.target.value)}
+							/>
 							<Input
 								label={"Telefono"}
 								placeholder={"Ingrese numero de telefono del Proveedor"}
@@ -367,7 +388,7 @@ export default function NewPurchase() {
 								value={proveedorTelefono}
 								onChange={(e) => {
 									setProveedorTelefono(e.target.value)
-									setError(prev => ({ ...prev, telefono: '' }))
+									setError(prev => ({ ...(prev || {}), telefono: '' }))
 								}}
 								error={error && error.telefono}
 							/>
@@ -386,7 +407,7 @@ export default function NewPurchase() {
 								value={fechaEntrega}
 								onChange={(e) => {
 									setFechaEntrega(e.target.value)
-									setError(prev => ({ ...prev, fecha: '' }))
+									setError(prev => ({ ...(prev || {}), fecha: '' }))
 								}}
 								error={error && error.fecha}
 							/>

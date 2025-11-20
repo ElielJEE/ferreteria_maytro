@@ -25,9 +25,14 @@ export default function ProveedoresOrg() {
 	const filteredProveedores = useFilter({
 		data: proveedoresList,
 		searchTerm,
-		matcher: (item, term) =>
-			item.nombre.toLowerCase().includes(term.toLowerCase()) ||
-			item.telefono.includes(term)
+		matcher: (item, term) => {
+			const query = term.toLowerCase();
+			return (
+				(item.nombre || '').toLowerCase().includes(query) ||
+				(item.empresa || '').toLowerCase().includes(query) ||
+				(item.telefono || '').includes(term)
+			);
+		}
 	});
 
 	const toggleModalType = (type, itemData) => {
@@ -87,6 +92,7 @@ export default function ProveedoresOrg() {
 										<tr className='w-full'>
 											<th className='text-start text-dark/50 font-semibold p-2'>#</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Nombre</th>
+											<th className='text-start text-dark/50 font-semibold p-2'>Empresa</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Telefono</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Empresa</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
@@ -97,6 +103,7 @@ export default function ProveedoresOrg() {
 											<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
 												<td className='p-2 text-start'>{index + 1}</td>
 												<td className='p-2 text-start'>{item.nombre}</td>
+												<td className='p-2 text-start'>{item.empresa || '—'}</td>
 												<td className='p-2 text-start'>{item.telefono}</td>
 												<td className='p-2 text-start'>{item.empresa || ''}</td>
 												<td className='p-2 text-center'>
@@ -127,6 +134,10 @@ export default function ProveedoresOrg() {
 											productName={item.nombre}
 										>
 											<div className='flex flex-col'>
+												<span className='text-sm text-dark/70'>Empresa</span>
+												<span className='text-lg font-semibold'>{item.empresa || '—'}</span>
+											</div>
+											<div className='flex flex-col'>
 												<span className='text-sm text-dark/70'>Telefono</span>
 												<span className='text-lg font-semibold'>{item.telefono}</span>
 											</div>
@@ -153,12 +164,18 @@ export default function ProveedoresOrg() {
 						{
 							mode === 'edit' ? (
 								<form className='w-full' onSubmit={handleEditSubmit}>
-									<div className='w-full flex gap-4'>
+									<div className='w-full flex gap-4 flex-wrap'>
 										<Input
 											label={'Nombre del Proveedor'}
 											placeholder={'Ingrese nombre del proveedor...'}
 											inputClass={'no icon'}
 											value={proveedor.nombre}
+										/>
+										<Input
+											label={'Empresa del proveedor'}
+											placeholder={'Ingrese empresa del proveedor...'}
+											inputClass={'no icon'}
+											value={proveedor.empresa}
 										/>
 										<Input
 											label={'Telefono del proveedor'}

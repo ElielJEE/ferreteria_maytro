@@ -49,13 +49,37 @@ export async function POST(request) {
       if (!proveedorIdResolved) {
         const provNombre = body.proveedorNombre || (body.proveedor && body.proveedor.nombre) || null;
         const provTelefono = body.proveedorTelefono || (body.proveedor && body.proveedor.telefono) || null;
+        const provEmpresa = body.proveedorEmpresa || (body.proveedor && body.proveedor.empresa) || null;
         if (provNombre) {
           // Buscar proveedor por nombre (case-insensitive)
-          const [existing] = await conn.query('SELECT ID_PROVEEDOR FROM PROVEEDOR WHERE LOWER(NOMBRE_PROVEEDOR) = LOWER(?) LIMIT 1', [provNombre]);
+          const [existing] = await conn.query(
+            'SELECT ID_PROVEEDOR, TELEFONO_PROVEEDOR, EMPRESA_PROVEEDOR FROM PROVEEDOR WHERE LOWER(NOMBRE_PROVEEDOR) = LOWER(?) LIMIT 1',
+            [provNombre]
+          );
           if (existing && existing.length > 0) {
             proveedorIdResolved = existing[0].ID_PROVEEDOR;
+
+            const updates = [];
+            const params = [];
+            const currentTelefono = existing[0].TELEFONO_PROVEEDOR || '';
+            const currentEmpresa = existing[0].EMPRESA_PROVEEDOR || '';
+
+            if (provTelefono && !currentTelefono.trim()) {
+              updates.push('TELEFONO_PROVEEDOR = ?');
+              params.push(provTelefono);
+            }
+            if (provEmpresa && !currentEmpresa.trim()) {
+              updates.push('EMPRESA_PROVEEDOR = ?');
+              params.push(provEmpresa);
+            }
+            if (updates.length > 0) {
+              await conn.query(`UPDATE PROVEEDOR SET ${updates.join(', ')} WHERE ID_PROVEEDOR = ?`, [...params, proveedorIdResolved]);
+            }
           } else {
-            const [insProv] = await conn.query('INSERT INTO PROVEEDOR (NOMBRE_PROVEEDOR, TELEFONO_PROVEEDOR) VALUES (?, ?)', [provNombre, provTelefono || null]);
+            const [insProv] = await conn.query(
+              'INSERT INTO PROVEEDOR (NOMBRE_PROVEEDOR, TELEFONO_PROVEEDOR, EMPRESA_PROVEEDOR) VALUES (?, ?, ?)',
+              [provNombre, provTelefono || null, provEmpresa || null]
+            );
             proveedorIdResolved = insProv.insertId;
           }
         }
