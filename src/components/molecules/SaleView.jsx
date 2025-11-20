@@ -20,6 +20,8 @@ export default function SaleView({ sale, onClose, onSaleUpdate }) {
 		setCurrentSale(sale || null);
 	}, [sale]);
 
+	console.log(sale);
+
 	const subtotalActual = useMemo(() => {
 		if (!currentSale) return 0;
 		const subtotal = parseNumber(currentSale?.subtotal ?? currentSale?.SUBTOTAL);
@@ -204,6 +206,10 @@ export default function SaleView({ sale, onClose, onSaleUpdate }) {
 					<div className='flex justify-between'>
 						<div className='text-md font-semibold'>Descuento:</div>
 						<div className='text-md font-semibold'>{descuentoActual ? `C$ ${descuentoActual.toLocaleString()}` : 'N/A'}</div>
+					</div>
+					<div className='flex justify-between'>
+						<div className='text-md font-semibold'>Transporte:</div>
+						<div className='text-md font-semibold'>{`${sale.servicio_transporte !== 0 ? 'C$ ' + sale.servicio_transporte : 'N/A'}`}</div>
 					</div>
 				</div>
 				<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>

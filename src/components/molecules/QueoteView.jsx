@@ -22,6 +22,7 @@ export default function QueoteView({ quote, onClose, onProcess }) {
 
 	// Deshabilitar si ya fue procesada o está expirada
 	const disableProcess = (quote?.estado && ['procesada'].includes(String(quote.estado).toLowerCase())) || isExpired;
+	console.log(quote);
 
 	return (
 		<div className='py-4'>
@@ -108,11 +109,15 @@ export default function QueoteView({ quote, onClose, onProcess }) {
 			<div className='mt-4 flex flex-col'>
 				<div className='flex justify-between'>
 					<div className='text-md font-semibold'>Subtotal:</div>
-					<div className='text-md font-semibold'>{quote?.subtotal || '-'}</div>
+					<div className='text-md font-semibold'>C$ {quote?.subtotal.toFixed(2) || '-'}</div>
 				</div>
 				<div className='flex justify-between'>
 					<div className='text-md font-semibold'>Descuento:</div>
-					<div className='text-md font-semibold'>{quote?.descuento === 0 ? "N/A" : quote?.descuento}</div>
+					<div className='text-md font-semibold'>{quote?.descuento === 0 ? "N/A" : quote?.descuento.toFixed(2)}</div>
+				</div>
+				<div className='flex justify-between'>
+					<div className='text-md font-semibold'>Transporte:</div>
+					<div className='text-md font-semibold'>{quote?.transporte === 0 ? "N/A" : "C$ " + quote?.transporte.toFixed(2)}</div>
 				</div>
 			</div>
 			<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>

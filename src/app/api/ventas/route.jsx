@@ -23,7 +23,7 @@ export async function POST(req) {
   const conn = await pool.getConnection();
   try {
     const body = await req.json();
-    const { items, subtotal, descuento = 0, total, pago = {}, cliente = {} } = body || {};
+    const { items, subtotal, descuento = 0, total, pago = {}, cliente = {}, servicio_transporte = 0 } = body || {};
     if (!Array.isArray(items) || items.length === 0) {
       return Response.json({ error: 'No hay items en la venta' }, { status: 400 });
     }
@@ -100,7 +100,8 @@ export async function POST(req) {
 
     const subtotalOk = Number.isFinite(Number(subtotal)) ? Number(subtotal) : computedSubtotal;
     const descuentoOk = Number(descuento || 0);
-    const totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk);
+    const servicioTrans = Number((body?.servicio_transporte ?? body?.servicioTransporte ?? servicio_transporte) || 0) || 0;
+    const totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk + servicioTrans);
 
     // Create invoice (FACTURA and FACTURA_DETALLES)
     const clienteId = await getOrCreateCliente(conn, cliente?.nombre, cliente?.telefono);
@@ -108,6 +109,7 @@ export async function POST(req) {
     // Detectar si FACTURA tiene columnas opcionales (compatibilidad con esquemas previos)
     let hasFacturaSucursal = false;
     let hasFacturaNumero = false;
+    let hasFacturaServicio = false;
     try {
       const [colRows] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
@@ -122,6 +124,13 @@ export async function POST(req) {
       `);
       hasFacturaNumero = (colNum?.[0] && Number(colNum[0].CNT || 0) > 0) || false;
     } catch { hasFacturaNumero = false; }
+    try {
+      const [colServ] = await conn.query(`
+        SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'SERVICIO_TRANSPORTE'
+      `);
+      hasFacturaServicio = (colServ?.[0] && Number(colServ[0].CNT || 0) > 0) || false;
+    } catch { hasFacturaServicio = false; }
 
     // Generar número de factura (FAC-YYYYMMDD-HHMMSS) sin sufijo aleatorio
     const pad = n => String(n).padStart(2,'0');
@@ -160,6 +169,16 @@ export async function POST(req) {
     }
     const [factRes] = await conn.query(facturaSql, facturaParams);
     const facturaId = factRes.insertId;
+
+    // Si la columna SERVICIO_TRANSPORTE existe, guardarla (compatibilidad con esquemas que no la tengan)
+    try {
+      if (hasFacturaServicio) {
+        await conn.query('UPDATE FACTURA SET SERVICIO_TRANSPORTE = ? WHERE ID_FACTURA = ?', [servicioTrans, facturaId]);
+      }
+    } catch (err) {
+      // no fatal
+      console.error('No se pudo guardar SERVICIO_TRANSPORTE:', err?.message || err);
+    }
 
     // Si se envió información detallada del descuento, almacenarla en tabla auxiliar
     try {
@@ -303,8 +322,8 @@ export async function GET(req) {
     if (id) {
       try {
         const selectDetalle = hasFacturaNumero
-          ? 'SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?'
-          : 'SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?';
+          ? 'SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?'
+          : 'SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?';
         const [factRows] = await pool.query(selectDetalle, [id]);
         if (!factRows || !factRows.length) return Response.json({ error: 'Factura no encontrada' }, { status: 404 });
         const f = factRows[0];
@@ -347,6 +366,7 @@ export async function GET(req) {
           subtotal: Number(f.SUBTOTAL || 0),
           descuento: Number(f.DESCUENTO || 0),
           total: Number(f.TOTAL || 0),
+          servicio_transporte: Number(f.SERVICIO_TRANSPORTE || 0),
           cliente,
           sucursal,
           usuario,
@@ -591,7 +611,21 @@ export async function PUT(req) {
   const clienteNombre = (cliente?.nombre || cliente?.cliente_nombre || body?.cliente_nombre || '').toString();
   const clienteTelefono = (cliente?.telefono || cliente?.telefono_cliente || body?.telefono_cliente || '').toString();
   const clienteId = await getOrCreateCliente(conn, clienteNombre, clienteTelefono);
-    await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, id]);
+    // Detectar si FACTURA tiene columna SERVICIO_TRANSPORTE para actualizarla también
+    let hasFacturaServicio = false;
+    try {
+      const [colServ] = await conn.query(`
+        SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'SERVICIO_TRANSPORTE'
+      `);
+      hasFacturaServicio = (colServ?.[0] && Number(colServ[0].CNT || 0) > 0) || false;
+    } catch { hasFacturaServicio = false; }
+    const servicioTrans = Number((body?.servicio_transporte ?? body?.servicioTransporte) || 0) || 0;
+    if (hasFacturaServicio) {
+      await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ?, SERVICIO_TRANSPORTE = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, servicioTrans, id]);
+    } else {
+      await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, id]);
+    }
 
     // Actualizar/insertar información de descuento asociada (si viene en payload)
     try {

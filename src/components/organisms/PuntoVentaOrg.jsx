@@ -47,7 +47,8 @@ export default function PuntoVentaOrg() {
 	const [selectedSucursal, setSelectedSucursal] = useState(null);
 	const [descuentos, setDescuentos] = useState([])
 	const [selectedDiscountOpt, setSelectedDiscountOpt] = useState([]);
-	const [appliedDiscount, setAppliedDiscount] = useState(null); // descuento aplicado en la venta
+	const [appliedDiscount, setAppliedDiscount] = useState(null);
+	const [transportation, setTransportation] = useState(0);
 
 	// Re-enabled discounts: fetch from service
 	const ENABLE_DISCOUNTS = true;
@@ -204,7 +205,8 @@ export default function PuntoVentaOrg() {
 		return Number(((subtotal * pct) / 100).toFixed(2));
 	}, [appliedDiscount, subtotal]);
 	const descuento = Number(discountAmount || 0);
-	const total = Number((subtotal - descuento).toFixed(2));
+	const transporte = Number(transportation || 0);
+	const total = Number((subtotal - descuento + transporte).toFixed(2));
 
 	const toggleModalType = async (type, product = null) => {
 		setMode(type);
@@ -272,6 +274,9 @@ export default function PuntoVentaOrg() {
 
 		} else if (type === 'discount') {
 			setIsActiveModal(true);
+
+		} else if (type === 'transportation') {
+			setIsActiveModal(true)
 
 		} else {
 			setMode('error');
@@ -342,6 +347,7 @@ export default function PuntoVentaOrg() {
 				subtotal: Number(subtotal.toFixed(2)),
 				descuento: Number(descuento || 0),
 				total: Number(total.toFixed(2)),
+				servicio_transporte: Number(transportation || 0),
 				// Información del descuento aplicado (si existe)
 				discount: appliedDiscount ? {
 					id: appliedDiscount.ID_DESCUENTO || appliedDiscount.id || appliedDiscount.value || null,
@@ -527,6 +533,7 @@ export default function PuntoVentaOrg() {
 			items,
 			subtotal: Number(subtotal.toFixed(2)),
 			descuento: Number(descuento || 0),
+			transporte: Number(transportation || 0),
 			total: Number(total.toFixed(2)),
 			cliente: { nombre: clienteNombre, telefono: clienteTelefono },
 			fecha_vencimiento: fechaVencimiento,
@@ -636,6 +643,7 @@ export default function PuntoVentaOrg() {
 				items,
 				subtotal: Number(subtotal.toFixed(2)),
 				descuento: Number(descuento || 0),
+				transporte: Number(transportation || 0),
 				total: Number(total.toFixed(2)),
 				cliente: { nombre: clienteNombre, telefono: clienteTelefono },
 				sucursal_id: currentUser?.ID_SUCURSAL || (selectedSucursal?.value ?? null),
@@ -667,6 +675,18 @@ export default function PuntoVentaOrg() {
 			setAppliedDiscount(selectedDiscountOpt);
 		}
 		setIsActiveModal(false)
+	}
+
+	const handleTransportation = () => {
+		// Normalize transportation value and close modal
+		const parsed = Number(transportation || 0);
+		if (isNaN(parsed)) {
+			setTransportation(0);
+		} else {
+			setTransportation(parsed);
+		}
+		setIsActiveModal(false);
+		setMode('');
 	}
 
 	return (
@@ -815,6 +835,11 @@ export default function PuntoVentaOrg() {
 									func={() => toggleModalType('discount')}
 								/>
 							)}
+							<Button
+								text={"Servicio de Trasporte"}
+								className={'dark'}
+								func={() => toggleModalType('transportation')}
+							/>
 						</div>
 					</div>
 					<div className='w-full border max-h-[297px] border-dark/20 rounded-lg p-4 flex flex-col gap-4'>
@@ -907,6 +932,21 @@ export default function PuntoVentaOrg() {
 								</div>
 							</div>
 							<div className='flex justify-between'>
+
+								<span className='text-dark/70'>Transporte:</span>
+								<div className='flex gap-1'>
+									{transportation > 0 && (
+										<Button
+											icon={<FiXCircle />}
+											iconRight={<FiArrowRight />}
+											className={'noneTwo'}
+											func={() => { setTransportation(0); }}
+										/>
+									)}
+									<span className='font-semibold'>${transportation.toFixed(2)}</span>
+								</div>
+							</div>
+							<div className='flex justify-between'>
 								<span className='text-dark/70'>Total:</span>
 								<span className='font-semibold text-primary text-lg'>${total.toFixed(2)}</span>
 							</div>
@@ -954,7 +994,10 @@ export default function PuntoVentaOrg() {
 													? 'Confirmar esta venta como Credito'
 													: (mode === 'discount'
 														? 'Aplicar un descuento'
-														: 'Cambio Total: C$' + cambio
+														: (mode === 'transportation'
+															? ''
+															: 'Cambio Total: C$' + cambio
+														)
 													)
 												)
 											)
@@ -1136,6 +1179,29 @@ export default function PuntoVentaOrg() {
 									/>
 								</div>
 							</div>
+						) : (mode === 'transportation' ? (
+							<div className='flex flex-col gap-2 mt-2'>
+								<Input
+									label={'Servicio de Transporte'}
+									type={'number'}
+									inputClass={'no icon'}
+									placeholder={'Ingrese el precio del transporte...'}
+									value={transportation}
+									onChange={(e) => setTransportation(Number(e.target.value || 0))}
+								/>
+								<div className='flex gap-2'>
+									<Button
+										text={"Cancelar"}
+										className={"secondary"}
+										func={() => setIsActiveModal(false)}
+									/>
+									<Button
+										className={'success'}
+										text={"Aplicar"}
+										func={() => handleTransportation()}
+									/>
+								</div>
+							</div>
 						) : (
 							<div className='flex mt-2'>
 								<Button
@@ -1145,7 +1211,7 @@ export default function PuntoVentaOrg() {
 									func={handleDone}
 								/>
 							</div>
-						)))))}
+						))))))}
 					</ModalContainer >
 				)
 			}

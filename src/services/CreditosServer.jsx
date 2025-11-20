@@ -37,7 +37,7 @@ export async function createCredit(req) {
   const conn = await pool.getConnection();
   try {
     const body = await req.json();
-    const { items, subtotal, descuento = 0, total, cliente = {} } = body || {};
+    const { items, subtotal, descuento = 0, total, transporte = 0, cliente = {} } = body || {};
     if (!Array.isArray(items) || items.length === 0) {
       throw new Error('No hay items para el crédito');
     }
@@ -76,7 +76,8 @@ export async function createCredit(req) {
     }
     const subtotalOk = Number.isFinite(Number(subtotal)) ? Number(subtotal) : Number(computedSubtotal);
     const descuentoOk = Number(descuento || 0);
-    const totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk);
+    const transporteOk = Number(transporte || 0);
+    const totalOk = Number.isFinite(Number(total)) ? Number(total) : Math.max(0, subtotalOk - descuentoOk + transporteOk);
 
     const clienteId = await getOrCreateCliente(conn, clienteNombre, clienteTelefono);
     const fecha = new Date();
@@ -97,8 +98,8 @@ export async function createCredit(req) {
       numeroFactura = `FAC-${y}${mo}${da}-${hh}${mi}${ss}-${intentos}`;
     }
 
-    const facturaSql = 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)';
-    const facturaParams = [numeroFactura, fecha, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null];
+    const facturaSql = 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, SERVICIO_TRANSPORTE, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)';
+    const facturaParams = [numeroFactura, fecha, subtotalOk, descuentoOk, transporteOk, totalOk, clienteId || null, sucursalId || null];
     const [factRes] = await conn.query(facturaSql, facturaParams);
     const facturaId = factRes.insertId;
 
@@ -229,6 +230,7 @@ export async function getCredits() {
         uc.ID_FACTURA AS factura_id,
         COALESCE(uc.NUMERO_FACTURA, f.NUMERO_FACTURA) AS numero,
         f.FECHA AS fecha,
+        f.SERVICIO_TRANSPORTE as transporte,
         COALESCE(s.NOMBRE_SUCURSAL, '') AS sucursal,
         COALESCE(c.NOMBRE_CLIENTE, '') AS cliente,
         COALESCE(c.TELEFONO_CLIENTE, '') AS telefono,

@@ -42,6 +42,7 @@ export default function CreditosOrg() {
 			const res = await CreditosService.getCredits();
 			if (!res || !res.success) return;
 			const rows = res.creditos || [];
+			console.log(rows);
 			// Normaliza fecha local: mantiene `fecha` como yyyy-MM-dd para filtros y `fechaDisplay` para UI
 			const toLocalParts = (val) => {
 				try {
@@ -73,6 +74,7 @@ export default function CreditosOrg() {
 					cliente: { nombre: (r.cliente || r.NOMBRE_CLIENTE) || 'Consumidor Final', telefono: r.telefono || r.TELEFONO_CLIENTE || '' },
 					deudaInicio: ((r.DEUDA_INICIAL ?? r.deuda_inicial ?? r.DEUDA_ACTUAL ?? r.MONTO_DEUDA ?? r.deuda_actual) || null),
 					deudaActual: ((r.DEUDA_ACTUAL ?? r.deuda_actual ?? r.MONTO_DEUDA) || null),
+					transporte: r.transporte || 0,
 					hecho_por: r.hecho_por || r.usuario || r.HECHO_POR || '',
 					estado: r.ESTADO || r.estado || 'Activa',
 					items: (r.items || []).map(it => ({
