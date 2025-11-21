@@ -234,7 +234,7 @@ export default function CreditosOrg() {
 												<td className='p-2 flex justify-center items-center'>
 													<div className='flex gap-2 justify-center w-1/2'>
 														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalType('ver', item)} />
-														<Button className={'blue'} icon={<FiEdit />} func={() => toggleModalType('editar', item)} />
+														
 														<Button className={'purple'} icon={<BsCashCoin />} func={() => toggleModalType('payment', item)} />
 														<Button className={'success'} icon={<FiPrinter />} func={async () => {
 															try {

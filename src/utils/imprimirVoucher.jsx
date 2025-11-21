@@ -31,7 +31,7 @@ export const imprimirVoucher = async (data) => {
     await qz.websocket.connect();
 
     const printer = await qz.printers.find("POS-80C");
-    const config = qz.configs.create(printer);
+    const config = qz.configs.create(printer, { copies: 2 });
 
     const now = new Date();
     const fecha = now.toLocaleDateString();
