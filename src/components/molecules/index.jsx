@@ -18,3 +18,4 @@ export { default as CreditosView } from './CreditosView';
 export { default as CreditosEdit } from './CreditosEdit';
 export { default as DescuentoCard } from './DescuentoCard';
 export { default as CreditosPayment } from './CreditosPayment';
+export { default as PaymentHistory } from './PaymentHistory';

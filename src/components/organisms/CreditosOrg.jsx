@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react'
 import { Button, InfoCard, ModalContainer } from '../atoms'
 import { FiActivity, FiDollarSign, FiEdit, FiEye, FiFile, FiPrinter, FiSearch, FiStopCircle, FiUser } from 'react-icons/fi'
-import { BsBagFill, BsBuilding, BsCash, BsCashCoin, BsStop } from 'react-icons/bs'
+import { BsBagFill, BsBuilding, BsCash, BsCashCoin, BsPaypal, BsStop } from 'react-icons/bs'
 import { MdBlock } from 'react-icons/md'
 import { useActive, useFilter, useIsMobile } from '@/hooks'
-import { Card, CreditosEdit, CreditosPayment, CreditosView, Input } from '../molecules'
+import { Card, CreditosEdit, CreditosPayment, CreditosView, Input, PaymentHistory } from '../molecules'
 import { CreditosService } from '@/services'
 
 export default function CreditosOrg() {
@@ -112,8 +112,8 @@ export default function CreditosOrg() {
 			setSelectedCredit(item)
 			setIsActiveModal(true)
 
-		} else if (type === 'print') {
-
+		} else if (type === 'paymentHistory') {
+			setIsActiveModal(true)
 		}
 	}
 
@@ -234,8 +234,8 @@ export default function CreditosOrg() {
 												<td className='p-2 flex justify-center items-center'>
 													<div className='flex gap-2 justify-center w-1/2'>
 														<Button className={'primary'} icon={<FiEye />} func={() => toggleModalType('ver', item)} />
-														
 														<Button className={'purple'} icon={<BsCashCoin />} func={() => toggleModalType('payment', item)} />
+														<Button className={'dark'} icon={<BsCash />} func={() => toggleModalType('paymentHistory', item)} />
 														<Button className={'success'} icon={<FiPrinter />} func={async () => {
 															try {
 																const { imprimirVoucherCredito } = await import('@/utils/imprimirVoucher');
@@ -304,6 +304,7 @@ export default function CreditosOrg() {
 						{mode === 'ver' && <CreditosView creditData={selectedCredit} onClose={() => setIsActiveModal(false)} />}
 						{mode === 'editar' && <CreditosEdit creditData={selectedCredit} onClose={() => setIsActiveModal(false)} onSave={async () => { await fetchCredits(); }} />}
 						{mode === 'payment' && <CreditosPayment creditData={selectedCredit} onClose={() => setIsActiveModal(false)} onSave={async () => { await fetchCredits(); }} />}
+						{mode === 'paymentHistory' && <PaymentHistory creditData={selectedCredit} onClose={() => setIsActiveModal(false)} onSave={async () => { await fetchCredits(); }} />}
 					</ModalContainer>
 				)
 			}

@@ -94,7 +94,6 @@ export default function ProveedoresOrg() {
 											<th className='text-start text-dark/50 font-semibold p-2'>Nombre</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Empresa</th>
 											<th className='text-start text-dark/50 font-semibold p-2'>Telefono</th>
-											<th className='text-start text-dark/50 font-semibold p-2'>Empresa</th>
 											<th className='text-center text-dark/50 font-semibold p-2'>Acciones</th>
 										</tr>
 									</thead>
@@ -105,7 +104,6 @@ export default function ProveedoresOrg() {
 												<td className='p-2 text-start'>{item.nombre}</td>
 												<td className='p-2 text-start'>{item.empresa || '—'}</td>
 												<td className='p-2 text-start'>{item.telefono}</td>
-												<td className='p-2 text-start'>{item.empresa || ''}</td>
 												<td className='p-2 text-center'>
 													<div className='flex gap-2 justify-center'>
 														<Button

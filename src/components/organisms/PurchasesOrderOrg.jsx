@@ -425,7 +425,15 @@ export default function PurchasesOrderOrg() {
 																	/>
 																</td>
 															}
-															<td className='p-2 text-center'>{it.cantidad ?? it.qty ?? '-'}</td>
+															<td className='p-2 text-center'>
+																<div className='w-16'>
+																	<Input
+																		type={'number'}
+																		value={it.cantidad ?? it.qty ?? '-'}
+																		inputClass={'no icon'}
+																	/>
+																</div>
+															</td>
 															<td className='p-2'>{it.codigo || '-'}</td>
 															<td className='p-2'>{it.producto || '-'}</td>
 															<td className='p-2'>{it.measureUnit || '-'}</td>
