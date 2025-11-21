@@ -49,6 +49,11 @@ export default function PurchasesOrderOrg() {
 
 				setPurchaseData(prev => ({
 					...prev,
+					proveedor: {
+						nombre: data.compra?.NOMBRE_PROVEEDOR ?? prev?.proveedor?.nombre ?? 'Consumidor Final',
+						telefono: data.compra?.TELEFONO_PROVEEDOR ?? prev?.proveedor?.telefono ?? '',
+						empresa: data.compra?.EMPRESA_PROVEEDOR ?? prev?.proveedor?.empresa ?? ''
+					},
 					productos: detalles,
 					total: data.compra?.TOTAL ?? prev.total,
 					fechas: { ...prev.fechas, creacion: data.compra?.FECHA_PEDIDO, esperada: data.compra?.FECHA_ENTREGA }
@@ -128,7 +133,11 @@ export default function PurchasesOrderOrg() {
 					setOrdenesEjemplo(all.map(r => ({
 						id: r.ID_COMPRA,
 						fechas: { creacion: r.FECHA_PEDIDO, esperada: r.FECHA_ENTREGA },
-						proveedor: { nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'), telefono: '' },
+						proveedor: {
+							nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'),
+							telefono: r.TELEFONO_PROVEEDOR || '',
+							empresa: r.EMPRESA_PROVEEDOR || ''
+						},
 						estado: r.ESTADO,
 						productos: Array.isArray(r.productos) && r.productos.length ? r.productos : new Array(Number(r.PRODUCT_COUNT || 0)),
 						total: r.TOTAL
@@ -156,7 +165,11 @@ export default function PurchasesOrderOrg() {
 					setOrdenesEjemplo(res.map(r => ({
 						id: r.ID_COMPRA,
 						fechas: { creacion: r.FECHA_PEDIDO, esperada: r.FECHA_ENTREGA },
-						proveedor: { nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'), telefono: '' },
+						proveedor: {
+							nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'),
+							telefono: r.TELEFONO_PROVEEDOR || '',
+							empresa: r.EMPRESA_PROVEEDOR || ''
+						},
 						estado: r.ESTADO,
 						productos: Array.isArray(r.productos) && r.productos.length ? r.productos : new Array(Number(r.PRODUCT_COUNT || 0)),
 						total: r.TOTAL
@@ -338,7 +351,7 @@ export default function PurchasesOrderOrg() {
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Empresa</div>
-									<div className='font-semibold'>{purchaseData?.empresa?.telefono || 'N/A'}</div>
+									<div className='font-semibold'>{purchaseData?.proveedor?.empresa || 'N/A'}</div>
 								</div>
 								<div className='mb-2 flex flex-col'>
 									<div className='text-dark/70 font-semibold'>Fecha Creada</div>
@@ -362,7 +375,7 @@ export default function PurchasesOrderOrg() {
 								</div>
 								{
 									purchaseData?.estado?.toLowerCase() !== 'recibida' && mode !== 'recibir' &&
-									<div className='mb-2 flex flex-col items-end col-span-2'>
+									<div className='mb-2 flex flex-col items-end'>
 										<div className='font-semibold'>
 											<Button
 												text={'Recibir Mercancia'}

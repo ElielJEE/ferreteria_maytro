@@ -4,7 +4,11 @@ import { extractId } from '@/app/api/_utils/normalize';
 export async function PUT(request) {
 	try {
 		const body = await request.json();
-	const { id, codigo, nombre, subcategoria, cantidad, precio_compra } = body;
+		const { id, codigo, nombre, subcategoria, cantidad, precio_compra } = body;
+		const productId = extractId(id);
+		if (!productId) {
+			return Response.json({ error: 'id del producto requerido' }, { status: 400 });
+		}
 		const conn = await pool.getConnection();
 		try {
 			await conn.beginTransaction();
@@ -26,7 +30,7 @@ export async function PUT(request) {
 				}
 				if (typeof subcategoria !== 'undefined') {
 					updateFields.push('ID_SUBCATEGORIAS = ?');
-					updateValues.push(subcategoria);
+					updateValues.push(extractId(subcategoria));
 				}
 				if (typeof precio_compra !== 'undefined') {
 					updateFields.push('PRECIO_COMPRA = ?');
@@ -39,15 +43,15 @@ export async function PUT(request) {
 					return Response.json({ success: true });
 				}
 
-				updateValues.push(id);
+				updateValues.push(productId);
 				await conn.query(`UPDATE PRODUCTOS SET ${updateFields.join(', ')} WHERE ID_PRODUCT = ?`, updateValues);
 			// actualizar unidades del producto (si vienen)
 			if (Array.isArray(body.unidades)) {
 				// eliminar las unidades existentes y volver a insertar las recibidas
-				await conn.query('DELETE FROM producto_unidades WHERE PRODUCT_ID = ?', [id]);
+				await conn.query('DELETE FROM producto_unidades WHERE PRODUCT_ID = ?', [productId]);
 				if (body.unidades.length > 0) {
 					const values = body.unidades.map((u, idx) => [
-						id,
+						productId,
 						extractId(u.unidad),
 						Number(u.precio_venta) || 0,
 						Number(u.cantidad_unidad) || 1,

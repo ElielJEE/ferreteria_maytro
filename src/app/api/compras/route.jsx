@@ -183,7 +183,15 @@ export async function GET(request) {
 
     if (id) {
       // devolver compra con detalles
-      const [compRows] = await pool.query('SELECT ID_COMPRA, FECHA_PEDIDO, FECHA_ENTREGA, TOTAL, ID_PROVEEDOR, ID_USUARIO, ID_SUCURSAL, ESTADO FROM COMPRAS WHERE ID_COMPRA = ? LIMIT 1', [id]);
+      const [compRows] = await pool.query(
+        `SELECT c.ID_COMPRA, c.FECHA_PEDIDO, c.FECHA_ENTREGA, c.TOTAL, c.ID_PROVEEDOR, c.ID_USUARIO, c.ID_SUCURSAL, c.ESTADO,
+                p.NOMBRE_PROVEEDOR, p.TELEFONO_PROVEEDOR, p.EMPRESA_PROVEEDOR
+         FROM COMPRAS c
+         LEFT JOIN PROVEEDOR p ON p.ID_PROVEEDOR = c.ID_PROVEEDOR
+         WHERE c.ID_COMPRA = ?
+         LIMIT 1`,
+        [id]
+      );
       if (!compRows || compRows.length === 0) return Response.json({ error: 'compra no encontrada' }, { status: 404 });
       const compra = compRows[0];
       // ensure ENTREGADO column exists before selecting
@@ -210,8 +218,10 @@ export async function GET(request) {
     const { isAdmin, sucursalId } = await getUserSucursalContext(request);
     const where = !isAdmin && sucursalId ? 'WHERE c.ID_SUCURSAL = ?' : '';
     const params = !isAdmin && sucursalId ? [sucursalId] : [];
-    const [rows] = await pool.query(`
-      SELECT c.ID_COMPRA, c.FECHA_PEDIDO, c.FECHA_ENTREGA, c.TOTAL, c.ID_PROVEEDOR, p.NOMBRE_PROVEEDOR, c.ID_USUARIO, c.ID_SUCURSAL, c.ESTADO,
+        const [rows] = await pool.query(`
+          SELECT c.ID_COMPRA, c.FECHA_PEDIDO, c.FECHA_ENTREGA, c.TOTAL, c.ID_PROVEEDOR,
+            p.NOMBRE_PROVEEDOR, p.TELEFONO_PROVEEDOR, p.EMPRESA_PROVEEDOR,
+            c.ID_USUARIO, c.ID_SUCURSAL, c.ESTADO,
              (SELECT COUNT(1) FROM DETALLES_COMPRA d WHERE d.ID_COMPRA = c.ID_COMPRA) AS PRODUCT_COUNT
       FROM COMPRAS c
       LEFT JOIN PROVEEDOR p ON p.ID_PROVEEDOR = c.ID_PROVEEDOR
