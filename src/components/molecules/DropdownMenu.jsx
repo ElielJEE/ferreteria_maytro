@@ -1,57 +1,101 @@
-"use client"
-import React from 'react'
-import { useState } from 'react'
+"use client";
+import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { IoIosArrowDown } from "react-icons/io";
-
 
 export default function DropdownMenu({ options, defaultValue, onChange, label, error }) {
 	const [isOpen, setIsOpen] = useState(false);
-	// Si defaultValue es un objeto, usa su label, si no, usa el string
-	const getLabel = (opt) => (typeof opt === 'object' ? opt.label : opt);
-	const getValue = (opt) => (typeof opt === 'object' ? opt.value : opt);
-	const [selectedOption, setSelectedOption] = useState(defaultValue || "Select an option");
+	const [selectedOption, setSelectedOption] = useState(defaultValue || "Selecciona una opción");
+	const [position, setPosition] = useState(null);
+
+	const triggerRef = useRef(null);
+	const menuRef = useRef(null); // ⬅️ NUEVO
+
+	// Actualizar posición del menú cuando se abre
+	useEffect(() => {
+		if (isOpen && triggerRef.current) {
+			const rect = triggerRef.current.getBoundingClientRect();
+			setPosition({
+				top: rect.bottom + window.scrollY,
+				left: rect.left + window.scrollX,
+				width: rect.width
+			});
+		}
+	}, [isOpen]);
+
+	// Cerrar al hacer click afuera
+	useEffect(() => {
+		const handleClickOutside = (e) => {
+			// ⬅️ SI EL CLICK ES EN EL MENÚ, NO CERRAR
+			if (menuRef.current?.contains(e.target)) return;
+
+			// ⬅️ SI EL CLICK ES EN EL TRIGGER, NO CERRAR
+			if (triggerRef.current?.contains(e.target)) return;
+
+			setIsOpen(false);
+		};
+
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
 
 	const handleSelect = (option) => {
-		setSelectedOption(getLabel(option));
+		const label = typeof option === "object" ? option.label : option;
+		setSelectedOption(label);
 		onChange && onChange(option);
 		setIsOpen(false);
-	}
+	};
 
 	return (
-		<div className='relative flex flex-col w-full'>
-			{label &&
-				<label htmlFor="dropdown" className="flex text-dark font-medium mb-2">{label}</label>
-			}
+		<div className="relative flex flex-col w-full">
+			{label && <label className="mb-2 font-medium text-dark">{label}</label>}
+
 			<div
-				className='flex h-10 border border-dark/20 hover:border-dark/30 rounded-lg bg-light px-3 w-full cursor-pointer justify-between items-center gap-2'
+				ref={triggerRef}
+				className="flex h-10 border border-dark/20 hover:border-dark/30 rounded-lg bg-light px-3 w-full cursor-pointer justify-between items-center gap-2"
 				onClick={() => setIsOpen(!isOpen)}
 			>
 				<span>{selectedOption}</span>
 				<IoIosArrowDown />
 			</div>
-			{
-				isOpen && (
-					<ul className={`absolute ${label ? "top-20" : "top-12"} bg-light border border-dark/20 rounded-md w-full shadow-lg z-10 p-1 md:max-h-60 max-h-50 overflow-y-auto`}>
+
+			{/* Menú en PORTAL */}
+			{isOpen && position &&
+				createPortal(
+					<ul
+						ref={menuRef} // ⬅️ AGREGADO
+						className="absolute bg-light border border-dark/20 rounded-md shadow-lg p-1 max-h-60 overflow-y-auto"
+						style={{
+							top: position.top,
+							left: position.left,
+							width: position.width,
+							zIndex: 99999,
+							position: "absolute"
+						}}
+					>
 						{options && options.length > 0 ? (
-							options.map((option, index) => (
-								<li
-									key={index}
-									onClick={() => handleSelect(option)}
-									className='hover:bg-primary rounded-sm p-1 px-2 hover:text-white cursor-pointer flex items-center'
-								>
-									<span className='w-[20px]'>
-										{getLabel(option) === selectedOption && '✓'}
-									</span>
-									{getLabel(option)}
-								</li>
-							))
+							options.map((option, index) => {
+								const label = typeof option === "object" ? option.label : option;
+								return (
+									<li
+										key={index}
+										onClick={() => handleSelect(option)}
+										className="hover:bg-primary hover:text-white rounded-sm p-1 px-2 cursor-pointer flex items-center gap-2"
+									>
+										{label === selectedOption && <span>✓</span>}
+										{label}
+									</li>
+								);
+							})
 						) : (
-							<li className='p-2 text-sm text-dark/50'>No hay opciones</li>
+							<li className="p-2 text-sm text-dark/50">No hay opciones</li>
 						)}
-					</ul>
+					</ul>,
+					document.body
 				)
 			}
-			{error && <span className='text-danger text-sm'>{error}</span>}
+
+			{error && <span className="text-danger text-sm">{error}</span>}
 		</div>
-	)
+	);
 }
