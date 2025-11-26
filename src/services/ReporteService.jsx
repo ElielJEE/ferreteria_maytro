@@ -24,3 +24,15 @@ export async function getMonthReport(sucursal = "Todas") {
     return { error: err.message };
   }
 }
+
+export async function getYearReport(sucursal = "Todas") {
+  try {
+    const query = new URLSearchParams({ sucursal }).toString();
+    const res = await fetch(`${API_URL}/anual?${query}`);
+    if (!res.ok) throw new Error("Error al obtener reporte");
+    return await res.json();
+  } catch (err) {
+    console.error(err);
+    return { error: err.message };
+  }
+}

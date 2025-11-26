@@ -65,6 +65,8 @@ export default function DashboardOrg() {
 
 		} else if (type === 'year') {
 			setIsActiveModal(true);
+			const res = await ReporteService.getYearReport();
+			generateYearReportPDF(res);
 
 		} else if (type === 'choose') {
 			setIsActiveModal(true);
@@ -366,6 +368,88 @@ export default function DashboardOrg() {
 
 		// Guardar PDF
 		const filename = `reporte-del-mes-${new Date().toISOString().slice(0, 10)}.pdf`;
+		doc.save(filename);
+	};
+
+	const generateYearReportPDF = (dash) => {
+		const doc = new jsPDF({ unit: "pt", format: "a4" });
+		const margin = 40;
+		let y = margin;
+
+		const fmtC = (v) => `$${Number(v || 0).toFixed(2)}`;
+
+		// Título
+		doc.setFontSize(16);
+		doc.text("Reporte del Año", margin, y);
+		y += 20;
+
+		doc.setFontSize(10);
+		doc.text(`Fecha: ${new Date().toLocaleString()}`, margin, y);
+		y += 18;
+
+		// Resumen rápido
+		doc.setFontSize(12);
+		doc.text("Resumen rápido", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		doc.text(`Total ingresos del año: ${fmtC(dash.totalRevenueYear)}`, margin, y); y += 12;
+		doc.text(`Total ventas del año: ${dash.totalSalesYear}`, margin, y); y += 12;
+		doc.text(`Productos vendidos en el año: ${dash.productsSoldYear}`, margin, y); y += 12;
+		doc.text(`Clientes en el año: ${dash.clientsYear}`, margin, y); y += 16;
+
+		// Ventas recientes
+		doc.setFontSize(12);
+		doc.text("Ventas del año", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		if (Array.isArray(dash.recentSales) && dash.recentSales.length) {
+			doc.text("ID", margin, y);
+			doc.text("Fecha", margin + 40, y);
+			doc.text("Hora", margin + 120, y);
+			doc.text("Total", margin + 160, y);
+			doc.text("Cliente", margin + 230, y);
+			doc.text("Sucursal", margin + 420, y);
+			y += 12;
+
+			for (const s of dash.recentSales) {
+				if (y > 750) { doc.addPage(); y = margin; }
+				doc.text(String(s.id), margin, y);
+				doc.text(String(s.fecha), margin + 40, y);
+				doc.text(String(s.hora), margin + 120, y);
+				doc.text(fmtC(s.total), margin + 160, y);
+				doc.text(String(s.cliente), margin + 230, y);
+				doc.text(String(s.sucursal), margin + 420, y);
+				y += 12;
+			}
+		} else {
+			doc.text("Sin ventas recientes", margin, y); y += 12;
+		}
+
+		y += 8;
+
+		// Movimientos recientes
+		doc.setFontSize(12);
+		doc.text("Movimientos del año", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		if (Array.isArray(dash.recentMovements) && dash.recentMovements.length) {
+			for (const m of dash.recentMovements) {
+				if (y > 750) { doc.addPage(); y = margin; }
+				doc.text(`${m.fecha} ${m.hora} — ${m.producto} (${m.tipo}) ${m.sucursal} x${m.cantidad}`, margin, y);
+				y += 12;
+			}
+		} else {
+			doc.text("Sin movimientos recientes", margin, y); y += 12;
+		}
+
+		y += 8;
+
+		// Stock total
+		doc.setFontSize(12);
+		doc.text(`Stock total: ${dash.stockTotal}`, margin, y); y += 12;
+
+		// Guardar PDF
+		const filename = `reporte-anual-${new Date().toISOString().slice(0, 10)}.pdf`;
 		doc.save(filename);
 	};
 
