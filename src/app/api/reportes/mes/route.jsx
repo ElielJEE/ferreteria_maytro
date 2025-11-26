@@ -165,6 +165,7 @@ export async function GET(req) {
 		const { isAdmin, sucursalId } = await getUserSucursalFromReq(req);
 		const requested = req.nextUrl.searchParams.get('sucursal');
 		const sucursal = isAdmin ? requested || 'Todas' : sucursalId;
+		const { start, end } = monthRange();
 
 		const [
 			totalRevenueMonth,
@@ -191,7 +192,7 @@ export async function GET(req) {
 			clientsMonth,
 			recentSales,
 			recentMovements,
-			stockTotal
+			stockTotal,
 		});
 	} catch (e) {
 		return NextResponse.json({ error: e.message || 'Error generando reporte' }, { status: 500 });
