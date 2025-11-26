@@ -36,3 +36,23 @@ export async function getYearReport(sucursal = "Todas") {
     return { error: err.message };
   }
 }
+
+export async function getCustomReport(sucursal = "Todas", startDate, endDate) {
+  try {
+    const query = new URLSearchParams({
+      sucursal,
+      inicio: startDate,
+      fin: endDate
+    }).toString();
+
+    const res = await fetch(`${API_URL}/custom?${query}`);
+    if (!res.ok) throw new Error("Error al obtener reporte");
+    
+    return await res.json();
+
+  } catch (err) {
+    console.error(err);
+    return { error: err.message };
+  }
+}
+

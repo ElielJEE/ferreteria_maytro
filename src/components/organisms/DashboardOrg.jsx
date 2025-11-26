@@ -35,6 +35,8 @@ export default function DashboardOrg() {
 	}, []);
 	const { isActiveModal, setIsActiveModal } = useActive();
 	const [mode, setMode] = useState('choose');
+	const [startDate, setStartDate] = useState("");
+	const [endDate, setEndDate] = useState("");
 
 	const ventasData = useMemo(() => dash?.weeklySales || [], [dash]);
 	const maxAmount = useMemo(() => Math.max(1, ...ventasData.map(d => d.amount || 0)), [ventasData]);
@@ -48,163 +50,25 @@ export default function DashboardOrg() {
 	}, []);
 
 	const handleGenerateReport = async (type) => {
+		setIsActiveModal(true);
 		setMode(type);
 		if (type === 'today') {
-			setIsActiveModal(true);
 			const res = await ReporteService.getTodayReport();
 			generateTodayReportPDF(res);
 
 		} else if (type === 'month') {
-			setIsActiveModal(true);
 			const res = await ReporteService.getMonthReport();
 			generateMonthReportPDF(res);
-			console.log(res);
 
 		} else if (type === 'custom') {
-			setIsActiveModal(true);
-
+			const res = await ReporteService.getCustomReport("Todas", startDate, endDate);
+			generateCustomReportPDF(res);
+			
 		} else if (type === 'year') {
-			setIsActiveModal(true);
 			const res = await ReporteService.getYearReport();
 			generateYearReportPDF(res);
 
-		} else if (type === 'choose') {
-			setIsActiveModal(true);
 		}
-
-		/* if (generatingPdf) return;
-		if (!dash) return alert('Datos del dashboard no están cargados');
-		setGeneratingPdf(true);
-		try {
-			// Try to import jspdf dynamically
-			let jsPDFModule;
-			try {
-				jsPDFModule = await import('jspdf');
-			} catch (impErr) {
-				// If jspdf is not installed, offer fallback (download JSON)
-				console.warn('jspdf import failed:', impErr);
-				if (confirm('La librería `jspdf` no está instalada. ¿Deseas descargar los datos del dashboard en JSON como alternativa?')) {
-					const blob = new Blob([JSON.stringify(dash, null, 2)], { type: 'application/json' });
-					const url = URL.createObjectURL(blob);
-					const a = document.createElement('a');
-					a.href = url;
-					a.download = `dashboard-${new Date().toISOString().slice(0, 10)}.json`;
-					a.click();
-					URL.revokeObjectURL(url);
-				}
-				return;
-			}
-			const { jsPDF } = jsPDFModule;
-			const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-			const margin = 40;
-			let y = margin;
-			doc.setFontSize(16);
-			doc.text('Reporte - Dashboard', margin, y);
-			y += 20;
-			doc.setFontSize(10);
-			doc.text(`Fecha: ${new Date().toLocaleString()}`, margin, y);
-			y += 18;
-			// Key metrics (overview)
-			doc.setFontSize(12);
-			doc.text('Resumen rápido', margin, y);
-			y += 14;
-			doc.setFontSize(10);
-			doc.text(`Total ingresos hoy: ${fmtC(dash?.totalRevenueToday)}`, margin, y); y += 12;
-			doc.text(`Total ventas hoy: ${dash?.totalSalesToday ?? 0}`, margin, y); y += 12;
-			doc.text(`Productos vendidos hoy: ${dash?.productsSoldToday ?? 0}`, margin, y); y += 12;
-			doc.text(`Clientes hoy: ${dash?.clientsToday ?? 0}`, margin, y); y += 16;
-			// Monthly summary
-			doc.setFontSize(12);
-			doc.text('Resumen mensual', margin, y); y += 14;
-			doc.setFontSize(10);
-			doc.text(`Ingresos mes: ${fmtC(dash?.totalRevenueMonth)}`, margin, y); y += 12;
-			doc.text(`Facturas mes: ${dash?.invoicesThisMonth ?? 0}`, margin, y); y += 12;
-			doc.text(`Productos vendidos mes: ${dash?.productsSoldMonth ?? 0}`, margin, y); y += 12;
-			doc.text(`Clientes unicos mes: ${dash?.clientsThisMonth ?? 0}`, margin, y); y += 16;
-			// Weekly sales table
-			doc.setFontSize(12);
-			doc.text('Ventas de la semana', margin, y); y += 14;
-			doc.setFontSize(10);
-			if (Array.isArray(dash?.weeklySales) && dash.weeklySales.length) {
-				doc.text('Día', margin, y); doc.text('Monto', margin + 200, y); y += 12;
-				for (const s of dash.weeklySales) {
-					if (y > 750) { doc.addPage(); y = margin; }
-					doc.text(String(s.day || ''), margin, y);
-					doc.text(fmtC(s.amount ?? 0), margin + 200, y);
-					y += 12;
-				}
-			} else { doc.text('Sin datos de ventas semanales', margin, y); y += 12; }
-			y += 8;
-			// Top products table
-			doc.setFontSize(12);
-			doc.text('Productos más vendidos', margin, y); y += 14;
-			doc.setFontSize(10);
-			if (Array.isArray(dash?.topProducts) && dash.topProducts.length) {
-				doc.text('ID', margin, y); doc.text('Producto', margin + 40, y); doc.text('Vendidos', margin + 260, y); doc.text('Total', margin + 340, y); y += 12;
-				for (const p of dash.topProducts) {
-					if (y > 750) { doc.addPage(); y = margin; }
-					doc.text(String(p.id ?? ''), margin, y);
-					doc.text(String(p.product || ''), margin + 40, y);
-					doc.text(String(p.count ?? 0), margin + 260, y);
-					doc.text(fmtC(p.amount ?? 0), margin + 340, y);
-					y += 12;
-				}
-			} else { doc.text('Sin datos de productos', margin, y); y += 12; }
-			y += 8;
-			// Low stock
-			doc.setFontSize(12);
-			doc.text('Alertas de stock', margin, y); y += 14;
-			doc.setFontSize(10);
-			if (Array.isArray(dash?.lowStockProducts) && dash.lowStockProducts.length) {
-				for (const it of dash.lowStockProducts) {
-					if (y > 750) { doc.addPage(); y = margin; }
-					doc.text(`${it.product || ''} — stock: ${it.stock ?? 0} / max: ${it.max || it.maxStock || ''}`, margin, y);
-					y += 12;
-				}
-			} else { doc.text('No hay alertas de stock', margin, y); y += 12; }
-			y += 8;
-			// Recent sales
-			doc.setFontSize(12);
-			doc.text('Ventas', margin, y); y += 14;
-			doc.setFontSize(10);
-			if (Array.isArray(dash?.recentSales) && dash.recentSales.length) {
-				doc.text('ID', margin, y); doc.text('Fecha', margin + 40, y); doc.text('Hora', margin + 120, y); doc.text('Total', margin + 160, y); doc.text('Cliente', margin + 230, y); doc.text('Sucursal', margin + 420, y); y += 12;
-				for (const s of dash.recentSales) {
-					if (y > 750) { doc.addPage(); y = margin; }
-					doc.text(String(s.id ?? ''), margin, y);
-					doc.text(String(s.fecha || ''), margin + 40, y);
-					doc.text(String(s.hora || ''), margin + 120, y);
-					doc.text(fmtC(s.total ?? 0), margin + 160, y);
-					doc.text(String(s.cliente || ''), margin + 230, y);
-					doc.text(String(s.sucursal || ''), margin + 420, y);
-					y += 12;
-				}
-			} else { doc.text('Sin ventas recientes', margin, y); y += 12; }
-			y += 8;
-			// Recent movements
-			doc.setFontSize(12);
-			doc.text('Movimientos recientes', margin, y); y += 14;
-			doc.setFontSize(10);
-			if (Array.isArray(dash?.recentMovements) && dash.recentMovements.length) {
-				for (const m of dash.recentMovements) {
-					if (y > 750) { doc.addPage(); y = margin; }
-					doc.text(`${m.fecha || ''} ${m.hora || ''} — ${m.producto || ''} (${m.tipo || ''}) ${m.sucursal || ''} x${m.cantidad ?? ''}`, margin, y);
-					y += 12;
-				}
-			} else { doc.text('Sin movimientos recientes', margin, y); y += 12; }
-			y += 8;
-			// Stock total
-			doc.setFontSize(12);
-			doc.text(`Stock total: ${dash?.stockTotal ?? 0}`, margin, y); y += 12;
-			// Save PDF
-			const filename = `dashboard-${new Date().toISOString().slice(0, 10)}.pdf`;
-			doc.save(filename);
-		} catch (err) {
-			console.error('Error generando PDF desde dash:', err);
-			alert('Error generando PDF. Abre la consola para más detalles o instala `jspdf` con `npm i jspdf`.');
-		} finally {
-			setGeneratingPdf(false);
-		} */
 	}
 
 	const generateTodayReportPDF = (dash) => {
@@ -453,6 +317,84 @@ export default function DashboardOrg() {
 		doc.save(filename);
 	};
 
+	const generateCustomReportPDF = (dash) => {
+		const doc = new jsPDF({ unit: "pt", format: "a4" });
+		const margin = 40;
+		let y = margin;
+
+		const fmtC = (v) => `$${Number(v || 0).toFixed(2)}`;
+
+		// Título
+		doc.setFontSize(16);
+		doc.text("Reporte Personalizado", margin, y);
+		y += 20;
+
+		doc.setFontSize(10);
+		doc.text(`Fecha: ${new Date().toLocaleString()}`, margin, y);
+		y += 18;
+
+		// Resumen rápido
+		doc.setFontSize(12);
+		doc.text("Resumen rápido", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		doc.text(`Total ingresos: ${fmtC(dash.totalRevenue)}`, margin, y); y += 12;
+		doc.text(`Total ventas: ${dash.totalSales}`, margin, y); y += 12;
+		doc.text(`Productos vendidos: ${dash.productsSold}`, margin, y); y += 12;
+		doc.text(`Clientes: ${dash.clients}`, margin, y); y += 16;
+
+		// Ventas recientes
+		doc.setFontSize(12);
+		doc.text("Ventas", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		if (Array.isArray(dash.recentSales) && dash.recentSales.length) {
+			doc.text("ID", margin, y);
+			doc.text("Fecha", margin + 40, y);
+			doc.text("Hora", margin + 120, y);
+			doc.text("Total", margin + 160, y);
+			doc.text("Cliente", margin + 230, y);
+			doc.text("Sucursal", margin + 420, y);
+			y += 12;
+
+			for (const s of dash.recentSales) {
+				if (y > 750) { doc.addPage(); y = margin; }
+				doc.text(String(s.id), margin, y);
+				doc.text(String(s.fecha), margin + 40, y);
+				doc.text(String(s.hora), margin + 120, y);
+				doc.text(fmtC(s.total), margin + 160, y);
+				doc.text(String(s.cliente), margin + 230, y);
+				doc.text(String(s.sucursal), margin + 420, y);
+				y += 12;
+			}
+		} else {
+			doc.text("Sin ventas recientes", margin, y); y += 12;
+		}
+
+		y += 8;
+
+		// Movimientos recientes
+		doc.setFontSize(12);
+		doc.text("Movimientos", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		if (Array.isArray(dash.recentMovements) && dash.recentMovements.length) {
+			for (const m of dash.recentMovements) {
+				if (y > 750) { doc.addPage(); y = margin; }
+				doc.text(`${m.fecha} ${m.hora} — ${m.producto} (${m.tipo}) ${m.sucursal} x${m.cantidad}`, margin, y);
+				y += 12;
+			}
+		} else {
+			doc.text("Sin movimientos recientes", margin, y); y += 12;
+		}
+
+		y += 8;
+
+		// Guardar PDF
+		const filename = `reporte-${new Date().toISOString().slice(0, 10)}.pdf`;
+		doc.save(filename);
+	};
+
 
 	return (
 		<>
@@ -668,13 +610,15 @@ export default function DashboardOrg() {
 							<Input
 								label={"Reporte Personalizado"}
 								placeholder={"Selecciona la fecha de inicio"}
-								onChange={(value) => { console.log(value); }}
+								value={startDate}
+								onChange={(e) => setStartDate(e.target.value)}
 								type={"date"}
 								inputClass={'no icon'}
 							/>
 							<Input
 								placeholder={"Selecciona la fecha de fin"}
-								onChange={(value) => { console.log(value); }}
+								value={endDate}
+								onChange={(e) => setEndDate(e.target.value)}
 								type={"date"}
 								inputClass={'no icon'}
 							/>

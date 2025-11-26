@@ -3,15 +3,16 @@ import jwt from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
 
 const monthRange = () => {
-	const start = new Date();
-	start.setDate(1);       // primer día del mes
-	start.setHours(0, 0, 0, 0);
+	const now = new Date();
+	const y = now.getFullYear();
+	const m = now.getMonth();
 
-	const end = new Date(); // hoy
-	end.setHours(23, 59, 59, 999);
+	const start = new Date(y, m, 1, 0, 0, 0, 0);
+	const end = new Date(y, m + 1, 0, 23, 59, 59, 999); // último día del mes
 
 	return { start, end };
 };
+
 
 // Obtener sucursal desde token
 async function getUserSucursalFromReq(req) {
@@ -96,7 +97,6 @@ async function getRecentSalesMonth(sucursal) {
     LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL
     WHERE f.FECHA BETWEEN ? AND ?
     ORDER BY f.FECHA DESC
-    LIMIT 50
   `;
 	const params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
@@ -129,7 +129,6 @@ async function getRecentMovementsMonth(sucursal) {
     LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = mi.sucursal_id
     WHERE mi.fecha BETWEEN ? AND ?
     ORDER BY mi.fecha DESC
-    LIMIT 50
   `;
 	const params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
