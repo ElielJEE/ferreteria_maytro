@@ -18,3 +18,4 @@ export * as PermisosService from './PermisosService';
 export * as DescuentoService from './DescuentoService';
 export * as UnidadesService from './UnidadesService';
 export * as CreditosService from './CreditosService';
+export * as ReporteService from './ReporteService';
