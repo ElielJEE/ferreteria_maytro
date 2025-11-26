@@ -413,15 +413,16 @@ export default function ProductsOrg() {
 									onChange={e => { setForm({ ...form, cantidad: e.target.value }); setErrors(prev => ({ ...prev, cantidad: undefined })); }}
 									error={errors.cantidad}
 								/>
-								<div className='col-span-2 max-h-[250px] overflow-y-auto'>
+								<div className='col-span-2 max-h-[350px] overflow-y-auto overflow-x-hidden'>
 									{form.unidades.map((u, index) => (
-										<div key={index} className='flex items-end col-span-2 gap-2'>
+										<div key={index} className={`flex items-end col-span-2 gap-2`}>
 											<div>
 												<DropdownMenu
 													label={"Unidad"}
 													options={unitsOptions.map(uo => ({ value: uo.ID_UNIDAD, label: uo.NOMBRE }))}
 													defaultValue={u.unidad ? (u.unidad.label || u.unidad) : 'Selecciona la unidad'}
 													onChange={(value) => handleUnidadChange(index, 'unidad', value)}
+													idx={index}
 												/>
 											</div>
 											<Input

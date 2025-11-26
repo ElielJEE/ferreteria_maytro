@@ -1,14 +1,17 @@
 "use client"
 import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, InfoCard, Loading } from '@/components/atoms'
+import { Button, InfoCard, Loading, ModalContainer } from '@/components/atoms'
 import { FiDollarSign } from "react-icons/fi";
 import { BsCart2, BsBoxSeam, BsEye } from "react-icons/bs";
 import { HiArrowTrendingUp, HiOutlineUserGroup } from "react-icons/hi2";
 import { CiWarning } from "react-icons/ci";
 import { HiOutlineCalculator } from "react-icons/hi";
 import { IoArrowForwardOutline } from "react-icons/io5";
-import { DashboardService } from '@/services';
+import { DashboardService, ReporteService } from '@/services';
+import { useActive } from '@/hooks';
+import { Input } from '../molecules';
+import { jsPDF } from "jspdf";
 
 export default function DashboardOrg() {
 	const router = useRouter();
@@ -30,6 +33,8 @@ export default function DashboardOrg() {
 		})();
 		return () => { mounted = false };
 	}, []);
+	const { isActiveModal, setIsActiveModal } = useActive();
+	const [mode, setMode] = useState('choose');
 
 	const ventasData = useMemo(() => dash?.weeklySales || [], [dash]);
 	const maxAmount = useMemo(() => Math.max(1, ...ventasData.map(d => d.amount || 0)), [ventasData]);
@@ -42,8 +47,30 @@ export default function DashboardOrg() {
 		return now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
 	}, []);
 
-	const handleGenerateReport = async () => {
-		if (generatingPdf) return;
+	const handleGenerateReport = async (type) => {
+		setMode(type);
+		if (type === 'today') {
+			setIsActiveModal(true);
+			const res = await ReporteService.getTodayReport();
+			generateTodayReportPDF(res);
+
+		} else if (type === 'month') {
+			setIsActiveModal(true);
+			const res = await ReporteService.getMonthReport();
+			generateMonthReportPDF(res);
+			console.log(res);
+
+		} else if (type === 'custom') {
+			setIsActiveModal(true);
+
+		} else if (type === 'year') {
+			setIsActiveModal(true);
+
+		} else if (type === 'choose') {
+			setIsActiveModal(true);
+		}
+
+		/* if (generatingPdf) return;
 		if (!dash) return alert('Datos del dashboard no están cargados');
 		setGeneratingPdf(true);
 		try {
@@ -175,14 +202,179 @@ export default function DashboardOrg() {
 			alert('Error generando PDF. Abre la consola para más detalles o instala `jspdf` con `npm i jspdf`.');
 		} finally {
 			setGeneratingPdf(false);
-		}
+		} */
 	}
+
+	const generateTodayReportPDF = (dash) => {
+		const doc = new jsPDF({ unit: "pt", format: "a4" });
+		const margin = 40;
+		let y = margin;
+
+		const fmtC = (v) => `$${Number(v || 0).toFixed(2)}`;
+
+		// Título
+		doc.setFontSize(16);
+		doc.text("Reporte Diario", margin, y);
+		y += 20;
+
+		doc.setFontSize(10);
+		doc.text(`Fecha: ${new Date().toLocaleString()}`, margin, y);
+		y += 18;
+
+		// Resumen rápido
+		doc.setFontSize(12);
+		doc.text("Resumen rápido", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		doc.text(`Total ingresos hoy: ${fmtC(dash.totalRevenueToday)}`, margin, y); y += 12;
+		doc.text(`Total ventas hoy: ${dash.totalSalesToday}`, margin, y); y += 12;
+		doc.text(`Productos vendidos hoy: ${dash.productsSoldToday}`, margin, y); y += 12;
+		doc.text(`Clientes hoy: ${dash.clientsToday}`, margin, y); y += 16;
+
+		// Ventas recientes
+		doc.setFontSize(12);
+		doc.text("Ventas recientes", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		if (Array.isArray(dash.recentSales) && dash.recentSales.length) {
+			doc.text("ID", margin, y);
+			doc.text("Fecha", margin + 40, y);
+			doc.text("Hora", margin + 120, y);
+			doc.text("Total", margin + 160, y);
+			doc.text("Cliente", margin + 230, y);
+			doc.text("Sucursal", margin + 420, y);
+			y += 12;
+
+			for (const s of dash.recentSales) {
+				if (y > 750) { doc.addPage(); y = margin; }
+				doc.text(String(s.id), margin, y);
+				doc.text(String(s.fecha), margin + 40, y);
+				doc.text(String(s.hora), margin + 120, y);
+				doc.text(fmtC(s.total), margin + 160, y);
+				doc.text(String(s.cliente), margin + 230, y);
+				doc.text(String(s.sucursal), margin + 420, y);
+				y += 12;
+			}
+		} else {
+			doc.text("Sin ventas recientes", margin, y); y += 12;
+		}
+
+		y += 8;
+
+		// Movimientos recientes
+		doc.setFontSize(12);
+		doc.text("Movimientos recientes", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		if (Array.isArray(dash.recentMovements) && dash.recentMovements.length) {
+			for (const m of dash.recentMovements) {
+				if (y > 750) { doc.addPage(); y = margin; }
+				doc.text(`${m.fecha} ${m.hora} — ${m.producto} (${m.tipo}) ${m.sucursal} x${m.cantidad}`, margin, y);
+				y += 12;
+			}
+		} else {
+			doc.text("Sin movimientos recientes", margin, y); y += 12;
+		}
+
+		y += 8;
+
+		// Stock total
+		doc.setFontSize(12);
+		doc.text(`Stock total: ${dash.stockTotal}`, margin, y); y += 12;
+
+		// Guardar PDF
+		const filename = `reporte-diario-${new Date().toISOString().slice(0, 10)}.pdf`;
+		doc.save(filename);
+	};
+
+	const generateMonthReportPDF = (dash) => {
+		const doc = new jsPDF({ unit: "pt", format: "a4" });
+		const margin = 40;
+		let y = margin;
+
+		const fmtC = (v) => `$${Number(v || 0).toFixed(2)}`;
+
+		// Título
+		doc.setFontSize(16);
+		doc.text("Reporte del Mes", margin, y);
+		y += 20;
+
+		doc.setFontSize(10);
+		doc.text(`Fecha: ${new Date().toLocaleString()}`, margin, y);
+		y += 18;
+
+		// Resumen rápido
+		doc.setFontSize(12);
+		doc.text("Resumen rápido", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		doc.text(`Total ingresos del mes: ${fmtC(dash.totalRevenueMonth)}`, margin, y); y += 12;
+		doc.text(`Total ventas del mes: ${dash.totalSalesMonth}`, margin, y); y += 12;
+		doc.text(`Productos vendidos en el mes: ${dash.productsSoldMonth}`, margin, y); y += 12;
+		doc.text(`Clientes en el mes: ${dash.clientsMonth}`, margin, y); y += 16;
+
+		// Ventas recientes
+		doc.setFontSize(12);
+		doc.text("Ventas del mes", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		if (Array.isArray(dash.recentSales) && dash.recentSales.length) {
+			doc.text("ID", margin, y);
+			doc.text("Fecha", margin + 40, y);
+			doc.text("Hora", margin + 120, y);
+			doc.text("Total", margin + 160, y);
+			doc.text("Cliente", margin + 230, y);
+			doc.text("Sucursal", margin + 420, y);
+			y += 12;
+
+			for (const s of dash.recentSales) {
+				if (y > 750) { doc.addPage(); y = margin; }
+				doc.text(String(s.id), margin, y);
+				doc.text(String(s.fecha), margin + 40, y);
+				doc.text(String(s.hora), margin + 120, y);
+				doc.text(fmtC(s.total), margin + 160, y);
+				doc.text(String(s.cliente), margin + 230, y);
+				doc.text(String(s.sucursal), margin + 420, y);
+				y += 12;
+			}
+		} else {
+			doc.text("Sin ventas recientes", margin, y); y += 12;
+		}
+
+		y += 8;
+
+		// Movimientos recientes
+		doc.setFontSize(12);
+		doc.text("Movimientos del mes", margin, y);
+		y += 14;
+		doc.setFontSize(10);
+		if (Array.isArray(dash.recentMovements) && dash.recentMovements.length) {
+			for (const m of dash.recentMovements) {
+				if (y > 750) { doc.addPage(); y = margin; }
+				doc.text(`${m.fecha} ${m.hora} — ${m.producto} (${m.tipo}) ${m.sucursal} x${m.cantidad}`, margin, y);
+				y += 12;
+			}
+		} else {
+			doc.text("Sin movimientos recientes", margin, y); y += 12;
+		}
+
+		y += 8;
+
+		// Stock total
+		doc.setFontSize(12);
+		doc.text(`Stock total: ${dash.stockTotal}`, margin, y); y += 12;
+
+		// Guardar PDF
+		const filename = `reporte-del-mes-${new Date().toISOString().slice(0, 10)}.pdf`;
+		doc.save(filename);
+	};
+
 
 	return (
 		<>
 			{
 				loading ? (
-					<Loading 
+					<Loading
 						pageTitle={"Dashboard"}
 					/>
 				) : (
@@ -204,7 +396,7 @@ export default function DashboardOrg() {
 								className={"transparent"}
 								text={generatingPdf ? 'Generando...' : 'Generar Reporte'}
 								icon={<BsEye className='h-4 w-4' />}
-								func={() => handleGenerateReport()}
+								func={() => handleGenerateReport('choose')}
 							/>
 						</section>
 						<section className='w-full grid grid-cols-1 gap-4 xl:grid-cols-4 md:grid-cols-2'>
@@ -361,6 +553,55 @@ export default function DashboardOrg() {
 							</div>
 						</section>
 					</div>
+				)
+			}
+			{
+				isActiveModal && (
+					<ModalContainer
+						modalTitle={"Generar Reporte del Dashboard"}
+						setIsActiveModal={setIsActiveModal}
+						modalDescription={"Escoge el reporte que desea generar en formato PDF"}
+					>
+						<div className='w-full flex flex-col gap-4'>
+							<Button
+								className={"success"}
+								text={"Reporte de Hoy"}
+								icon={<HiOutlineCalculator className='h-5 w-5' />}
+								func={() => { handleGenerateReport('today'); setIsActiveModal(false); }}
+							/>
+							<Button
+								className={"blue"}
+								text={"Reporte del Mes"}
+								icon={<HiOutlineCalculator className='h-5 w-5' />}
+								func={() => { handleGenerateReport('month'); setIsActiveModal(false); }}
+							/>
+							<Button
+								className={"primary"}
+								text={"Reporte del Año"}
+								icon={<HiOutlineCalculator className='h-5 w-5' />}
+								func={() => { handleGenerateReport('year'); setIsActiveModal(false); }}
+							/>
+							<Input
+								label={"Reporte Personalizado"}
+								placeholder={"Selecciona la fecha de inicio"}
+								onChange={(value) => { console.log(value); }}
+								type={"date"}
+								inputClass={'no icon'}
+							/>
+							<Input
+								placeholder={"Selecciona la fecha de fin"}
+								onChange={(value) => { console.log(value); }}
+								type={"date"}
+								inputClass={'no icon'}
+							/>
+							<Button
+								className={"purple"}
+								text={"Reporte Personalizado"}
+								icon={<HiOutlineCalculator className='h-5 w-5' />}
+								func={() => { handleGenerateReport('custom'); }}
+							/>
+						</div>
+					</ModalContainer>
 				)
 			}
 		</>
