@@ -17,6 +17,8 @@ export default function PurchasesOrderOrg() {
 
 	const [ordenesEjemplo, setOrdenesEjemplo] = useState([]);
 	const [selectedDetalles, setSelectedDetalles] = useState(new Set());
+	const [cantidadCambios, setCantidadCambios] = useState(() => new Map());
+	const [isSaving, setIsSaving] = useState(false);
 
 
 	const cardConfig = [
@@ -40,7 +42,8 @@ export default function PurchasesOrderOrg() {
 					id: d.ID_PRODUCT,
 					codigo: d.CODIGO_PRODUCTO,
 					producto: d.PRODUCT_NAME,
-					cantidad: d.CANTIDAD,
+					cantidad: Number(d.CANTIDAD),
+					cantidadOriginal: Number(d.CANTIDAD),
 					precioUnitario: d.PRECIO_UNIT,
 					subtotal: d.SUB_TOTAL,
 					entregado: Boolean(Number(d.ENTREGADO || 0)),
@@ -55,12 +58,13 @@ export default function PurchasesOrderOrg() {
 						empresa: data.compra?.EMPRESA_PROVEEDOR ?? prev?.proveedor?.empresa ?? ''
 					},
 					productos: detalles,
-					total: data.compra?.TOTAL ?? prev.total,
+					total: Number(data.compra?.TOTAL ?? prev?.total ?? 0),
 					fechas: { ...prev.fechas, creacion: data.compra?.FECHA_PEDIDO, esperada: data.compra?.FECHA_ENTREGA }
 				}));
 
 				// reset selection when opening details
 				setSelectedDetalles(new Set());
+				setCantidadCambios(new Map());
 			}
 		} catch (e) {
 			console.error('Error cargando detalles de compra', e);
@@ -86,9 +90,105 @@ export default function PurchasesOrderOrg() {
 		return;
 	}
 
-	const handleSave = () => {
-		setIsActiveModal(false)
-		setMode('')
+	const handleCantidadChange = (detalleId, value) => {
+		const productoActual = purchaseData?.productos?.find(prod => (prod.ID_DETALLES_COMPRA || prod.id) === detalleId);
+		if (!productoActual || productoActual.entregado) return;
+
+		const sanitized = value;
+		setPurchaseData(prev => {
+			if (!prev || !Array.isArray(prev.productos)) return prev;
+			const productos = prev.productos.map(prod => {
+				const prodId = prod.ID_DETALLES_COMPRA || prod.id;
+				if (prodId === detalleId) {
+					return { ...prod, cantidad: sanitized };
+				}
+				return prod;
+			});
+			const totalCalculado = productos.reduce((acc, prod) => {
+				const qty = Number(prod.cantidad);
+				const price = Number(prod.precioUnitario || 0);
+				if (!Number.isFinite(qty) || qty < 0) return acc;
+				return acc + qty * price;
+			}, 0);
+			return {
+				...prev,
+				productos,
+				total: Number(totalCalculado.toFixed(2))
+			};
+		});
+
+		const originalCantidad = Number(productoActual?.cantidadOriginal ?? productoActual?.cantidad ?? 0);
+		const numericValue = Number(value);
+		setCantidadCambios(prev => {
+			const next = new Map(prev);
+			if (!value || !Number.isFinite(numericValue) || numericValue <= 0) {
+				next.set(detalleId, NaN);
+				return next;
+			}
+			if (numericValue === originalCantidad) {
+				next.delete(detalleId);
+			} else {
+				next.set(detalleId, numericValue);
+			}
+			return next;
+		});
+	}
+
+	const refreshComprasListado = async () => {
+		try {
+			const res = await ComprasService.listCompras();
+			if (Array.isArray(res)) {
+				setOrdenesEjemplo(res.map(r => ({
+					id: r.ID_COMPRA,
+					fechas: { creacion: r.FECHA_PEDIDO, esperada: r.FECHA_ENTREGA },
+					proveedor: {
+						nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'),
+						telefono: r.TELEFONO_PROVEEDOR || '',
+						empresa: r.EMPRESA_PROVEEDOR || ''
+					},
+					estado: r.ESTADO,
+					productos: Array.isArray(r.productos) && r.productos.length ? r.productos : new Array(Number(r.PRODUCT_COUNT || 0)),
+					total: r.TOTAL
+				})));
+			}
+		} catch (e) {
+			console.error('Error refreshing compras list', e);
+		}
+	}
+
+	const handleGuardarCambios = async () => {
+		if (isSaving) return;
+		if (!purchaseData?.id) {
+			console.warn('No hay compra seleccionada para editar.');
+			return;
+		}
+		const entradas = Array.from(cantidadCambios.entries());
+		const invalidChange = entradas.some(([, val]) => !Number.isFinite(val) || val <= 0);
+		if (invalidChange) {
+			console.warn('Cantidad inválida detectada. Ingrese un valor mayor que cero.');
+			return;
+		}
+
+		if (entradas.length === 0) {
+			setIsActiveModal(false);
+			setMode('');
+			return;
+		}
+
+		try {
+			setIsSaving(true);
+			await Promise.all(entradas.map(async ([detalleId, cantidad]) => {
+				await ComprasService.updateDetalleCantidad({ detalleId, cantidad });
+			}));
+			await handleView({ id: purchaseData?.id });
+			await refreshComprasListado();
+			setCantidadCambios(new Map());
+			setMode('');
+		} catch (e) {
+			console.error('Error guardando cambios de cantidad', e);
+		} finally {
+			setIsSaving(false);
+		}
 	}
 
 	const toggleDetalle = (detalleId) => {
@@ -127,25 +227,7 @@ export default function PurchasesOrderOrg() {
 
 			// refresh details and master list
 			await handleView({ id: purchaseData?.id });
-			try {
-				const all = await ComprasService.listCompras();
-				if (Array.isArray(all)) {
-					setOrdenesEjemplo(all.map(r => ({
-						id: r.ID_COMPRA,
-						fechas: { creacion: r.FECHA_PEDIDO, esperada: r.FECHA_ENTREGA },
-						proveedor: {
-							nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'),
-							telefono: r.TELEFONO_PROVEEDOR || '',
-							empresa: r.EMPRESA_PROVEEDOR || ''
-						},
-						estado: r.ESTADO,
-						productos: Array.isArray(r.productos) && r.productos.length ? r.productos : new Array(Number(r.PRODUCT_COUNT || 0)),
-						total: r.TOTAL
-					})))
-				}
-			} catch (e) {
-				console.error('Error refreshing compras list', e);
-			}
+			await refreshComprasListado();
 
 			setMode('');
 			setIsActiveModal(false);
@@ -158,28 +240,7 @@ export default function PurchasesOrderOrg() {
 		setMode('')
 
 		// cargar compras reales desde API
-		const fetchCompras = async () => {
-			try {
-				const res = await ComprasService.listCompras();
-				if (Array.isArray(res)) {
-					setOrdenesEjemplo(res.map(r => ({
-						id: r.ID_COMPRA,
-						fechas: { creacion: r.FECHA_PEDIDO, esperada: r.FECHA_ENTREGA },
-						proveedor: {
-							nombre: r.NOMBRE_PROVEEDOR || (r.ID_PROVEEDOR ? String(r.ID_PROVEEDOR) : 'N/D'),
-							telefono: r.TELEFONO_PROVEEDOR || '',
-							empresa: r.EMPRESA_PROVEEDOR || ''
-						},
-						estado: r.ESTADO,
-						productos: Array.isArray(r.productos) && r.productos.length ? r.productos : new Array(Number(r.PRODUCT_COUNT || 0)),
-						total: r.TOTAL
-					})));
-				}
-			} catch (e) {
-				console.error('Error fetching compras', e);
-			}
-		}
-		fetchCompras();
+		refreshComprasListado();
 	}, [isActiveModal])
 
 	console.log(ordenesEjemplo);
@@ -429,7 +490,8 @@ export default function PurchasesOrderOrg() {
 																<div className='w-16'>
 																	<Input
 																		type={'number'}
-																		value={it.cantidad ?? it.qty ?? '-'}
+																		value={it.cantidad === '' ? '' : (it.cantidad ?? it.qty ?? '')}
+																		onChange={(e) => handleCantidadChange(it.ID_DETALLES_COMPRA || it.id, e.target.value)}
 																		inputClass={'no icon'}
 																	/>
 																</div>
@@ -492,7 +554,11 @@ export default function PurchasesOrderOrg() {
 							</div>
 							<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>
 								<div className='text-lg font-bold'>Total:</div>
-								<div className='text-lg font-bold text-primary'>{purchaseData?.total ? `C$ ${Number(purchaseData?.total).toLocaleString()}` : (purchaseData?.total_venta ? `C$${Number(purchaseData?.total_venta).toLocaleString()}` : '-')}</div>
+								<div className='text-lg font-bold text-primary'>
+									{purchaseData?.total !== undefined && purchaseData?.total !== null
+										? `C$ ${Number(purchaseData?.total).toLocaleString()}`
+										: (purchaseData?.total_venta ? `C$${Number(purchaseData?.total_venta).toLocaleString()}` : '-')}
+								</div>
 							</div>
 							<div className='mb-2 flex flex-col'>
 								<div className='text-dark/70 font-semibold'>Notas</div>
@@ -510,10 +576,10 @@ export default function PurchasesOrderOrg() {
 								{
 									purchaseData?.estado !== 'Recibida' &&
 									<Button
-										text={mode === 'recibir' ? 'Confirmar Recepción' : 'Guardar Cambios'}
+										text={mode === 'recibir' ? 'Confirmar Recepción' : (isSaving ? 'Guardando...' : 'Guardar Cambios')}
 										icon={<FiShoppingBag />}
 										className={mode === 'recibir' ? 'success' : 'primary'}
-										func={mode === 'recibir' ? () => handleProcessReceive() : () => handleSave()}
+										func={mode === 'recibir' ? () => handleProcessReceive() : (!isSaving ? () => handleGuardarCambios() : undefined)}
 									/>
 								}
 							</div>

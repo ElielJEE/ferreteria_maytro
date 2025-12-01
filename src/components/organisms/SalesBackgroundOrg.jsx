@@ -1,9 +1,8 @@
 'use client'
 import React from 'react'
-import DropdownMenu from '../molecules/DropdownMenu'
 import Input from '../molecules/Input'
 import Card from '../molecules/Card'
-import { FiSearch, FiMoreHorizontal, FiEye, FiEdit, FiTrash, FiUser, FiPrinter, FiDollarSign, FiFile } from 'react-icons/fi'
+import { FiSearch, FiEye, FiEdit, FiTrash, FiUser, FiPrinter, FiDollarSign, FiFile } from 'react-icons/fi'
 import { useActive, useIsMobile } from '@/hooks'
 import useFilter from '@/hooks/useFilter'
 import { SalesService } from '@/services'
@@ -17,8 +16,7 @@ export default function SalesBackgroundOrg() {
 	const [data, setData] = React.useState([])
 	const [loading, setLoading] = React.useState(false)
 	const [search, setSearch] = React.useState('')
-	const [sucursalFilter, setSucursalFilter] = React.useState('Todas')
-	const [sucursales, setSucursales] = React.useState([])
+	const [, setSucursales] = React.useState([])
 	const { setIsActiveModal, isActiveModal } = useActive();
 	const [dateFilter, setDateFilter] = React.useState('');
 
@@ -79,7 +77,6 @@ export default function SalesBackgroundOrg() {
 			);
 		},
 	});
-
 
 	const [mode, setMode] = React.useState('')
 	const [selectedSale, setSelectedSale] = React.useState(null)

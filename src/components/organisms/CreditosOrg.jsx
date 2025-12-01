@@ -63,6 +63,22 @@ export default function CreditosOrg() {
 
 			const mapped = rows.map(r => {
 				const parts = toLocalParts(r.fecha);
+				const pagos = Array.isArray(r.pagos) ? r.pagos.map(p => {
+					const pagoParts = toLocalParts(p.fecha);
+					return {
+						id: p.id,
+						fechaIso: p.fecha,
+						fecha: pagoParts.display,
+						hora: pagoParts.time,
+						fechaFiltro: pagoParts.ymd,
+						monto: Number(p.montoAplicado ?? p.monto_aplicado ?? 0),
+						montoCordobas: Number(p.montoCordobas ?? p.monto_cordobas ?? 0),
+						montoDolares: Number(p.montoDolares ?? p.monto_dolares ?? 0),
+						metodo: p.metodo || 'efectivo',
+						usuarioId: p.usuarioId ?? p.usuario_id ?? null,
+						usuarioNombre: p.usuarioNombre ?? p.usuario_nombre ?? p.usuarioUsuario ?? ''
+					};
+				}) : [];
 				return {
 					id: r.id,
 					numeroFactura: r.numero || r.NUMERO || r.numeroFactura || '',
@@ -85,7 +101,8 @@ export default function CreditosOrg() {
 						unidad: it.unidad_nombre || it.unidad || (it.cantidad_por_unidad ? `x${it.cantidad_por_unidad}` : '') || null,
 						unitPrice: it.precio_unit ?? it.unitPrice ?? it.precio_unit ?? 0,
 						subtotal: it.subtotal ?? it.SUB_TOTAL ?? 0
-					}))
+					})),
+					pagos
 				};
 			});
 			// Siempre reemplaza el estado, incluso si la lista está vacía
@@ -113,6 +130,7 @@ export default function CreditosOrg() {
 			setIsActiveModal(true)
 
 		} else if (type === 'paymentHistory') {
+			setSelectedCredit(item)
 			setIsActiveModal(true)
 		}
 	}
@@ -297,8 +315,8 @@ export default function CreditosOrg() {
 				isActiveModal && (
 					<ModalContainer
 						setIsActiveModal={setIsActiveModal}
-						modalTitle={mode === 'ver' ? 'Detalles del Credito' : mode === 'editar' ? 'Editar Credito' : mode === 'payment' ? `Pago de Credito para ${selectedCredit.cliente.nombre}` : ''}
-						modalDescription={mode === 'ver' ? 'Información completa de la transacción' : mode === 'editar' ? 'Editar Credito' : mode === 'payment' ? `Deuda actual del credito: C$${selectedCredit.deudaActual}` : ''}
+						modalTitle={mode === 'ver' ? 'Detalles del Credito' : mode === 'editar' ? 'Editar Credito' : mode === 'payment' ? `Pago de Credito para ${selectedCredit?.cliente?.nombre || ''}` : mode === 'paymentHistory' ? 'Historial de Abonos' : ''}
+						modalDescription={mode === 'ver' ? 'Información completa de la transacción' : mode === 'editar' ? 'Editar Credito' : mode === 'payment' ? `Deuda actual del credito: C$${selectedCredit?.deudaActual ?? ''}` : mode === 'paymentHistory' ? 'Listado de pagos registrados para este crédito' : ''}
 						isForm={mode === 'editar' || mode === 'payment' ? true : false}
 					>
 						{mode === 'ver' && <CreditosView creditData={selectedCredit} onClose={() => setIsActiveModal(false)} />}

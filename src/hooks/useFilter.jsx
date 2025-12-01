@@ -32,8 +32,9 @@ export default function useFilter({
 
 			// Filtrar por fecha (si se selecciona)
 			const dateMatch = !selectedDate || (
-				item.fecha?.startsWith(selectedDate) ||
-				item.fecha_venta?.startsWith(selectedDate)
+				item.fecha?.startsWith?.(selectedDate) ||
+				item.fecha_venta?.startsWith?.(selectedDate) ||
+				item.fechaFiltro?.startsWith?.(selectedDate)
 			);
 
 			return categoryMatch && statusMatch && matchesSearch && dateMatch;

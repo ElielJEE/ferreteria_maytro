@@ -58,3 +58,19 @@ export const deleteDetalle = async (detalleId) => {
     throw error;
   }
 };
+
+export const updateDetalleCantidad = async ({ detalleId, cantidad }) => {
+  try {
+    const res = await fetch(API_URL, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ detalleId, cantidad }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || 'Error updating detalle');
+    return data;
+  } catch (error) {
+    console.error('updateDetalleCantidad error:', error);
+    throw error;
+  }
+};

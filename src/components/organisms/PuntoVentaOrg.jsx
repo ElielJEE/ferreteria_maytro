@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Card, DropdownMenu, Input } from '../molecules'
 import { FiArrowLeftCircle, FiArrowRight, FiCheck, FiCornerUpLeft, FiDollarSign, FiFile, FiGlobe, FiList, FiPlus, FiRotateCcw, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash, FiTrash2, FiUser, FiX, FiXCircle } from 'react-icons/fi'
 import { ProductService, SalesService, StockService, AuthService, CustomerService, SucursalesService, CotizacionesService, DescuentoService, CreditosService } from '@/services';
@@ -149,31 +149,79 @@ export default function PuntoVentaOrg() {
 			item.NOMBRE_SUBCATEGORIA.toLowerCase().includes(term.toLowerCase())
 	});
 
-	const addToProductList = (product) => {
-		// No permitir agregar si no hay stock en sucursal
-		if (!product || Number(product.CANTIDAD || 0) <= 0) {
-			setError({ general: 'Producto sin stock en la sucursal' });
+	const normalizeUnitOptions = React.useCallback((unidades) => {
+		return (Array.isArray(unidades) ? unidades : []).map(u => {
+			const value = u.UNIDAD_ID ?? u.unidad_id ?? u.ID_UNIDAD ?? u.id ?? u.value ?? null;
+			return {
+				label: u.NOMBRE || u.nombre || (value !== null ? String(value) : 'Unidad'),
+				value,
+				precio: u.PRECIO ?? u.precio ?? u.precio_unit ?? null,
+				cantidad_por_unidad: Number(u.CANTIDAD_POR_UNIDAD ?? u.cantidad_por_unidad ?? 1) || 1
+			};
+		});
+	}, []);
+
+	const showUnitModal = React.useCallback((product, options, preselect = null) => {
+		if (!Array.isArray(options) || options.length === 0) {
+			setError(prev => ({ ...(prev || {}), general: 'No hay unidades disponibles para este producto.' }));
 			return;
 		}
-		setProductList((prevList) => {
-			const existingProduct = prevList.find(
-				(item) => item.ID_PRODUCT === product.ID_PRODUCT
-			);
+		setUnitProduct(product);
+		setUnitOptions(options);
+		setSelectedUnitOption(preselect);
+		setMode('unit');
+		setIsActiveModal(true);
+	}, [setError, setIsActiveModal]);
 
-			if (existingProduct) {
-				const newQuantity = existingProduct.quantity + 1;
-				if (newQuantity > product.CANTIDAD) {
-					return prevList;
+	const addToProductList = async (product) => {
+		// No permitir agregar si no hay stock en sucursal
+		if (!product || Number(product.CANTIDAD || 0) <= 0) {
+			setError(prev => ({ ...(prev || {}), general: 'Producto sin stock en la sucursal' }));
+			return;
+		}
+		const existingProduct = productList.find(item => item.ID_PRODUCT === product.ID_PRODUCT);
+		if (existingProduct) {
+			setProductList((prevList) => prevList.map((item) => {
+				if (item.ID_PRODUCT === product.ID_PRODUCT) {
+					const newQuantity = item.quantity + 1;
+					if (newQuantity > product.CANTIDAD) {
+						return item;
+					}
+					return { ...item, quantity: newQuantity };
 				}
-				return prevList.map((item) =>
-					item.ID_PRODUCT === product.ID_PRODUCT
-						? { ...item, quantity: newQuantity }
-						: item
-				);
-			} else {
-				return [...prevList, { ...product, quantity: 1 }];
+				return item;
+			}));
+			return;
+		}
+
+		let unitOptions = [];
+		try {
+			const unidades = await ProductService.getProductUnits(product.ID_PRODUCT);
+			unitOptions = normalizeUnitOptions(unidades);
+		} catch (fetchErr) {
+			console.error('Error obteniendo unidades del producto:', fetchErr);
+		}
+
+		const productEntry = { ...product, quantity: 1 };
+		if (unitOptions.length === 1) {
+			const single = unitOptions[0];
+			productEntry.unit = single.label;
+			productEntry.unit_id = single.value;
+			productEntry.cantidad_por_unidad = single.cantidad_por_unidad ?? 1;
+			if (single.precio !== undefined && single.precio !== null) {
+				const parsedPrice = Number(single.precio);
+				if (!Number.isNaN(parsedPrice) && parsedPrice > 0) {
+					productEntry.PRECIO = parsedPrice;
+				}
 			}
-		});
+			setProductList(prevList => [...prevList, productEntry]);
+			return;
+		}
+
+		setProductList(prevList => [...prevList, productEntry]);
+		if (unitOptions.length > 1) {
+			showUnitModal(productEntry, unitOptions, null);
+		}
 	};
 
 	const updateQuantity = (id, newQuantity) => {
@@ -213,25 +261,14 @@ export default function PuntoVentaOrg() {
 		console.log('toggleModalType ->', type, 'product?', !!product, 'productListLen', productList.length);
 		// Abrir modal de unidad -> cargar unidades del producto si se pasa
 		if (type === 'unit' && product) {
-			setUnitProduct(product);
-			setIsActiveModal(true);
 			try {
 				const unidades = await ProductService.getProductUnits(product.ID_PRODUCT);
-				const opts = (unidades || []).map(u => ({
-					label: u.NOMBRE || u.nombre || String(u.UNIDAD_ID),
-					value: u.UNIDAD_ID || u.UNIDAD_ID,
-					precio: u.PRECIO,
-					cantidad_por_unidad: Number(u.CANTIDAD_POR_UNIDAD ?? u.cantidad_por_unidad ?? 1) || 1
-				}));
-				setUnitOptions(opts);
-				// Preseleccionar si producto tiene unidad
+				const opts = normalizeUnitOptions(unidades);
 				const existing = opts.find(o => o.label === product.unit || o.value === product.unit_id);
-				if (existing) setSelectedUnitOption(existing);
-				else setSelectedUnitOption(null);
+				showUnitModal(product, opts, existing || null);
 			} catch (e) {
 				console.error('Error cargando unidades del producto:', e);
-				setUnitOptions([]);
-				setSelectedUnitOption(null);
+				setError(prev => ({ ...(prev || {}), general: 'No se pudieron cargar las unidades de este producto, intenta nuevamente.' }));
 			}
 			return;
 		}
@@ -478,6 +515,35 @@ export default function PuntoVentaOrg() {
 		fetchSucursales();
 	}, []);
 
+	useEffect(() => {
+		if (isAdmin === undefined) return;
+		if (!Array.isArray(sucursales) || sucursales.length === 0) {
+			setSelectedSucursal(null);
+			return;
+		}
+		if (!isAdmin) {
+			setSelectedSucursal(null);
+			return;
+		}
+		if (sucursales.length === 1) {
+			setSelectedSucursal(prev => prev ?? sucursales[0]);
+			return;
+		}
+		setSelectedSucursal(prev => {
+			if (!prev) return null;
+			const stillExists = sucursales.some(opt => opt?.value === prev?.value);
+			return stillExists ? prev : null;
+		});
+	}, [isAdmin, sucursales]);
+
+	const sucursalDropdownDefault = useMemo(() => {
+		if (selectedSucursal?.label) return selectedSucursal.label;
+		if (Array.isArray(sucursales) && sucursales.length === 1) {
+			return sucursales[0]?.label || 'Selecciona una sucursal';
+		}
+		return 'Selecciona una sucursal';
+	}, [selectedSucursal, sucursales]);
+
 	const validateFields = (form) => {
 		const newErrors = {};
 
@@ -701,7 +767,7 @@ export default function PuntoVentaOrg() {
 						<div className='lg:w-1/3 md:w-1/2'>
 							<DropdownMenu
 								options={[{ label: 'Todas', value: 'Todas' }, ...sucursales]}
-								defaultValue={'Vista general (Todas las sucursales)'}
+								defaultValue={sucursalDropdownDefault}
 								onChange={(opt) => {
 									if (typeof opt === 'object') {
 										setSelectedSucursal(opt);
