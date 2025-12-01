@@ -357,7 +357,7 @@ export async function POST(req) {
 export async function GET(req) {
   try {
     const creditos = await CreditosServer.getCredits();
-    return Response.json({ creditos });
+    return Response.json({ success: true, creditos });
   } catch (e) {
     return Response.json({ error: e?.message || 'Error al listar creditos' }, { status: 500 });
   }

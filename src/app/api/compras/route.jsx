@@ -302,3 +302,100 @@ export async function DELETE(request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function PATCH(request) {
+  try {
+    const body = await request.json();
+    const detalleId = body?.detalleId ?? body?.idDetalle ?? body?.id;
+    const rawCantidad = body?.cantidad ?? body?.quantity ?? body?.qty;
+
+    if (!detalleId) {
+      return Response.json({ error: 'detalleId requerido' }, { status: 400 });
+    }
+
+    const nuevaCantidad = Number(rawCantidad);
+    if (!Number.isFinite(nuevaCantidad) || nuevaCantidad <= 0) {
+      return Response.json({ error: 'cantidad invalida' }, { status: 400 });
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await ensureEntregadoColumn();
+
+      const [rows] = await conn.query(
+        'SELECT ID_COMPRA, ID_PRODUCT, CANTIDAD, PRECIO_UNIT, SUB_TOTAL, COALESCE(ENTREGADO, 0) AS ENTREGADO FROM DETALLES_COMPRA WHERE ID_DETALLES_COMPRA = ? FOR UPDATE',
+        [detalleId]
+      );
+
+      if (!rows || rows.length === 0) {
+        await conn.rollback();
+        conn.release();
+        return Response.json({ error: 'detalle no encontrado' }, { status: 404 });
+      }
+
+      const detalle = rows[0];
+      if (Number(detalle.ENTREGADO || 0) === 1) {
+        await conn.rollback();
+        conn.release();
+        return Response.json({ error: 'detalle ya entregado' }, { status: 409 });
+      }
+
+      const compraId = detalle.ID_COMPRA;
+      const productoId = detalle.ID_PRODUCT;
+      if (!compraId) {
+        await conn.rollback();
+        conn.release();
+        return Response.json({ error: 'compra asociada no encontrada' }, { status: 500 });
+      }
+
+      let precioUnit = Number(detalle.PRECIO_UNIT);
+      if (!Number.isFinite(precioUnit) || precioUnit <= 0) {
+        const [prodRows] = await conn.query('SELECT PRECIO_COMPRA FROM PRODUCTOS WHERE ID_PRODUCT = ? LIMIT 1', [productoId]);
+        precioUnit = Number(prodRows?.[0]?.PRECIO_COMPRA);
+      }
+
+      if (!Number.isFinite(precioUnit) || precioUnit <= 0) {
+        await conn.rollback();
+        conn.release();
+        return Response.json({ error: 'precio de compra no definido para el producto' }, { status: 400 });
+      }
+
+      const subtotalAnterior = Number(detalle.SUB_TOTAL) || Number(detalle.CANTIDAD || 0) * precioUnit;
+      const nuevoSubtotal = Number((precioUnit * nuevaCantidad).toFixed(2));
+
+      await conn.query(
+        'UPDATE DETALLES_COMPRA SET CANTIDAD = ?, PRECIO_UNIT = ?, SUB_TOTAL = ? WHERE ID_DETALLES_COMPRA = ?',
+        [nuevaCantidad, precioUnit, nuevoSubtotal, detalleId]
+      );
+
+      const [sumRows] = await conn.query('SELECT IFNULL(SUM(SUB_TOTAL), 0) AS TOTAL FROM DETALLES_COMPRA WHERE ID_COMPRA = ?', [compraId]);
+      const totalCompra = Number(sumRows?.[0]?.TOTAL) || 0;
+
+      await conn.query('UPDATE COMPRAS SET TOTAL = ? WHERE ID_COMPRA = ?', [totalCompra, compraId]);
+
+      await conn.commit();
+      conn.release();
+
+      return Response.json({
+        success: true,
+        detalle: {
+          id: detalleId,
+          id_compra: compraId,
+          cantidad: nuevaCantidad,
+          precio_unit: precioUnit,
+          subtotal: nuevoSubtotal,
+        },
+        total: totalCompra,
+        delta: Number((nuevoSubtotal - subtotalAnterior).toFixed(2)),
+      });
+    } catch (e) {
+      try { await conn.rollback(); } catch (_) {}
+      try { conn.release(); } catch (_) {}
+      console.error('Error actualizando detalle compra', e);
+      return Response.json({ error: e?.message || String(e) }, { status: 500 });
+    }
+  } catch (error) {
+    return Response.json({ error: error?.message || String(error) }, { status: 500 });
+  }
+}

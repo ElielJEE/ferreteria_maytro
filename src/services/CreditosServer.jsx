@@ -33,6 +33,41 @@ function parseAuth(req) {
   return { usuarioId, sucursalId };
 }
 
+async function ensureCreditPaymentsTable(conn) {
+  try {
+    await conn.query(`CREATE TABLE IF NOT EXISTS CREDITOS_PAGOS (
+      ID INT NOT NULL AUTO_INCREMENT,
+      ID_CREDITO VARCHAR(64) NOT NULL,
+      ID_FACTURA INT NULL,
+      MONTO_CORDOBAS DECIMAL(12,2) NOT NULL DEFAULT 0,
+      MONTO_DOLARES DECIMAL(12,2) NOT NULL DEFAULT 0,
+      MONTO_APLICADO DECIMAL(12,2) NOT NULL DEFAULT 0,
+      TASA_CAMBIO DECIMAL(12,4) NOT NULL DEFAULT 0,
+      METODO VARCHAR(50) NOT NULL DEFAULT 'efectivo',
+      USUARIO_ID INT NULL,
+      USUARIO_NOMBRE VARCHAR(255) NULL,
+      NOTAS VARCHAR(255) NULL,
+      FECHA_PAGO DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (ID),
+      INDEX IDX_CREDITO (ID_CREDITO),
+      INDEX IDX_FACTURA (ID_FACTURA)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    try {
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CREDITOS_PAGOS'`);
+      const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
+      if (!colset.has('USUARIO_NOMBRE')) {
+        await conn.query(`ALTER TABLE CREDITOS_PAGOS ADD COLUMN USUARIO_NOMBRE VARCHAR(255) NULL AFTER USUARIO_ID`);
+      }
+    } catch (chkErr) {
+      if (!/duplicate|exists/i.test(chkErr?.message || '')) {
+        console.warn('No se pudo ajustar columnas de CREDITOS_PAGOS:', chkErr?.message || chkErr);
+      }
+    }
+  } catch (err) {
+    console.error('No se pudo asegurar la tabla CREDITOS_PAGOS:', err?.message || err);
+  }
+}
+
 export async function createCredit(req) {
   const conn = await pool.getConnection();
   try {
@@ -221,6 +256,7 @@ export async function createCredit(req) {
 
 export async function getCredits() {
   try {
+    await ensureCreditPaymentsTable(pool);
     const [rows] = await pool.query(`
       SELECT
         uc.ID_USUARIOSCRED AS id,
@@ -229,7 +265,7 @@ export async function getCredits() {
         uc.MONTO_PAGO AS monto_pago,
         uc.ID_FACTURA AS factura_id,
         COALESCE(uc.NUMERO_FACTURA, f.NUMERO_FACTURA) AS numero,
-        f.FECHA AS fecha,
+        COALESCE(f.FECHA, uc.FECHA_CREACION) AS fecha,
         f.SERVICIO_TRANSPORTE as transporte,
         COALESCE(s.NOMBRE_SUCURSAL, '') AS sucursal,
         COALESCE(c.NOMBRE_CLIENTE, '') AS cliente,
@@ -241,7 +277,7 @@ export async function getCredits() {
       LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
       LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = COALESCE(uc.ID_SUCURSAL, f.ID_SUCURSAL)
       LEFT JOIN USUARIOS u ON u.ID = uc.ID_USUARIO
-      ORDER BY f.FECHA DESC
+      ORDER BY COALESCE(f.FECHA, uc.FECHA_CREACION) DESC
       LIMIT 1000
     `);
     const creditos = rows || [];
@@ -279,6 +315,47 @@ export async function getCredits() {
           unitPrice: Number(d.precio_unit || 0),
           subtotal: Number(d.subtotal || 0)
         }));
+      }
+    }
+
+    const creditIds = creditos.map(r => r.id).filter(Boolean);
+    if (creditIds.length) {
+      const placeholders = creditIds.map(() => '?').join(',');
+      try {
+        const [pagosRows] = await pool.query(
+              `SELECT cp.ID, cp.ID_CREDITO, cp.ID_FACTURA, cp.MONTO_CORDOBAS, cp.MONTO_DOLARES, cp.MONTO_APLICADO, cp.TASA_CAMBIO,
+                cp.METODO, cp.USUARIO_ID, cp.USUARIO_NOMBRE, cp.FECHA_PAGO, u2.NOMBRE AS usuario_nombre, u2.NOMBRE_USUARIO AS usuario_usuario
+               FROM CREDITOS_PAGOS cp
+               LEFT JOIN USUARIOS u2 ON u2.ID = cp.USUARIO_ID
+           WHERE cp.ID_CREDITO IN (${placeholders})
+           ORDER BY cp.FECHA_PAGO ASC, cp.ID ASC`,
+          creditIds
+        );
+        const pagosByCredito = (pagosRows || []).reduce((acc, row) => {
+          const key = row.ID_CREDITO;
+          if (!acc[key]) acc[key] = [];
+          acc[key].push({
+            id: row.ID,
+            creditoId: row.ID_CREDITO,
+            facturaId: row.ID_FACTURA,
+            montoCordobas: Number(row.MONTO_CORDOBAS || 0),
+            montoDolares: Number(row.MONTO_DOLARES || 0),
+            montoAplicado: Number(row.MONTO_APLICADO || 0),
+            tasaCambio: Number(row.TASA_CAMBIO || 0),
+            metodo: row.METODO || 'efectivo',
+            usuarioId: row.USUARIO_ID || null,
+            usuarioNombre: row.USUARIO_NOMBRE || row.usuario_nombre || row.usuario_usuario || null,
+            usuarioUsuario: row.usuario_usuario || null,
+            fecha: row.FECHA_PAGO || null
+          });
+          return acc;
+        }, {});
+
+        for (const credit of creditos) {
+          credit.pagos = pagosByCredito[credit.id] || [];
+        }
+      } catch (err) {
+        console.warn('No se pudo obtener historial de pagos:', err?.message || err);
       }
     }
     return creditos;
@@ -329,6 +406,7 @@ export async function updateCredit(payload) {
 export async function payCredit(payload) {
   const { id, cordobas = 0, dolares = 0, tasaCambio = 0, metodo = 'efectivo' } = payload || {};
   const montoPagarIn = Number(payload?.montoPagar ?? payload?.monto_pagar ?? 0);
+  const usuarioPagoId = payload?.usuarioId ?? payload?.usuario_id ?? payload?.userId ?? null;
   if (!id) throw new Error('Missing credit id');
   const conn = await pool.getConnection();
   try {
@@ -374,6 +452,23 @@ export async function payCredit(payload) {
       try {
         await conn.query('INSERT INTO FACTURA_PAGOS (ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, TASA_CAMBIO, METODO) VALUES (?, ?, ?, ?, ?)', [facturaId, recibidoCord, recibidoDol, tasa, metodo]);
       } catch (e) { /* ignore if table missing */ }
+    }
+
+    await ensureCreditPaymentsTable(conn);
+    let usuarioNombre = null;
+    if (usuarioPagoId) {
+      try {
+        const [uInfo] = await conn.query('SELECT COALESCE(NULLIF(NOMBRE, ""), NOMBRE_USUARIO) AS nombre FROM USUARIOS WHERE ID = ? LIMIT 1', [usuarioPagoId]);
+        if (uInfo && uInfo[0] && uInfo[0].nombre) usuarioNombre = uInfo[0].nombre;
+      } catch (e) { /* ignore lookup errors */ }
+    }
+    try {
+      await conn.query(
+        'INSERT INTO CREDITOS_PAGOS (ID_CREDITO, ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, MONTO_APLICADO, TASA_CAMBIO, METODO, USUARIO_ID, USUARIO_NOMBRE) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, facturaId || null, recibidoCord, recibidoDol, montoPagarC, tasa, metodo || 'efectivo', usuarioPagoId, usuarioNombre]
+      );
+    } catch (err) {
+      console.error('Error registrando pago en CREDITOS_PAGOS:', err?.message || err);
     }
 
     try {

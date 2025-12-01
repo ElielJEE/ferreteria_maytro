@@ -420,18 +420,19 @@ export async function GET(req) {
       }
 
       // Construir SQL con filtro opcional por sucursal
-      let sql = `
-        SELECT f.ID_FACTURA AS id,
-               ${hasFacturaNumero ? 'f.NUMERO_FACTURA' : 'NULL'} AS numero,
-               DATE_FORMAT(f.FECHA, '%Y-%m-%d') AS fecha,
-               DATE_FORMAT(f.FECHA, '%H:%i') AS hora,
-               f.TOTAL AS total,
-               c.NOMBRE_CLIENTE AS cliente,
-               s.NOMBRE_SUCURSAL AS sucursal,
-               (SELECT COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') FROM FACTURA_DETALLES fd LEFT JOIN USUARIOS u ON u.ID = fd.ID_USUARIO WHERE fd.ID_FACTURA = f.ID_FACTURA LIMIT 1) AS hecho_por
-        FROM FACTURA f
-        LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-        LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL`;
+            let sql = `
+         SELECT f.ID_FACTURA AS id,
+           ${hasFacturaNumero ? 'f.NUMERO_FACTURA' : 'NULL'} AS numero,
+           DATE_FORMAT(f.FECHA, '%Y-%m-%d') AS fecha,
+           DATE_FORMAT(f.FECHA, '%H:%i:%s') AS hora_sql,
+           f.FECHA AS fecha_raw,
+           f.TOTAL AS total,
+           c.NOMBRE_CLIENTE AS cliente,
+           s.NOMBRE_SUCURSAL AS sucursal,
+           (SELECT COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') FROM FACTURA_DETALLES fd LEFT JOIN USUARIOS u ON u.ID = fd.ID_USUARIO WHERE fd.ID_FACTURA = f.ID_FACTURA LIMIT 1) AS hecho_por
+         FROM FACTURA f
+         LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
+         LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL`;
       const params = [];
       if (sucursal) {
         sql += ' WHERE f.ID_SUCURSAL = ?';
@@ -440,7 +441,52 @@ export async function GET(req) {
       sql += ' ORDER BY f.FECHA DESC LIMIT 1000';
 
       const [rows] = await pool.query(sql, params);
-      const mapped = (rows || []).map(r => ({ id: r.id, numero: r.numero || null, fecha: r.fecha, hora: r.hora, sucursal: r.sucursal || 'Sin sucursal', cliente: r.cliente || '', total: Number(r.total || 0), hecho_por: r.hecho_por || '' }));
+
+      const pad = n => String(n).padStart(2, '0');
+      const formatDateParts = (value, fallbackYmd, fallbackTime) => {
+        if (!value) {
+          return {
+            iso: null,
+            ymd: fallbackYmd || '',
+            display: fallbackYmd || '',
+            time: fallbackTime || ''
+          };
+        }
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) {
+          return {
+            iso: typeof value === 'string' ? value : null,
+            ymd: fallbackYmd || (typeof value === 'string' ? value.slice(0, 10) : ''),
+            display: fallbackYmd || (typeof value === 'string' ? value : ''),
+            time: fallbackTime || ''
+          };
+        }
+        const y = d.getFullYear();
+        const m = pad(d.getMonth() + 1);
+        const da = pad(d.getDate());
+        return {
+          iso: d.toISOString(),
+          ymd: `${y}-${m}-${da}`,
+          display: d.toLocaleDateString('es-ES'),
+          time: d.toLocaleTimeString('es-ES')
+        };
+      };
+
+      const mapped = (rows || []).map(r => {
+        const parts = formatDateParts(r.fecha_raw, r.fecha, r.hora_sql);
+        return {
+          id: r.id,
+          numero: r.numero || null,
+          fecha: parts.display || r.fecha || '',
+          fechaFiltro: parts.ymd || r.fecha || '',
+          fechaIso: parts.iso,
+          hora: parts.time || r.hora_sql || '',
+          sucursal: r.sucursal || 'Sin sucursal',
+          cliente: r.cliente || '',
+          total: Number(r.total || 0),
+          hecho_por: r.hecho_por || ''
+        };
+      });
       return Response.json({ ventas: mapped });
     } catch (e) {
       return Response.json({ error: e.message || 'Error al obtener ventas' }, { status: 500 });

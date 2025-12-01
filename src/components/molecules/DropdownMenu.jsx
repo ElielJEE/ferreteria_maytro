@@ -11,6 +11,15 @@ export default function DropdownMenu({ options, defaultValue, onChange, label, e
 	const triggerRef = useRef(null);
 	const menuRef = useRef(null); // ⬅️ NUEVO
 
+	useEffect(() => {
+		if (defaultValue === undefined || defaultValue === null || defaultValue === '') {
+			setSelectedOption("Selecciona una opción");
+			return;
+		}
+		const labelText = typeof defaultValue === "object" ? defaultValue.label : defaultValue;
+		setSelectedOption(labelText);
+	}, [defaultValue]);
+
 	// Actualizar posición del menú cuando se abre
 	useEffect(() => {
 		if (isOpen && triggerRef.current) {
