@@ -2,14 +2,14 @@ import mysql from "mysql2/promise";
 
 if (!global.pool) {
   // Chequeo correcto de variables reales
-  if (
+  /* if (
     !process.env.MYSQL_HOST ||
     !process.env.MYSQL_USER ||
     !process.env.MYSQL_PASSWORD ||
     !process.env.MYSQL_DATABASE
   ) {
     throw new Error("Variables de entorno de MySQL no definidas");
-  }
+  } */
 
   global.pool = mysql.createPool({
     host: process.env.MYSQL_HOST,
