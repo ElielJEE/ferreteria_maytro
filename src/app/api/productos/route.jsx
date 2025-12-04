@@ -44,7 +44,7 @@ export async function PUT(request) {
 				}
 
 				updateValues.push(productId);
-				await conn.query(`UPDATE PRODUCTOS SET ${updateFields.join(', ')} WHERE ID_PRODUCT = ?`, updateValues);
+				await conn.query(`UPDATE productos SET ${updateFields.join(', ')} WHERE ID_PRODUCT = ?`, updateValues);
 			// actualizar unidades del producto (si vienen)
 			if (Array.isArray(body.unidades)) {
 				// eliminar las unidades existentes y volver a insertar las recibidas
@@ -99,13 +99,13 @@ export async function DELETE(request) {
 			};
 
 			// Tablas relacionadas a borrar (orden: hijos -> padre)
-			await deleteFromIfColumn('MOVIMIENTOS_INVENTARIO', ['producto_id', 'ID_PRODUCT']);
-			await deleteFromIfColumn('STOCK_DANADOS', ['ID_PRODUCT', 'producto_id']);
+			await deleteFromIfColumn('movimientos_inventario', ['producto_id', 'ID_PRODUCT']);
+			await deleteFromIfColumn('stock_danados', ['ID_PRODUCT', 'producto_id']);
 			// Requerimiento: no tocar tabla NIVELACION
-			await deleteFromIfColumn('STOCK_SUCURSAL', ['ID_PRODUCT', 'producto_id']);
+			await deleteFromIfColumn('stock_danados', ['ID_PRODUCT', 'producto_id']);
 
 			// Finalmente borrar el producto
-			await conn.query('DELETE FROM PRODUCTOS WHERE ID_PRODUCT = ?', [id]);
+			await conn.query('DELETE FROM productos WHERE ID_PRODUCT = ?', [id]);
 
 			await conn.commit();
 			conn.release();
@@ -127,7 +127,7 @@ export async function GET(request) {
 	if (type === 'subcategorias') {
 		// Obtener subcategorías
 		try {
-			const [rows] = await pool.query('SELECT ID_SUBCATEGORIAS, NOMBRE_SUBCATEGORIA FROM SUBCATEGORIAS');
+			const [rows] = await pool.query('SELECT ID_SUBCATEGORIAS, NOMBRE_SUBCATEGORIA FROM subcategorias');
 			return Response.json(rows);
 		} catch (error) {
 			return Response.json({ error: error.message }, { status: 500 });
@@ -156,8 +156,8 @@ export async function GET(request) {
 			       S.ID_SUBCATEGORIAS, S.NOMBRE_SUBCATEGORIA,
 			       pu.PRECIO AS PRECIO,
 			       P.PRECIO_COMPRA
-			FROM PRODUCTOS P
-			LEFT JOIN SUBCATEGORIAS S ON P.ID_SUBCATEGORIAS = S.ID_SUBCATEGORIAS
+			FROM productos P
+			LEFT JOIN subcategorias S ON P.ID_SUBCATEGORIAS = S.ID_SUBCATEGORIAS
 			LEFT JOIN producto_unidades pu ON pu.PRODUCT_ID = P.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
 		`);
 		return Response.json(rows);
@@ -195,7 +195,7 @@ export async function POST(request) {
 			try {
 				await conn.beginTransaction();
 				const [res] = await conn.query(
-					'INSERT INTO PRODUCTOS (CODIGO_PRODUCTO, PRODUCT_NAME, CANTIDAD, ID_SUBCATEGORIAS) VALUES (?, ?, ?, ?)',
+					'INSERT INTO productos (CODIGO_PRODUCTO, PRODUCT_NAME, CANTIDAD, ID_SUBCATEGORIAS) VALUES (?, ?, ?, ?)',
 					vals
 				);
 				const insertId = res.insertId;

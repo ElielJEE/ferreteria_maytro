@@ -10,7 +10,7 @@ export async function GET(req) {
 		const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 50)));
 		const offset = (page - 1) * limit;
 
-		let sql = `SELECT ID_PROVEEDOR AS id, NOMBRE_PROVEEDOR AS nombre, TELEFONO_PROVEEDOR AS telefono, EMPRESA_PROVEEDOR AS empresa FROM PROVEEDOR`;
+		let sql = `SELECT ID_PROVEEDOR AS id, NOMBRE_PROVEEDOR AS nombre, TELEFONO_PROVEEDOR AS telefono, EMPRESA_PROVEEDOR AS empresa FROM proveedor`;
 		const params = [];
 		if (q) {
 			sql += ` WHERE NOMBRE_PROVEEDOR LIKE ? OR TELEFONO_PROVEEDOR LIKE ? OR EMPRESA_PROVEEDOR LIKE ?`;

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
 	try {
-		const [rows] = await pool.query("SELECT * FROM DESCUENTOS WHERE ESTADO != 'Eliminado' ORDER BY FECHA_CREACION DESC");
+		const [rows] = await pool.query("SELECT * FROM descuentos WHERE ESTADO != 'Eliminado' ORDER BY FECHA_CREACION DESC");
 
 		return NextResponse.json(rows, { status: 200 });
 	} catch (error) {
@@ -37,7 +37,7 @@ export async function POST(req) {
 
 		// Inserción
 		const [result] = await conn.query(
-			`INSERT INTO DESCUENTOS 
+			`INSERT INTO descuentos 
         (CODIGO_DESCUENTO, NOMBRE_DESCUENTO, VALOR_PORCENTAJE, DESCRIPCION, ESTADO) 
        VALUES (?, ?, ?, ?, ?)`,
 			[codigo_descuento, nombre_descuento, valor_porcentaje, descripcion, estado]
@@ -45,7 +45,7 @@ export async function POST(req) {
 
 		// Obtenemos el nuevo registro creado
 		const [newDiscount] = await conn.query(
-			"SELECT * FROM DESCUENTOS WHERE ID_DESCUENTO = ?",
+			"SELECT * FROM descuentos WHERE ID_DESCUENTO = ?",
 			[result.insertId]
 		);
 
@@ -72,13 +72,13 @@ export async function PUT(req) {
 		}
 
 		await conn.query(
-			`UPDATE DESCUENTOS
+			`UPDATE descuentos
        SET CODIGO_DESCUENTO = ?, NOMBRE_DESCUENTO = ?, VALOR_PORCENTAJE = ?, DESCRIPCION = ?
        WHERE ID_DESCUENTO = ?`,
 			[codigo_descuento, nombre_descuento, valor_porcentaje, descripcion, id]
 		);
 
-		const [updated] = await conn.query("SELECT * FROM DESCUENTOS WHERE ID_DESCUENTO = ?", [id]);
+		const [updated] = await conn.query("SELECT * FROM descuentos WHERE ID_DESCUENTO = ?", [id]);
 		return NextResponse.json(updated[0], { status: 200 });
 	} catch (error) {
 		console.error("Error al actualizar descuento:", error);
@@ -98,9 +98,9 @@ export async function PATCH(req) {
 			return NextResponse.json({ error: "ID y estado válido son requeridos." }, { status: 400 });
 		}
 
-		await conn.query("UPDATE DESCUENTOS SET ESTADO = ? WHERE ID_DESCUENTO = ?", [estado, id]);
+		await conn.query("UPDATE descuentos SET ESTADO = ? WHERE ID_DESCUENTO = ?", [estado, id]);
 
-		const [updated] = await conn.query("SELECT * FROM DESCUENTOS WHERE ID_DESCUENTO = ?", [id]);
+		const [updated] = await conn.query("SELECT * FROM descuentos WHERE ID_DESCUENTO = ?", [id]);
 		return NextResponse.json(updated[0], { status: 200 });
 	} catch (error) {
 		console.error("Error al cambiar estado del descuento:", error);
@@ -121,7 +121,7 @@ export async function DELETE(req) {
 			return NextResponse.json({ error: "ID es requerido." }, { status: 400 });
 		}
 
-		await conn.query("UPDATE DESCUENTOS SET ESTADO = 'Eliminado' WHERE ID_DESCUENTO = ?", [id]);
+		await conn.query("UPDATE descuentos SET ESTADO = 'Eliminado' WHERE ID_DESCUENTO = ?", [id]);
 		return NextResponse.json({ message: "Descuento eliminado (soft delete) correctamente." }, { status: 200 });
 	} catch (error) {
 		console.error("Error al eliminar descuento:", error);

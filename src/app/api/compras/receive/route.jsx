@@ -24,7 +24,7 @@ export async function POST(request) {
 
       const updated = [];
       for (const detId of detalles) {
-        const [rows] = await conn.query('SELECT ID_PRODUCT, CANTIDAD, ENTREGADO FROM DETALLES_COMPRA WHERE ID_DETALLES_COMPRA = ? FOR UPDATE', [detId]);
+        const [rows] = await conn.query('SELECT ID_PRODUCT, CANTIDAD, ENTREGADO FROM detalles_compra WHERE ID_DETALLES_COMPRA = ? FOR UPDATE', [detId]);
         if (!rows || rows.length === 0) continue;
         const det = rows[0];
         if (Number(det.ENTREGADO || 0) === 1) {
@@ -34,23 +34,23 @@ export async function POST(request) {
         const productId = det.ID_PRODUCT;
         const qty = Number(det.CANTIDAD) || 0;
         if (productId) {
-          const [prodRows] = await conn.query('SELECT CANTIDAD FROM PRODUCTOS WHERE ID_PRODUCT = ? FOR UPDATE', [productId]);
+          const [prodRows] = await conn.query('SELECT CANTIDAD FROM productos WHERE ID_PRODUCT = ? FOR UPDATE', [productId]);
           if (prodRows && prodRows.length > 0) {
             const prev = Number(prodRows[0].CANTIDAD) || 0;
             const nuevo = Number((prev + qty).toFixed(2));
-            await conn.query('UPDATE PRODUCTOS SET CANTIDAD = ? WHERE ID_PRODUCT = ?', [nuevo, productId]);
+            await conn.query('UPDATE productos SET CANTIDAD = ? WHERE ID_PRODUCT = ?', [nuevo, productId]);
           }
         }
 
-        await conn.query('UPDATE DETALLES_COMPRA SET ENTREGADO = 1 WHERE ID_DETALLES_COMPRA = ?', [detId]);
+        await conn.query('UPDATE detalles_compra SET ENTREGADO = 1 WHERE ID_DETALLES_COMPRA = ?', [detId]);
         updated.push(detId);
       }
 
       // If all detalles for the compra are delivered, mark compra as recibida
-      const [countRows] = await conn.query('SELECT COUNT(1) as pending FROM DETALLES_COMPRA WHERE ID_COMPRA = ? AND (ENTREGADO = 0 OR ENTREGADO IS NULL)', [id_compra]);
+      const [countRows] = await conn.query('SELECT COUNT(1) as pending FROM detalles_compra WHERE ID_COMPRA = ? AND (ENTREGADO = 0 OR ENTREGADO IS NULL)', [id_compra]);
       const pending = (countRows && countRows.length > 0) ? Number(countRows[0].pending || 0) : 0;
       if (pending === 0) {
-        await conn.query('UPDATE COMPRAS SET ESTADO = ? WHERE ID_COMPRA = ?', ['Recibida', id_compra]);
+        await conn.query('UPDATE compras SET ESTADO = ? WHERE ID_COMPRA = ?', ['Recibida', id_compra]);
       }
 
       await conn.commit();

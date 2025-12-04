@@ -49,7 +49,7 @@ async function getAllowedTipoMovimiento(conn) {
   try {
     const [rows] = await conn.query(`
       SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'MOVIMIENTOS_INVENTARIO' AND COLUMN_NAME = 'tipo_movimiento'
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movimientos_inventario' AND COLUMN_NAME = 'tipo_movimiento'
     `);
     const ct = rows?.[0]?.COLUMN_TYPE || '';
     const matches = ct.match(/'([^']+)'/g);
@@ -72,7 +72,7 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
     await conn.beginTransaction();
     // Bloquear cabecera
     const [cRows] = await conn.query(
-      `SELECT ID_COTIZACION, FECHA_VENCIMIENTO, ESTADO, ID_SUCURSAL, ID_USUARIO FROM COTIZACION WHERE ID_COTIZACION = ? FOR UPDATE`,
+      `SELECT ID_COTIZACION, FECHA_VENCIMIENTO, ESTADO, ID_SUCURSAL, ID_USUARIO FROM cotizacion WHERE ID_COTIZACION = ? FOR UPDATE`,
       [cotizacionId]
     );
     if (!cRows?.length) { await conn.rollback(); conn.release(); return false; }
@@ -87,7 +87,7 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
     }
 
     // Marcar expirada
-    await conn.query(`UPDATE COTIZACION SET ESTADO = 'expirada' WHERE ID_COTIZACION = ? AND ESTADO = 'activa'`, [cotizacionId]);
+    await conn.query(`UPDATE cotizacion SET ESTADO = 'expirada' WHERE ID_COTIZACION = ? AND ESTADO = 'activa'`, [cotizacionId]);
 
     // Devolver stock por cada detalle (tener en cuenta CANTIDAD_POR_UNIDAD si existe)
     const [detRows] = await conn.query(
@@ -109,20 +109,20 @@ async function expireCotizacionAndReturnStock(cotizacionId) {
       const qtyReal = qty * factor;
       if (!idProd || qty <= 0 || !sucursalId) continue;
       const [stRows] = await conn.query(
-        'SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
+        'SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
         [idProd, sucursalId]
       );
       const anterior = stRows?.length ? Number(stRows[0].CANTIDAD || 0) : 0;
       const nuevo = anterior + qtyReal;
       if (stRows?.length) {
-        await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevo, idProd, sucursalId]);
+        await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevo, idProd, sucursalId]);
       } else {
-        await conn.query('INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProd, sucursalId, nuevo]);
+        await conn.query('INSERT INTO stock_sucursal (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProd, sucursalId, nuevo]);
       }
       // registrar movimiento
       try {
         await conn.query(
-          `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+          `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [idProd, sucursalId, usuarioId, tipoEntrada, qtyReal, 'Expiración de cotización', cotizacionId, anterior, nuevo]
         );
@@ -146,11 +146,11 @@ async function getOrCreateCliente(conn, nombre, telefono) {
   const clauses = []; const values = [];
   if (name) { clauses.push('NOMBRE_CLIENTE = ?'); values.push(name); }
   if (tel) { clauses.push('TELEFONO_CLIENTE = ?'); values.push(tel); }
-  const [rows] = await conn.query(`SELECT ID_CLIENTES FROM CLIENTES WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
+  const [rows] = await conn.query(`SELECT ID_CLIENTES FROM clientes WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
   if (rows?.length) return rows[0].ID_CLIENTES;
   if (!name) return null;
   const [ins] = await conn.query(
-    `INSERT INTO CLIENTES (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`,
+    `INSERT INTO clientes (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`,
     [name, tel || null]
   );
   return ins.insertId || null;
@@ -205,11 +205,11 @@ export async function POST(req) {
     if (body.sucursal_id) sucursalId = body.sucursal_id;
     try {
       if (!sucursalId && usuarioId) {
-        const [uRows] = await conn.query('SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1', [usuarioId]);
+        const [uRows] = await conn.query('SELECT ID_SUCURSAL FROM usuarios WHERE ID = ? LIMIT 1', [usuarioId]);
         if (uRows && uRows[0] && uRows[0].ID_SUCURSAL) sucursalId = uRows[0].ID_SUCURSAL;
       }
       if (!sucursalId && body.sucursal) {
-        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
+        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
         if (suc && suc[0] && suc[0].ID_SUCURSAL) sucursalId = suc[0].ID_SUCURSAL;
       }
     } catch { }
@@ -244,7 +244,7 @@ export async function POST(req) {
     const newId = `COT-${y}${m}${d}-${hh}${mm}${ss}-${rand}`;
 
     await conn.query(
-      `INSERT INTO COTIZACION (ID_COTIZACION, FECHA_CREACION, FECHA_VENCIMIENTO, SUBTOTAL, DESCUENTO, SERVICIO_TRANSPORTE, TOTAL, ESTADO, ID_CLIENTES, ID_SUCURSAL, ID_USUARIO, NOTAS)
+      `INSERT INTO cotizacion (ID_COTIZACION, FECHA_CREACION, FECHA_VENCIMIENTO, SUBTOTAL, DESCUENTO, SERVICIO_TRANSPORTE, TOTAL, ESTADO, ID_CLIENTES, ID_SUCURSAL, ID_USUARIO, NOTAS)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'activa', ?, ?, ?, ?)`,
       // Pass a pure date string to avoid timezone conversion in MySQL DATE column
       [newId, fechaCreacion, expStr, subtotalOk, descuentoOk, transporteOk, totalOk, clienteId || null, sucursalId || null, usuarioId || null, notas || null]
@@ -308,8 +308,8 @@ export async function POST(req) {
       try {
         const [rowsProd] = await conn.query(
           `SELECT p.ID_PRODUCT, p.PRODUCT_NAME, p.CODIGO_PRODUCTO, um.NOMBRE_UNIDAD
-           FROM PRODUCTOS p
-           LEFT JOIN UNIDADES_MEDIDAS um ON um.ID_UNIDAD = p.ID_UNIDAD
+           FROM productos p
+           LEFT JOIN unidades_medidas um ON um.ID_UNIDAD = p.ID_UNIDAD
            WHERE p.ID_PRODUCT IN (${placeholders})`, ids
         );
         enriched = insertedItems.map(it => {
@@ -349,7 +349,7 @@ export async function POST(req) {
       if (!idProd || qtyNeeded <= 0) continue;
       // Bloquear fila de stock
       const [stockRows] = await conn.query(
-        'SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
+        'SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
         [idProd, sucursalId]
       );
       if (!stockRows.length) {
@@ -361,13 +361,13 @@ export async function POST(req) {
       }
       const nuevo = actual - qtyNeeded;
       await conn.query(
-        'UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?',
+        'UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?',
         [nuevo, idProd, sucursalId]
       );
       // Registrar movimiento (best-effort)
       try {
         await conn.query(
-          `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+          `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [idProd, sucursalId, usuarioId || null, tipoMovimiento, qtyNeeded, `Cotizacion ${newId}`, newId, actual, nuevo]
         );
@@ -407,10 +407,10 @@ export async function GET(req) {
                 c.ID_CLIENTES, cli.NOMBRE_CLIENTE, cli.TELEFONO_CLIENTE,
                 c.ID_SUCURSAL, s.NOMBRE_SUCURSAL,
                 c.ID_USUARIO, COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') AS USUARIO
-         FROM COTIZACION c
-         LEFT JOIN CLIENTES cli ON cli.ID_CLIENTES = c.ID_CLIENTES
-         LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = c.ID_SUCURSAL
-         LEFT JOIN USUARIOS u ON u.ID = c.ID_USUARIO
+         FROM cotizacion c
+         LEFT JOIN clientes cli ON cli.ID_CLIENTES = c.ID_CLIENTES
+         LEFT JOIN sucursal s ON s.ID_SUCURSAL = c.ID_SUCURSAL
+         LEFT JOIN usuarios u ON u.ID = c.ID_USUARIO
          WHERE c.ID_COTIZACION = ?
         `, [id]
       );
@@ -441,9 +441,9 @@ export async function GET(req) {
       const selectItemsSql = `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
               ${hasUnidadColsLocal ? 'd.UNIDAD_ID AS unidad_id, d.CANTIDAD_POR_UNIDAD AS cantidad_por_unidad, d.UNIDAD_NOMBRE AS unidad_nombre,' : ''}
               p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
-         FROM COTIZACION c
+         FROM cotizacion c
          LEFT JOIN COTIZACION_DETALLES d ON d.ID_COTIZACION = c.ID_COTIZACION
-         LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
+         LEFT JOIN productos p ON p.ID_PRODUCT = d.ID_PRODUCT
          WHERE c.ID_COTIZACION = ?
          ORDER BY d.ID_DETALLE_COTIZACION ASC`;
 
@@ -455,9 +455,9 @@ export async function GET(req) {
           const [retryNum] = await pool.query(
             `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
                     p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
-             FROM COTIZACION c
+             FROM cotizacion c
              LEFT JOIN COTIZACION_DETALLES d ON d.ID_COTIZACION = c.ID_COTIZACION
-             LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
+             LEFT JOIN productos p ON p.ID_PRODUCT = d.ID_PRODUCT
              WHERE c.ID_COTIZACION = ?`, [numericId]
           );
           items = retryNum;
@@ -467,7 +467,7 @@ export async function GET(req) {
             `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
                     p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
              FROM COTIZACION_DETALLES d
-             LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
+             LEFT JOIN productos p ON p.ID_PRODUCT = d.ID_PRODUCT
              WHERE CAST(d.ID_COTIZACION AS CHAR) = ?`, [id]
           );
           items = retryCast;
@@ -478,7 +478,7 @@ export async function GET(req) {
             `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
                     p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
              FROM COTIZACION_DETALLES d
-             LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
+             LEFT JOIN productos p ON p.ID_PRODUCT = d.ID_PRODUCT
              WHERE d.ID_COTIZACION = ?`, [core]
           );
           if (retryCore?.length) items = retryCore;
@@ -488,7 +488,7 @@ export async function GET(req) {
             `SELECT d.ID_PRODUCT, d.AMOUNT AS cantidad, d.PRECIO_UNIT AS precio_unit, d.SUB_TOTAL AS subtotal,
                     p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
              FROM COTIZACION_DETALLES d
-             LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = d.ID_PRODUCT
+             LEFT JOIN productos p ON p.ID_PRODUCT = d.ID_PRODUCT
              WHERE d.ID_COTIZACION = ? OR TRIM(d.ID_COTIZACION) = TRIM(?) OR BINARY d.ID_COTIZACION = BINARY ?`, [id, id, id]
           );
           if (direct?.length) items = direct;
@@ -540,10 +540,10 @@ export async function GET(req) {
               (SELECT COUNT(1) FROM COTIZACION_DETALLES d WHERE d.ID_COTIZACION = c.ID_COTIZACION) AS items,
               COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') AS creadaPor,
               s.ID_SUCURSAL, s.NOMBRE_SUCURSAL
-       FROM COTIZACION c
-       LEFT JOIN CLIENTES cli ON cli.ID_CLIENTES = c.ID_CLIENTES
-       LEFT JOIN USUARIOS u ON u.ID = c.ID_USUARIO
-       LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = c.ID_SUCURSAL
+       FROM cotizacion c
+       LEFT JOIN clientes cli ON cli.ID_CLIENTES = c.ID_CLIENTES
+       LEFT JOIN usuarios u ON u.ID = c.ID_USUARIO
+       LEFT JOIN sucursal s ON s.ID_SUCURSAL = c.ID_SUCURSAL
        ${where}
        ORDER BY c.FECHA_CREACION DESC
        LIMIT 1000`,
@@ -597,14 +597,14 @@ export async function PUT(req) {
     const body = await req.json();
     const { items, subtotal, descuento = 0, total, cliente = {}, fecha_vencimiento, notas, estado } = body || {};
 
-    // Procesar venta desde cotización (convertir a FACTURA) sin tocar stock (ya reservado al crear cotización)
+    // Procesar venta desde cotización (convertir a factura) sin tocar stock (ya reservado al crear cotización)
     if (action === 'procesar' || action === 'procesar-venta') {
       try {
         await conn.beginTransaction();
         // Cargar cotización
         const [cRows] = await conn.query(
           `SELECT ID_COTIZACION, FECHA_VENCIMIENTO, SUBTOTAL, DESCUENTO, TOTAL, ESTADO, ID_CLIENTES, ID_SUCURSAL, ID_USUARIO
-           FROM COTIZACION WHERE ID_COTIZACION = ? FOR UPDATE`, [id]
+           FROM cotizacion WHERE ID_COTIZACION = ? FOR UPDATE`, [id]
         );
         if (!cRows?.length) {
           await conn.rollback();
@@ -646,14 +646,14 @@ export async function PUT(req) {
         try {
           const [colRows] = await conn.query(`
             SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'ID_SUCURSAL'
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'ID_SUCURSAL'
           `);
           hasFacturaSucursal = (colRows?.[0] && Number(colRows[0].CNT || 0) > 0) || false;
         } catch { hasFacturaSucursal = false; }
         try {
           const [colNum] = await conn.query(`
             SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'NUMERO_FACTURA'
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'NUMERO_FACTURA'
           `);
           hasFacturaNumero = (colNum?.[0] && Number(colNum[0].CNT || 0) > 0) || false;
         } catch { hasFacturaNumero = false; }
@@ -670,7 +670,7 @@ export async function PUT(req) {
         if (hasFacturaNumero) {
           let intentos = 0;
           while (intentos < 5) {
-            const [dup] = await conn.query('SELECT 1 FROM FACTURA WHERE NUMERO_FACTURA = ? LIMIT 1', [numeroFactura]);
+            const [dup] = await conn.query('SELECT 1 FROM factura WHERE NUMERO_FACTURA = ? LIMIT 1', [numeroFactura]);
             if (!dup?.length) break;
             intentos++;
             numeroFactura = `FAC-${y}${mo}${da}-${hh}${mi}${ss}-${intentos}`;
@@ -678,15 +678,15 @@ export async function PUT(req) {
         }
 
         let facturaSql = hasFacturaNumero
-          ? 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, ?, NULL, ?)'
-          : 'INSERT INTO FACTURA (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, NULL, ?)';
+          ? 'INSERT INTO factura (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, ?, NULL, ?)'
+          : 'INSERT INTO factura (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, NULL, ?)';
         let facturaParams = hasFacturaNumero
           ? [numeroFactura, fecha, subOk, descOk, totalOk, c.ID_CLIENTES || null]
           : [fecha, subOk, descOk, totalOk, c.ID_CLIENTES || null];
         if (hasFacturaSucursal) {
           facturaSql = hasFacturaNumero
-            ? 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)'
-            : 'INSERT INTO FACTURA (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, NULL, ?, ?)';
+            ? 'INSERT INTO factura (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)'
+            : 'INSERT INTO factura (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, NULL, ?, ?)';
           facturaParams = hasFacturaNumero
             ? [numeroFactura, fecha, subOk, descOk, totalOk, c.ID_CLIENTES || null, c.ID_SUCURSAL || null]
             : [fecha, subOk, descOk, totalOk, c.ID_CLIENTES || null, c.ID_SUCURSAL || null];
@@ -694,10 +694,10 @@ export async function PUT(req) {
         const [factRes] = await conn.query(facturaSql, facturaParams);
         const facturaId = factRes.insertId;
 
-        // Detectar si FACTURA_DETALLES soporta columnas de unidad y propagar si es posible
+        // Detectar si factura_detalles soporta columnas de unidad y propagar si es posible
         const fdCols = await (async () => {
           try {
-            const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES'`);
+            const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura_detalles'`);
             const present = new Set((cols || []).map(r => String(r.COLUMN_NAME)));
             return {
               UNIDAD_ID: present.has('UNIDAD_ID'),
@@ -721,7 +721,7 @@ export async function PUT(req) {
             cantidadPorUnidad = Number((it.cantidad_por_unidad ?? it.cantidadPorUnidad ?? it.CANTIDAD_POR_UNIDAD ?? 1)) || 1;
             unidadNombre = it.unidad_nombre || it.UNIDAD_NOMBRE || it.unit_name || it.unit || null;
             await conn.query(
-              `INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL${fdCols.UNIDAD_ID ? ', UNIDAD_ID' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : ''}${fdCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : ''}, ID_USUARIO)
+              `INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL${fdCols.UNIDAD_ID ? ', UNIDAD_ID' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : ''}${fdCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : ''}, ID_USUARIO)
                VALUES (?, ?, ?, ?, ?${fdCols.UNIDAD_ID ? ', ?' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', ?' : ''}${fdCols.UNIDAD_NOMBRE ? ', ?' : ''}, ?)`,
               [facturaId, idProd, qty, precio, sub]
                 .concat(fdCols.UNIDAD_ID ? [unidadId] : [])
@@ -731,14 +731,14 @@ export async function PUT(req) {
             );
           } else {
             await conn.query(
-              'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
+              'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
               [facturaId, idProd, qty, precio, sub, c.ID_USUARIO || null]
             );
           }
         }
 
         // Marcar cotización como procesada (no le afecta fecha de vencimiento)
-        await conn.query('UPDATE COTIZACION SET ESTADO = ? WHERE ID_COTIZACION = ?', ['procesada', id]);
+        await conn.query('UPDATE cotizacion SET ESTADO = ? WHERE ID_COTIZACION = ?', ['procesada', id]);
 
         await conn.commit();
         return Response.json({ ok: true, facturaId, numero: hasFacturaNumero ? numeroFactura : null });
@@ -751,7 +751,7 @@ export async function PUT(req) {
     await conn.beginTransaction();
 
     // Validar cabecera existente
-    const [cRows] = await conn.query('SELECT * FROM COTIZACION WHERE ID_COTIZACION = ? FOR UPDATE', [id]);
+    const [cRows] = await conn.query('SELECT * FROM cotizacion WHERE ID_COTIZACION = ? FOR UPDATE', [id]);
     if (!cRows?.length) {
       await conn.rollback();
       return Response.json({ error: 'Cotización no encontrada' }, { status: 404 });
@@ -832,7 +832,7 @@ export async function PUT(req) {
 
     // Actualizar cabecera
     await conn.query(
-      `UPDATE COTIZACION SET FECHA_VENCIMIENTO = ?, SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ?, NOTAS = ?, ESTADO = COALESCE(?, ESTADO)
+      `UPDATE cotizacion SET FECHA_VENCIMIENTO = ?, SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ?, NOTAS = ?, ESTADO = COALESCE(?, ESTADO)
        WHERE ID_COTIZACION = ?`,
       [fechaV, subtotalOk, descuentoOk, totalOk, clienteId || null, notas || null, estado || null, id]
     );
@@ -859,7 +859,7 @@ export async function DELETE(req) {
     if (!id) return Response.json({ error: 'ID de cotización requerido' }, { status: 400 });
 
     // Soft delete: marcar cancelada
-    const [res] = await conn.query('UPDATE COTIZACION SET ESTADO = ? WHERE ID_COTIZACION = ?', ['cancelada', id]);
+    const [res] = await conn.query('UPDATE cotizacion SET ESTADO = ? WHERE ID_COTIZACION = ?', ['cancelada', id]);
     if (res.affectedRows === 0) return Response.json({ error: 'Cotización no encontrada' }, { status: 404 });
     return Response.json({ ok: true, id, estado: 'cancelada' });
   } catch (e) {

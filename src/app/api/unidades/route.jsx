@@ -2,7 +2,7 @@ import pool from '@/lib/db';
 
 export async function GET(request) {
   try {
-    const [rows] = await pool.query('SELECT * FROM UNIDADES_MEDIDAS ORDER BY NOMBRE');
+    const [rows] = await pool.query('SELECT * FROM unidades_medidas ORDER BY NOMBRE');
     const data = rows.map((r) => ({ id: r.ID_UNIDAD, unidad: r.NOMBRE }));
     return Response.json(data, { status: 200 });
   } catch (err) {
@@ -16,7 +16,7 @@ export async function POST(request) {
     const nombre = body.nombre || body.name || body.unidad;
     if (!nombre) return Response.json({ error: 'Nombre requerido' }, { status: 400 });
 
-    const [result] = await pool.query('INSERT INTO UNIDADES_MEDIDAS (NOMBRE) VALUES (?)', [nombre]);
+    const [result] = await pool.query('INSERT INTO unidades_medidas (NOMBRE) VALUES (?)', [nombre]);
     return Response.json({ message: 'Unidad creada', id: result.insertId }, { status: 201 });
   } catch (err) {
     // Manejar duplicados
@@ -35,7 +35,7 @@ export async function PUT(request) {
 
     if (!id || !nombre) return Response.json({ error: 'Id y nombre requeridos' }, { status: 400 });
 
-    await pool.query('UPDATE UNIDADES_MEDIDAS SET NOMBRE = ? WHERE ID_UNIDAD = ?', [nombre, id]);
+    await pool.query('UPDATE unidades_medidas SET NOMBRE = ? WHERE ID_UNIDAD = ?', [nombre, id]);
     return Response.json({ message: 'Unidad actualizada' }, { status: 200 });
   } catch (err) {
     if (err && err.code === 'ER_DUP_ENTRY') {
@@ -52,7 +52,7 @@ export async function DELETE(request) {
     if (!id) return Response.json({ error: 'Id requerido' }, { status: 400 });
 
     // Antes de borrar, podríamos verificar dependencias (productos). Por simplicidad, intentamos borrar y capturamos error por FK.
-    await pool.query('DELETE FROM UNIDADES_MEDIDAS WHERE ID_UNIDAD = ?', [id]);
+    await pool.query('DELETE FROM unidades_medidas WHERE ID_UNIDAD = ?', [id]);
     return Response.json({ message: 'Unidad eliminada' }, { status: 200 });
   } catch (err) {
     // Si hay restricción referencial

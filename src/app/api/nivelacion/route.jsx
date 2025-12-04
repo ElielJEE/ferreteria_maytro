@@ -8,7 +8,7 @@ async function getUserSucursal(req) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded?.id || decoded?.ID || decoded?.sub || null;
     if (!userId) return null;
-    const [[row]] = await pool.query('SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1', [userId]);
+    const [[row]] = await pool.query('SELECT ID_SUCURSAL FROM usuarios WHERE ID = ? LIMIT 1', [userId]);
     return row?.ID_SUCURSAL || null;
   } catch { return null; }
 }
@@ -28,7 +28,7 @@ export async function GET(req) {
     if (productoId) { where.push('ID_PRODUCT = ?'); params.push(productoId); }
     if (sucursal) { where.push('ID_SUCURSAL = ?'); params.push(sucursal); }
   const sql = `SELECT ID_NIVELACION, ID_PRODUCT, ID_SUCURSAL, CANTIDAD AS MINIMO, CANTIDAD_MAX AS MAXIMO
-                 FROM NIVELACION ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`;
+                 FROM nivelacion ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`;
     const [rows] = await pool.query(sql, params);
     return Response.json({ nivelacion: rows });
   } catch (e) {
@@ -56,17 +56,17 @@ export async function POST(req) {
     }
     await conn.beginTransaction();
     const [rows] = await conn.query(
-      `SELECT ID_NIVELACION FROM NIVELACION WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? LIMIT 1`,
+      `SELECT ID_NIVELACION FROM nivelacion WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? LIMIT 1`,
       [producto_id, sucursal_id]
     );
     if (rows && rows.length) {
       await conn.query(
-        `UPDATE NIVELACION SET CANTIDAD = ?, CANTIDAD_MAX = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?`,
+        `UPDATE nivelacion SET CANTIDAD = ?, CANTIDAD_MAX = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?`,
         [minimo, maximo, producto_id, sucursal_id]
       );
     } else {
       await conn.query(
-        `INSERT INTO NIVELACION (ID_PRODUCT, ID_SUCURSAL, CANTIDAD, CANTIDAD_MAX) VALUES (?, ?, ?, ?)`,
+        `INSERT INTO nivelacion (ID_PRODUCT, ID_SUCURSAL, CANTIDAD, CANTIDAD_MAX) VALUES (?, ?, ?, ?)`,
         [producto_id, sucursal_id, minimo, maximo]
       );
     }

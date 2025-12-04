@@ -41,7 +41,7 @@ export async function PUT(req) {
 		}
 
 		// Verificar que el rol exista
-		const [rolExist] = await pool.query("SELECT * FROM ROL WHERE ID_ROL = ?", [rolId]);
+		const [rolExist] = await pool.query("SELECT * FROM rol WHERE ID_ROL = ?", [rolId]);
 		if (rolExist.length === 0) {
 			return NextResponse.json({ message: "El rol no existe" }, { status: 404 });
 		}

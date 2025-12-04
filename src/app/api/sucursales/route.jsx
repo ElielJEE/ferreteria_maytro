@@ -6,7 +6,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format');
-    const [rows] = await pool.query('SELECT ID_SUCURSAL, NOMBRE_SUCURSAL, DIRECCION, TELEFONO FROM SUCURSAL');
+    const [rows] = await pool.query('SELECT ID_SUCURSAL, NOMBRE_SUCURSAL, DIRECCION, TELEFONO FROM sucursal');
     if (format === 'raw') return Response.json(rows);
     // Default: label/value pair for selectors
     return Response.json({ sucursales: rows.map(r => ({ label: r.NOMBRE_SUCURSAL, value: r.ID_SUCURSAL, direccion: r.DIRECCION, telefono: r.TELEFONO })) });
@@ -30,14 +30,14 @@ export async function POST(request) {
     }
 
     await pool.query(
-      'INSERT INTO SUCURSAL (ID_SUCURSAL, NOMBRE_SUCURSAL, DIRECCION, TELEFONO) VALUES (?, ?, ?, ?)',
+      'INSERT INTO sucursal (ID_SUCURSAL, NOMBRE_SUCURSAL, DIRECCION, TELEFONO) VALUES (?, ?, ?, ?)',
       [codigo, nombre, direccion, telefono]
     );
 
     // Crear caja asociada (opcional) para compatibilidad con vistas que esperen una "caja" por sucursal
     try {
-      await pool.query('CREATE TABLE IF NOT EXISTS CAJA (ID_CAJA VARCHAR(10) NOT NULL, DESCRIPCION VARCHAR(255), PRIMARY KEY (ID_CAJA)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;');
-      await pool.query('INSERT IGNORE INTO CAJA (ID_CAJA, DESCRIPCION) VALUES (?, ?)', [codigo, `Caja ${nombre}`]);
+      await pool.query('CREATE TABLE IF NOT EXISTS caja (ID_CAJA VARCHAR(10) NOT NULL, DESCRIPCION VARCHAR(255), PRIMARY KEY (ID_CAJA)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;');
+      await pool.query('INSERT IGNORE INTO caja (ID_CAJA, DESCRIPCION) VALUES (?, ?)', [codigo, `Caja ${nombre}`]);
     } catch { /* ignorar si falla, no es crítico */ }
 
     return Response.json({ success: true });
@@ -62,7 +62,7 @@ export async function PUT(request) {
     if (!fields.length) return Response.json({ error: 'Nada para actualizar' }, { status: 400 });
 
     values.push(id);
-    await pool.query(`UPDATE SUCURSAL SET ${fields.join(', ')} WHERE ID_SUCURSAL = ?`, values);
+    await pool.query(`UPDATE sucursal SET ${fields.join(', ')} WHERE ID_SUCURSAL = ?`, values);
     return Response.json({ success: true });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -75,9 +75,9 @@ export async function DELETE(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return Response.json({ error: 'id requerido' }, { status: 400 });
-    await pool.query('DELETE FROM SUCURSAL WHERE ID_SUCURSAL = ?', [id]);
+    await pool.query('DELETE FROM sucursal WHERE ID_SUCURSAL = ?', [id]);
     // Eliminar caja asociada si existe
-    try { await pool.query('DELETE FROM CAJA WHERE ID_CAJA = ?', [id]); } catch { }
+    try { await pool.query('DELETE FROM caja WHERE ID_CAJA = ?', [id]); } catch { }
     return Response.json({ success: true });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });

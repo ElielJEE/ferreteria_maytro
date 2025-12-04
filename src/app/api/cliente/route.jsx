@@ -10,7 +10,7 @@ export async function GET(req) {
 		const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 50)));
 		const offset = (page - 1) * limit;
 
-		let sql = `SELECT ID_CLIENTES AS id, NOMBRE_CLIENTE AS nombre, TELEFONO_CLIENTE AS telefono, DIRECCION_CLIENTE AS direccion FROM CLIENTES`;
+		let sql = `SELECT ID_CLIENTES AS id, NOMBRE_CLIENTE AS nombre, TELEFONO_CLIENTE AS telefono, DIRECCION_CLIENTE AS direccion FROM clientes`;
 		const params = [];
 		if (q) {
 			sql += ` WHERE NOMBRE_CLIENTE LIKE ? OR TELEFONO_CLIENTE LIKE ?`;
@@ -40,7 +40,7 @@ export async function PUT(req) {
 		}
 
 		const sql = `
-			UPDATE CLIENTES
+			UPDATE clientes
 			SET 
 				NOMBRE_CLIENTE = ?, 
 				TELEFONO_CLIENTE = ?, 
@@ -70,7 +70,7 @@ export async function DELETE(req) {
 			return NextResponse.json({ error: "El ID del cliente es requerido." }, { status: 400 });
 		}
 
-		const [result] = await pool.query(`DELETE FROM CLIENTES WHERE ID_CLIENTES = ?`, [id]);
+		const [result] = await pool.query(`DELETE FROM clientes WHERE ID_CLIENTES = ?`, [id]);
 
 		if (result.affectedRows === 0) {
 			return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });

@@ -21,9 +21,9 @@ export async function GET(req) {
 		u.ID_SUCURSAL as idSucursal,
     r.ROL_NAME AS ROL,
 		s.NOMBRE_SUCURSAL AS SUCURSAL
-FROM USUARIOS u
-LEFT JOIN ROL r ON u.ID_ROL = r.ID_ROL
-LEFT JOIN SUCURSAL s ON u.ID_SUCURSAL = s.ID_SUCURSAL
+FROM usuarios u
+LEFT JOIN rol r ON u.ID_ROL = r.ID_ROL
+LEFT JOIN sucursal s ON u.ID_SUCURSAL = s.ID_SUCURSAL
 `;
 		const params = [];
 		if (q) {
@@ -82,7 +82,7 @@ export async function POST(req) {
 
 		// Verificar si el usuario ya existe
 		const [existing] = await pool.query(
-			"SELECT ID FROM USUARIOS WHERE NOMBRE_USUARIO = ? OR CORREO = ?",
+			"SELECT ID FROM usuarios WHERE NOMBRE_USUARIO = ? OR CORREO = ?",
 			[nombreUsuario, correo]
 		);
 
@@ -98,7 +98,7 @@ export async function POST(req) {
 
 		// Insertar usuario
 		const sql = `
-			INSERT INTO USUARIOS (NOMBRE, NOMBRE_USUARIO, CORREO, CONTRASENA, ID_ROL, ID_SUCURSAL, ESTATUS)
+			INSERT INTO usuarios (NOMBRE, NOMBRE_USUARIO, CORREO, CONTRASENA, ID_ROL, ID_SUCURSAL, ESTATUS)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`;
 		const [result] = await pool.query(sql, [
@@ -148,14 +148,14 @@ export async function PUT(req) {
 		}
 
 		// Verificar si el usuario existe
-		const [userRows] = await pool.query("SELECT * FROM USUARIOS WHERE ID = ?", [id]);
+		const [userRows] = await pool.query("SELECT * FROM usuarios WHERE ID = ?", [id]);
 		if (userRows.length === 0) {
 			return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
 		}
 
 		// Verificar si el nuevo nombreUsuario o correo ya están registrados en otro usuario
 		const [existing] = await pool.query(
-			"SELECT ID FROM USUARIOS WHERE (NOMBRE_USUARIO = ? OR CORREO = ?) AND ID != ?",
+			"SELECT ID FROM usuarios WHERE (NOMBRE_USUARIO = ? OR CORREO = ?) AND ID != ?",
 			[nombreUsuario, correo, id]
 		);
 		if (existing.length > 0) {
@@ -175,7 +175,7 @@ export async function PUT(req) {
 		}
 
 		// Construir la consulta dinámica
-		let sql = `UPDATE USUARIOS SET 
+		let sql = `UPDATE usuarios SET 
 			NOMBRE = ?, 
 			NOMBRE_USUARIO = ?, 
 			CORREO = ?, 
@@ -218,7 +218,7 @@ export async function DELETE(req) {
 		}
 
 		// Verificar si el usuario existe
-		const [userRows] = await pool.query("SELECT * FROM USUARIOS WHERE ID = ?", [id]);
+		const [userRows] = await pool.query("SELECT * FROM usuarios WHERE ID = ?", [id]);
 		if (userRows.length === 0) {
 			return NextResponse.json(
 				{ error: "Usuario no encontrado." },
@@ -227,7 +227,7 @@ export async function DELETE(req) {
 		}
 
 		// Cambiar estado a INACTIVO
-		await pool.query("UPDATE USUARIOS SET ESTATUS = 'INACTIVO' WHERE ID = ?", [id]);
+		await pool.query("UPDATE usuarios SET ESTATUS = 'INACTIVO' WHERE ID = ?", [id]);
 
 		return NextResponse.json({ message: "Usuario desactivado correctamente." });
 	} catch (e) {

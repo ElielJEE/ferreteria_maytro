@@ -6,10 +6,10 @@ export async function PUT(request) {
   }
   try {
     if (type === 'categoria') {
-      await pool.query('UPDATE CATEGORIAS SET NOMBRE_CATEGORIAS = ? WHERE ID_CATEGORIAS = ?', [name, id]);
+      await pool.query('UPDATE categorias SET NOMBRE_CATEGORIAS = ? WHERE ID_CATEGORIAS = ?', [name, id]);
       return Response.json({ message: 'Categoría actualizada' }, { status: 200 });
     } else if (type === 'subcategoria') {
-      await pool.query('UPDATE SUBCATEGORIAS SET NOMBRE_SUBCATEGORIA = ? WHERE ID_SUBCATEGORIAS = ?', [name, id]);
+      await pool.query('UPDATE subcategorias SET NOMBRE_SUBCATEGORIA = ? WHERE ID_SUBCATEGORIAS = ?', [name, id]);
       return Response.json({ message: 'Subcategoría actualizada' }, { status: 200 });
     } else {
       return Response.json({ error: 'Tipo inválido' }, { status: 400 });
@@ -28,11 +28,11 @@ export async function DELETE(request) {
   try {
     if (type === 'categoria') {
       // Borra la categoría y sus subcategorías
-      await pool.query('DELETE FROM SUBCATEGORIAS WHERE ID_CATEGORIAS = ?', [id]);
-      await pool.query('DELETE FROM CATEGORIAS WHERE ID_CATEGORIAS = ?', [id]);
+      await pool.query('DELETE FROM subcategorias WHERE ID_CATEGORIAS = ?', [id]);
+      await pool.query('DELETE FROM categorias WHERE ID_CATEGORIAS = ?', [id]);
       return Response.json({ message: 'Categoría y subcategorías borradas' }, { status: 200 });
     } else if (type === 'subcategoria') {
-      await pool.query('DELETE FROM SUBCATEGORIAS WHERE ID_SUBCATEGORIAS = ?', [id]);
+      await pool.query('DELETE FROM subcategorias WHERE ID_SUBCATEGORIAS = ?', [id]);
       return Response.json({ message: 'Subcategoría borrada' }, { status: 200 });
     } else {
       return Response.json({ error: 'Tipo inválido' }, { status: 400 });
@@ -47,8 +47,8 @@ import pool from '@/lib/db';
 export async function GET(request) {
   // Obtener categorías y subcategorías de la base de datos
   try {
-    const [catRows] = await pool.query('SELECT * FROM CATEGORIAS');
-    const [subcatRows] = await pool.query('SELECT * FROM SUBCATEGORIAS');
+    const [catRows] = await pool.query('SELECT * FROM categorias');
+    const [subcatRows] = await pool.query('SELECT * FROM subcategorias');
     // Relacionar subcategorías con categorías
     const categories = catRows.map(cat => ({
       id: cat.ID_CATEGORIAS,
@@ -79,12 +79,12 @@ export async function POST(request) {
     if (parentId && parentId !== 'Ninguna') {
       // Crear subcategoría
       const subId = Math.random().toString(36).substr(2, 10).toUpperCase().slice(0, 10);
-      await pool.query('INSERT INTO SUBCATEGORIAS (ID_SUBCATEGORIAS, NOMBRE_SUBCATEGORIA, ID_CATEGORIAS) VALUES (?, ?, ?)', [subId, name, parentId]);
+      await pool.query('INSERT INTO subcategorias (ID_SUBCATEGORIAS, NOMBRE_SUBCATEGORIA, ID_CATEGORIAS) VALUES (?, ?, ?)', [subId, name, parentId]);
       return Response.json({ message: 'Subcategoría agregada correctamente' }, { status: 201 });
     } else {
       // Crear categoría principal
       const newId = Math.random().toString(36).substr(2, 10).toUpperCase().slice(0, 10);
-      await pool.query('INSERT INTO CATEGORIAS (ID_CATEGORIAS, NOMBRE_CATEGORIAS) VALUES (?, ?)', [newId, name]);
+      await pool.query('INSERT INTO categorias (ID_CATEGORIAS, NOMBRE_CATEGORIAS) VALUES (?, ?)', [newId, name]);
       return Response.json({ message: 'Categoría agregada correctamente' }, { status: 201 });
     }
   } catch (err) {

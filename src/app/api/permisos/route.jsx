@@ -9,7 +9,7 @@ export async function GET(req) {
 		const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") || 50)));
 		const offset = (page - 1) * limit;
 
-		let sql = `SELECT * FROM PERMISOS`;
+		let sql = `SELECT * FROM permisos`;
 		const params = [];
 
 		if (q) {

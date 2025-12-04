@@ -21,13 +21,13 @@ const withSucursalFilter = (sql, sucursalIdOrName, field = 'ID_SUCURSAL') => {
 	if (/^[A-Za-z0-9_-]{2,15}$/.test(String(sucursalIdOrName))) {
 		return { sql: `${sql} AND ${field} = ?`, params: [sucursalIdOrName] };
 	}
-	// Fallback by name in FACTURA and SUCURSAL join usage (caller must alias properly)
-	return { sql: `${sql} AND ${field} = (SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ? LIMIT 1)`, params: [sucursalIdOrName] };
+	// Fallback by name in factura and sucursal join usage (caller must alias properly)
+	return { sql: `${sql} AND ${field} = (SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ? LIMIT 1)`, params: [sucursalIdOrName] };
 };
 
 async function getRevenueToday(sucursal) {
 	const { start, end } = todayRange();
-	let base = 'SELECT IFNULL(SUM(TOTAL), 0) AS total FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let base = 'SELECT IFNULL(SUM(TOTAL), 0) AS total FROM factura WHERE FECHA BETWEEN ? AND ?';
 	let params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
 		const add = withSucursalFilter(base, sucursal, 'ID_SUCURSAL');
@@ -39,7 +39,7 @@ async function getRevenueToday(sucursal) {
 
 async function getInvoicesToday(sucursal) {
 	const { start, end } = todayRange();
-	let base = 'SELECT COUNT(*) AS cnt FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let base = 'SELECT COUNT(*) AS cnt FROM factura WHERE FECHA BETWEEN ? AND ?';
 	let params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
 		const add = withSucursalFilter(base, sucursal, 'ID_SUCURSAL');
@@ -52,8 +52,8 @@ async function getInvoicesToday(sucursal) {
 async function getProductsSoldToday(sucursal) {
 	const { start, end } = todayRange();
 	let base = `SELECT IFNULL(SUM(fd.AMOUNT), 0) AS qty
-							FROM FACTURA_DETALLES fd
-							JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
+							FROM factura_detalles fd
+							JOIN factura f ON f.ID_FACTURA = fd.ID_FACTURA
 							WHERE f.FECHA BETWEEN ? AND ?`;
 	let params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
@@ -66,7 +66,7 @@ async function getProductsSoldToday(sucursal) {
 
 async function getClientsToday(sucursal) {
 	const { start, end } = todayRange();
-	let base = 'SELECT COUNT(DISTINCT ID_CLIENTES) AS cnt FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let base = 'SELECT COUNT(DISTINCT ID_CLIENTES) AS cnt FROM factura WHERE FECHA BETWEEN ? AND ?';
 	let params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
 		const add = withSucursalFilter(base, sucursal, 'ID_SUCURSAL');
@@ -78,7 +78,7 @@ async function getClientsToday(sucursal) {
 
 async function getMonthlyRevenueAndCount(sucursal) {
 	const { start, end } = monthRange();
-	let base = 'SELECT IFNULL(SUM(TOTAL),0) AS total, COUNT(*) AS cnt FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let base = 'SELECT IFNULL(SUM(TOTAL),0) AS total, COUNT(*) AS cnt FROM factura WHERE FECHA BETWEEN ? AND ?';
 	let params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
 		const add = withSucursalFilter(base, sucursal, 'ID_SUCURSAL');
@@ -91,14 +91,14 @@ async function getMonthlyRevenueAndCount(sucursal) {
 async function getMonthlyUnitsAndClients(sucursal) {
 	const { start, end } = monthRange();
 	let unitsSql = `SELECT IFNULL(SUM(fd.AMOUNT),0) AS units
-									FROM FACTURA_DETALLES fd
-									JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
+									FROM factura_detalles fd
+									JOIN factura f ON f.ID_FACTURA = fd.ID_FACTURA
 									WHERE f.FECHA BETWEEN ? AND ?`;
 	let unitsParams = [start, end];
 	if (sucursal && sucursal !== 'Todas') { unitsSql += ' AND f.ID_SUCURSAL = ?'; unitsParams.push(sucursal); }
 	const [[unitsRow]] = await pool.query(unitsSql, unitsParams);
 
-	let clientsSql = `SELECT COUNT(DISTINCT ID_CLIENTES) AS clients FROM FACTURA WHERE FECHA BETWEEN ? AND ?`;
+	let clientsSql = `SELECT COUNT(DISTINCT ID_CLIENTES) AS clients FROM factura WHERE FECHA BETWEEN ? AND ?`;
 	let clientsParams = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
 		const add = withSucursalFilter(clientsSql, sucursal, 'ID_SUCURSAL');
@@ -110,7 +110,7 @@ async function getMonthlyUnitsAndClients(sucursal) {
 
 async function getWeeklySalesSeries(sucursal) {
 	let base = `SELECT DATE(f.FECHA) AS d, IFNULL(SUM(f.TOTAL),0) AS total
-							FROM FACTURA f
+							FROM factura f
 							WHERE f.FECHA >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)`;
 	const params = [];
 	if (sucursal && sucursal !== 'Todas') {
@@ -143,9 +143,9 @@ async function getTopProductsWeek(sucursal) {
 	let base = `SELECT p.ID_PRODUCT, p.PRODUCT_NAME AS product,
 										 IFNULL(SUM(fd.AMOUNT),0) AS count,
 										 IFNULL(SUM(fd.SUB_TOTAL),0) AS amount
-							FROM FACTURA_DETALLES fd
-							JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
-							LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = fd.ID_PRODUCT
+							FROM factura_detalles fd
+							JOIN factura f ON f.ID_FACTURA = fd.ID_FACTURA
+							LEFT JOIN productos p ON p.ID_PRODUCT = fd.ID_PRODUCT
 							WHERE f.FECHA >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`;
 	const params = [];
 	if (sucursal && sucursal !== 'Todas') {
@@ -158,7 +158,7 @@ async function getTopProductsWeek(sucursal) {
 }
 
 async function getLowStock(sucursal) {
-	// Alertas: stock sucursal < minimo o 0; si hay NIVELACION usar min/max
+	// Alertas: stock sucursal < minimo o 0; si hay nivelacion usar min/max
 	let base = `SELECT 
 			p.ID_PRODUCT AS id,
 			p.PRODUCT_NAME AS product,
@@ -166,10 +166,10 @@ async function getLowStock(sucursal) {
 			IFNULL(ss.CANTIDAD,0) AS stock,
 			IFNULL(nv.CANTIDAD, NULL) AS min,
 			IFNULL(nv.CANTIDAD_MAX, NULL) AS max
-		FROM PRODUCTOS p
-		CROSS JOIN SUCURSAL s
-		LEFT JOIN STOCK_SUCURSAL ss ON ss.ID_PRODUCT = p.ID_PRODUCT AND ss.ID_SUCURSAL = s.ID_SUCURSAL
-		LEFT JOIN NIVELACION nv ON nv.ID_PRODUCT = p.ID_PRODUCT AND nv.ID_SUCURSAL = s.ID_SUCURSAL
+		FROM productos p
+		CROSS JOIN sucursal s
+		LEFT JOIN stock_sucursal ss ON ss.ID_PRODUCT = p.ID_PRODUCT AND ss.ID_SUCURSAL = s.ID_SUCURSAL
+		LEFT JOIN nivelacion nv ON nv.ID_PRODUCT = p.ID_PRODUCT AND nv.ID_SUCURSAL = s.ID_SUCURSAL
 		WHERE 1=1`;
 	const params = [];
 	if (sucursal && sucursal !== 'Todas') {
@@ -200,9 +200,9 @@ async function getRecentSales(sucursal) {
 										 f.TOTAL AS total,
 										 c.NOMBRE_CLIENTE AS cliente,
 										 s.NOMBRE_SUCURSAL AS sucursal
-							FROM FACTURA f
-							LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-							LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL
+							FROM factura f
+							LEFT JOIN clientes c ON c.ID_CLIENTES = f.ID_CLIENTES
+							LEFT JOIN sucursal s ON s.ID_SUCURSAL = f.ID_SUCURSAL
 							WHERE 1=1`;
 	const params = [];
 	if (sucursal && sucursal !== 'Todas') {
@@ -223,9 +223,9 @@ async function getRecentMovements(sucursal) {
 					 s.NOMBRE_SUCURSAL AS sucursal,
 					 p.PRODUCT_NAME AS producto,
 					 mi.cantidad
-		FROM MOVIMIENTOS_INVENTARIO mi
-		LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = mi.producto_id
-		LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = mi.sucursal_id
+		FROM movimientos_inventario mi
+		LEFT JOIN productos p ON p.ID_PRODUCT = mi.producto_id
+		LEFT JOIN sucursal s ON s.ID_SUCURSAL = mi.sucursal_id
         WHERE 1=1`;
 	const params = [];
 	if (sucursal && sucursal !== 'Todas') { base += ' AND mi.sucursal_id = ?'; params.push(sucursal); }
@@ -248,12 +248,12 @@ async function getRecentMovements(sucursal) {
 async function getStockTotals(sucursal) {
 	// Si se especifica sucursal, sumar solo el stock de esa sucursal.
 	if (sucursal && sucursal !== 'Todas') {
-		const [[{ stockSuc }]] = await pool.query('SELECT IFNULL(SUM(CANTIDAD),0) AS stockSuc FROM STOCK_SUCURSAL WHERE ID_SUCURSAL = ?', [sucursal]);
+		const [[{ stockSuc }]] = await pool.query('SELECT IFNULL(SUM(CANTIDAD),0) AS stockSuc FROM stock_sucursal WHERE ID_SUCURSAL = ?', [sucursal]);
 		return Number(stockSuc || 0);
 	}
 	// Admin: suma stock de todas las sucursales + productos en bodega (si aplica)
-	const [[{ stockSuc }]] = await pool.query('SELECT IFNULL(SUM(CANTIDAD),0) AS stockSuc FROM STOCK_SUCURSAL');
-	const [[{ stockBod }]] = await pool.query('SELECT IFNULL(SUM(CANTIDAD),0) AS stockBod FROM PRODUCTOS');
+	const [[{ stockSuc }]] = await pool.query('SELECT IFNULL(SUM(CANTIDAD),0) AS stockSuc FROM stock_sucursal');
+	const [[{ stockBod }]] = await pool.query('SELECT IFNULL(SUM(CANTIDAD),0) AS stockBod FROM productos');
 	return Number(stockSuc || 0) + Number(stockBod || 0);
 }
 
@@ -264,7 +264,7 @@ async function getUserSucursalFromReq(req) {
 		const decoded = jwt.verify(token, process.env.JWT_SECRET);
 		// Buscar sucursal del usuario en BD
 		const [[row]] = await pool.query(
-			`SELECT u.ID_SUCURSAL FROM USUARIOS u WHERE u.ID = ? LIMIT 1`,
+			`SELECT u.ID_SUCURSAL FROM usuarios u WHERE u.ID = ? LIMIT 1`,
 			[decoded.id || decoded.ID]
 		);
 		const sucursalId = row?.ID_SUCURSAL ?? null;

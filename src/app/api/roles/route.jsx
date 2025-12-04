@@ -10,7 +10,7 @@ export async function GET(req) {
 		const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 50)));
 		const offset = (page - 1) * limit;
 
-		let sql = `SELECT *	FROM ROL`;
+		let sql = `SELECT *	FROM rol`;
 		const params = [];
 		if (q) {
 			sql += ` WHERE ROL_NAME LIKE ?`;
@@ -57,7 +57,7 @@ export async function POST(req) {
 
 		// Verificar si ya existe un rol con ese nombre
 		const [existing] = await pool.query(
-			"SELECT ID_ROL FROM ROL WHERE ROL_NAME = ?",
+			"SELECT ID_ROL FROM rol WHERE ROL_NAME = ?",
 			[rol.trim()]
 		);
 		if (existing.length > 0) {
@@ -69,7 +69,7 @@ export async function POST(req) {
 
 		// Insertar nuevo rol
 		const [result] = await pool.query(
-			"INSERT INTO ROL (ROL_NAME, ROL_DESCRIPTION) VALUES (?, ?)",
+			"INSERT INTO rol (ROL_NAME, ROL_DESCRIPTION) VALUES (?, ?)",
 			[rol.trim(), descripcion || null]
 		);
 
@@ -107,14 +107,14 @@ export async function PUT(req) {
 		}
 
 		// Verificar que el rol exista
-		const [existingRole] = await pool.query("SELECT * FROM ROL WHERE ID_ROL = ?", [id]);
+		const [existingRole] = await pool.query("SELECT * FROM rol WHERE ID_ROL = ?", [id]);
 		if (existingRole.length === 0) {
 			return NextResponse.json({ message: "El rol no existe." }, { status: 404 });
 		}
 
 		// Verificar que no haya otro rol con el mismo nombre
 		const [conflict] = await pool.query(
-			"SELECT ID_ROL FROM ROL WHERE ROL_NAME = ? AND ID_ROL != ?",
+			"SELECT ID_ROL FROM rol WHERE ROL_NAME = ? AND ID_ROL != ?",
 			[rol.trim(), id]
 		);
 		if (conflict.length > 0) {
@@ -123,7 +123,7 @@ export async function PUT(req) {
 
 		// Actualizar rol
 		await pool.query(
-			"UPDATE ROL SET ROL_NAME = ?, ROL_DESCRIPTION = ? WHERE ID_ROL = ?",
+			"UPDATE rol SET ROL_NAME = ?, ROL_DESCRIPTION = ? WHERE ID_ROL = ?",
 			[rol.trim(), descripcion || null, id]
 		);
 
@@ -150,7 +150,7 @@ export async function DELETE(req) {
 		}
 
 		const [usersWithRole] = await pool.query(
-			"SELECT ID FROM USUARIOS WHERE ID_ROL = ?",
+			"SELECT ID FROM usuarios WHERE ID_ROL = ?",
 			[id]
 		);
 
@@ -162,13 +162,13 @@ export async function DELETE(req) {
 		}
 
 		// Verificar que el rol exista
-		const [existingRole] = await pool.query("SELECT * FROM ROL WHERE ID_ROL = ?", [id]);
+		const [existingRole] = await pool.query("SELECT * FROM rol WHERE ID_ROL = ?", [id]);
 		if (existingRole.length === 0) {
 			return NextResponse.json({ message: "El rol no existe." }, { status: 404 });
 		}
 
 		// Eliminar rol
-		await pool.query("DELETE FROM ROL WHERE ID_ROL = ?", [id]);
+		await pool.query("DELETE FROM rol WHERE ID_ROL = ?", [id]);
 
 		return NextResponse.json({ message: "Rol eliminado correctamente.", id });
 	} catch (error) {

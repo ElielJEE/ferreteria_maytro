@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 
 async function ensureCajaTables() {
   // Create session table if not exists
-  await pool.query(`CREATE TABLE IF NOT EXISTS CAJA_SESION (
+  await pool.query(`CREATE TABLE IF NOT EXISTS caja_sesion (
     ID_SESION INT AUTO_INCREMENT PRIMARY KEY,
     ID_SUCURSAL VARCHAR(10) NOT NULL,
     USUARIO_APERTURA INT NULL,
@@ -52,8 +52,8 @@ export async function GET(request) {
       } catch {}
       let sql = `SELECT cs.ID_SESION, cs.ID_SUCURSAL, s.NOMBRE_SUCURSAL, cs.FECHA_APERTURA, cs.FECHA_CIERRE,
                         cs.MONTO_INICIAL, cs.MONTO_FINAL, cs.DIFERENCIA, cs.ESTADO
-                 FROM CAJA_SESION cs
-                 LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = cs.ID_SUCURSAL `;
+                 FROM caja_sesion cs
+                 LEFT JOIN sucursal s ON s.ID_SUCURSAL = cs.ID_SUCURSAL `;
       if (sucursalParam) { sql += 'WHERE cs.ID_SUCURSAL = ? '; params.push(sucursalParam); }
       sql += 'ORDER BY cs.FECHA_APERTURA DESC LIMIT ?';
       params.push(limit);
@@ -63,15 +63,15 @@ export async function GET(request) {
 
     if (!sucursal) {
       // devolver sesiones abiertas por sucursal
-      const [rows] = await pool.query('SELECT * FROM CAJA_SESION WHERE ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC');
+      const [rows] = await pool.query('SELECT * FROM caja_sesion WHERE ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC');
       return Response.json({ abiertas: rows });
     }
     const { sucursalId } = getUserFromToken(request);
     if (sucursalId) {
-      const [rows] = await pool.query('SELECT * FROM CAJA_SESION WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC LIMIT 1', [sucursalId]);
+      const [rows] = await pool.query('SELECT * FROM caja_sesion WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC LIMIT 1', [sucursalId]);
       return Response.json({ abierta: rows?.[0] || null });
     }
-    const [rows] = await pool.query('SELECT * FROM CAJA_SESION WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC LIMIT 1', [sucursal]);
+    const [rows] = await pool.query('SELECT * FROM caja_sesion WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC LIMIT 1', [sucursal]);
     return Response.json({ abierta: rows?.[0] || null });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -93,14 +93,14 @@ export async function POST(request) {
     const { usuarioId } = getUserFromToken(request);
     await conn.beginTransaction();
     // asegurar que no haya una caja abierta en la sucursal
-    const [openRows] = await conn.query('SELECT ID_SESION FROM CAJA_SESION WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" LIMIT 1', [sucursalId]);
+    const [openRows] = await conn.query('SELECT ID_SESION FROM caja_sesion WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" LIMIT 1', [sucursalId]);
     if (openRows?.length) {
       await conn.rollback();
       conn.release();
       return Response.json({ error: 'Ya existe una caja abierta en esta sucursal' }, { status: 409 });
     }
     const [ins] = await conn.query(
-      'INSERT INTO CAJA_SESION (ID_SUCURSAL, USUARIO_APERTURA, MONTO_INICIAL, ESTADO, OBSERVACIONES) VALUES (?, ?, ?, "abierta", ?)',
+      'INSERT INTO caja_sesion (ID_SUCURSAL, USUARIO_APERTURA, MONTO_INICIAL, ESTADO, OBSERVACIONES) VALUES (?, ?, ?, "abierta", ?)',
       [sucursalId, usuarioId, montoInicial, observaciones]
     );
     await conn.commit();
@@ -133,7 +133,7 @@ export async function PUT(request) {
     // localizar sesión abierta
     if (!sesionId) {
       if (!sucursalId) return Response.json({ error: 'sucursal_id requerido si no se envía sesion_id' }, { status: 400 });
-      const [row] = await conn.query('SELECT ID_SESION FROM CAJA_SESION WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC LIMIT 1', [sucursalId]);
+      const [row] = await conn.query('SELECT ID_SESION FROM caja_sesion WHERE ID_SUCURSAL = ? AND ESTADO = "abierta" ORDER BY FECHA_APERTURA DESC LIMIT 1', [sucursalId]);
       if (!row?.length) {
         await conn.rollback();
         conn.release();
@@ -142,7 +142,7 @@ export async function PUT(request) {
       sesionId = row[0].ID_SESION;
     }
 
-    const [[sesion]] = await conn.query('SELECT * FROM CAJA_SESION WHERE ID_SESION = ? FOR UPDATE', [sesionId]);
+    const [[sesion]] = await conn.query('SELECT * FROM caja_sesion WHERE ID_SESION = ? FOR UPDATE', [sesionId]);
     if (!sesion || sesion.ESTADO !== 'abierta') {
       await conn.rollback();
       conn.release();
@@ -155,7 +155,7 @@ export async function PUT(request) {
     try {
       const [sumRows] = await conn.query(
         `SELECT COALESCE(SUM(f.TOTAL), 0) AS total
-   FROM FACTURA f
+   FROM factura f
    WHERE f.ID_SUCURSAL = ? AND DATE(f.FECHA) >= DATE(?) AND DATE(f.FECHA) <= DATE(?)`,
         [sesion.ID_SUCURSAL, sesion.FECHA_APERTURA, now]
       );
@@ -168,7 +168,7 @@ export async function PUT(request) {
 
     const { usuarioId } = getUserFromToken(request);
     await conn.query(
-      'UPDATE CAJA_SESION SET ESTADO = "cerrada", FECHA_CIERRE = ?, USUARIO_CIERRE = ?, MONTO_FINAL = ?, TOTAL_VENTAS_EQ_C = ?, DIFERENCIA = ?, OBSERVACIONES = ? WHERE ID_SESION = ?',
+      'UPDATE caja_sesion SET ESTADO = "cerrada", FECHA_CIERRE = ?, USUARIO_CIERRE = ?, MONTO_FINAL = ?, TOTAL_VENTAS_EQ_C = ?, DIFERENCIA = ?, OBSERVACIONES = ? WHERE ID_SESION = ?',
       [now, usuarioId, montoFinal, totalVentasEqC, diferencia, observaciones, sesionId]
     );
 

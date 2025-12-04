@@ -4,7 +4,7 @@ import pool from '@/lib/db';
 // We keep the table idempotent: one row with ID=1.
 
 async function ensureTable() {
-  await pool.query(`CREATE TABLE IF NOT EXISTS CONFIG_TASA_CAMBIO (
+  await pool.query(`CREATE TABLE IF NOT EXISTS config_tasa_cambio (
     ID INT NOT NULL PRIMARY KEY,
     TASA DECIMAL(12,4) NOT NULL,
     UPDATED_AT TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -18,12 +18,12 @@ async function ensureTable() {
 export async function GET() {
   try {
     await ensureTable();
-    const [config] = await pool.query('SELECT TASA, UPDATED_AT FROM CONFIG_TASA_CAMBIO WHERE ID = 1 LIMIT 1');
+    const [config] = await pool.query('SELECT TASA, UPDATED_AT FROM config_tasa_cambio WHERE ID = 1 LIMIT 1');
     let tasa = config?.[0]?.TASA;
     let updated = config?.[0]?.UPDATED_AT;
     if (tasa == null) {
       // fallback: ultima tasa registrada en FACTURA_PAGOS
-      const [fp] = await pool.query('SELECT TASA_CAMBIO FROM FACTURA_PAGOS ORDER BY ID_PAGO DESC LIMIT 1');
+      const [fp] = await pool.query('SELECT TASA_CAMBIO FROM factura_pagos ORDER BY ID_PAGO DESC LIMIT 1');
       tasa = fp?.[0]?.TASA_CAMBIO || 36.5500;
       updated = null;
     }
@@ -43,7 +43,7 @@ export async function PUT(request) {
       return Response.json({ error: 'tasa válida requerida' }, { status: 400 });
     }
     await ensureTable();
-    await pool.query('UPDATE CONFIG_TASA_CAMBIO SET TASA = ? WHERE ID = 1', [tasa]);
+    await pool.query('UPDATE config_tasa_cambio SET TASA = ? WHERE ID = 1', [tasa]);
     return Response.json({ success: true, tasa });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
