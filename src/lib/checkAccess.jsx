@@ -17,7 +17,8 @@ export async function checkAccess({ roleId, path }) {
       [roleId, path]
     );
 
-    return { allowed: rows.length > 0 };
+    const allowed = rows.length > 0;
+    return { allowed, ok: true };
   } catch (error) {
     console.error("Error en check-access:", error);
     return { allowed: false };

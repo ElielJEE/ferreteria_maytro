@@ -32,10 +32,12 @@ export async function middleware(req) {
 		const res = await checkAccess({ roleId, path: url.pathname });
 
 		if (!res.ok) {
+			console.log('estasn en el ok');
 			return NextResponse.redirect(new URL("/unauthorized", req.url));
 		}
 
 		if (!res.allowed) {
+			console.log('estas en el allowed');
 			return NextResponse.redirect(new URL("/unauthorized", req.url));
 		}
 
