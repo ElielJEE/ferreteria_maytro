@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-import { pool } from "@/lib/db";
+import { checkAccess } from "@/app/api/auth/check-access/route";
 
 export async function middleware(req) {
 	const token = req.cookies.get("token")?.value;
@@ -29,16 +29,7 @@ export async function middleware(req) {
 
 		const roleId = payload.role;
 
-		const res = await fetch(`${req.nextUrl.origin}/api/auth/check-access`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				roleId,
-				path: url.pathname,
-			}),
-		});
+		const res = await checkAccess({ roleId, path: url.pathname });
 
 		if (!res.ok) {
 			return NextResponse.redirect(new URL("/unauthorized", req.url));
