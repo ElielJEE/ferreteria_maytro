@@ -21,7 +21,7 @@ export async function POST(req) {
 
 		if (rows.length === 0) {
 			return NextResponse.json(
-				{ message: "Usuario o contraseña incorrectos" },
+				{ message: "Usuario incorrecto" },
 				{ status: 401 }
 			);
 		}
@@ -38,7 +38,7 @@ export async function POST(req) {
 		const passwordMatch = await bcrypt.compare(password, user.CONTRASENA);
 		if (!passwordMatch) {
 			return NextResponse.json(
-				{ message: "Usuario o contraseña incorrectos" },
+				{ message: "Contraseña incorrecta" },
 				{ status: 401 }
 			)
 		}
