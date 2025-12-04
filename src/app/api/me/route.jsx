@@ -22,8 +22,8 @@ export async function GET(req) {
 				u.ID_SUCURSAL, 
 				s.NOMBRE_SUCURSAL,
 				r.ROL_NAME
-			 FROM USUARIOS u
-			 LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = u.ID_SUCURSAL
+			 FROM usuarios u
+			 LEFT JOIN sucursal s ON s.ID_SUCURSAL = u.ID_SUCURSAL
 			 LEFT JOIN rol r ON r.ID_ROL = u.ID_ROL
 			 WHERE u.ID = ?
 			 LIMIT 1`,
@@ -39,7 +39,7 @@ export async function GET(req) {
 		// 🔥 Traer los permisos del rol
 		const [permisos] = await pool.query(
 			`SELECT p.idpermisos, p.permisos_name, p.path
-			 FROM PERMISOS p
+			 FROM permisos p
 			 INNER JOIN rol_permisos pr ON pr.permiso_id = p.idpermisos
 			 WHERE pr.rol_id = ?`,
 			[userData.ID_ROL]
