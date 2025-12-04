@@ -1,8 +1,13 @@
 import mysql from "mysql2/promise";
 
-// ⚠️ En Node, globalThis funciona igual que global
 if (!global.pool) {
-  if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_NAME) {
+  // Chequeo correcto de variables reales
+  if (
+    !process.env.MYSQL_HOST ||
+    !process.env.MYSQL_USER ||
+    !process.env.MYSQL_PASSWORD ||
+    !process.env.MYSQL_DATABASE
+  ) {
     throw new Error("Variables de entorno de MySQL no definidas");
   }
 
@@ -20,5 +25,4 @@ if (!global.pool) {
   console.log("Pool de MySQL creado ✅");
 }
 
-// Exportamos nombrado para seguir usando { pool } en tus APIs
 export const pool = global.pool;
