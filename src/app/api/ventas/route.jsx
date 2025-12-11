@@ -1,118 +1,22 @@
 import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
+import enableCaseMapping from '@/lib/tableCaseMapper';
 
-const originalPoolQuery = pool.query.bind(pool);
-const tableNameCache = new Map();
-const TABLE_BASES = [
+const wrapConnection = enableCaseMapping(pool, [
+  'factura',
   'factura_detalles',
-  'movimientos_inventario',
-  'producto_unidades',
+  'factura_pagos',
+  'factura_descuento',
   'config_tasa_cambio',
   'stock_sucursal',
-  'factura_descuento',
-  'factura_pagos',
-  'producto_existencia',
-  'reservas',
-  'stock_danados',
-  'nivelacion',
+  'movimientos_inventario',
   'productos',
+  'producto_unidades',
   'clientes',
   'usuarios',
   'sucursal',
-  'factura',
   'descuentos'
-].filter(Boolean).sort((a, b) => b.length - a.length);
-
-const identifierPatternsCache = new Map();
-
-const buildVariants = (base) => {
-  const parts = base.split('_');
-  const pascal = parts
-    .map(segment => segment ? segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase() : segment)
-    .join('_');
-  const lower = base.toLowerCase();
-  const upper = base.toUpperCase();
-  const variants = new Set([base, lower, upper, pascal]);
-  return Array.from(variants).filter(Boolean);
-};
-
-async function resolveTableName(executor, base) {
-  if (tableNameCache.has(base)) return tableNameCache.get(base);
-  const variants = buildVariants(base);
-  const placeholders = variants.map(() => '?').join(', ');
-  let actual = base;
-  try {
-    const [rows] = await executor(
-      `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (${placeholders}) LIMIT ${variants.length}`,
-      variants
-    );
-    if (Array.isArray(rows) && rows.length) {
-      const found = new Set(rows.map(r => String(r.TABLE_NAME)));
-      for (const variant of variants) {
-        if (found.has(variant)) {
-          actual = variant;
-          break;
-        }
-      }
-    }
-  } catch {
-    actual = base;
-  }
-  const meta = { raw: actual, quoted: `\`${actual}\`` };
-  tableNameCache.set(base, meta);
-  return meta;
-}
-
-const buildPatterns = (base, meta) => {
-  const cacheKey = `${base}::${meta.raw}`;
-  if (identifierPatternsCache.has(cacheKey)) return identifierPatternsCache.get(cacheKey);
-  const escapedBase = base.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-  const patterns = [
-    { regex: new RegExp(`\`${escapedBase}\``, 'gi'), value: meta.quoted },
-    { regex: new RegExp(`\\b${escapedBase}\\b`, 'gi'), value: meta.quoted },
-    { regex: new RegExp(`'${escapedBase}'`, 'gi'), value: `'${meta.raw}'` },
-    { regex: new RegExp(`"${escapedBase}"`, 'gi'), value: `"${meta.raw}"` }
-  ];
-  identifierPatternsCache.set(cacheKey, patterns);
-  return patterns;
-};
-
-async function mapSqlIdentifiers(executor, sql) {
-  if (typeof sql !== 'string') return sql;
-  const matchedBases = TABLE_BASES.filter(base => new RegExp(`(${base})`, 'i').test(sql));
-  if (!matchedBases.length) return sql;
-  const uniqueBases = Array.from(new Set(matchedBases)).sort((a, b) => b.length - a.length);
-  const entries = await Promise.all(uniqueBases.map(async base => [base, await resolveTableName(executor, base)]));
-  const tableMap = Object.fromEntries(entries);
-  let mapped = sql;
-  for (const base of uniqueBases) {
-    const meta = tableMap[base];
-    if (!meta) continue;
-    const patterns = buildPatterns(base, meta);
-    for (const { regex, value } of patterns) {
-      mapped = mapped.replace(regex, value);
-    }
-  }
-  return mapped;
-}
-
-async function queryWithResolvedTables(executor, sql, params = []) {
-  const mappedSql = await mapSqlIdentifiers(executor, sql);
-  return executor(mappedSql, params);
-}
-
-pool.query = function patchedPoolQuery(sql, params) {
-  return queryWithResolvedTables(originalPoolQuery, sql, params);
-};
-
-function wrapConnection(conn) {
-  if (conn.__tableCaseWrapped) return conn;
-  const original = conn.query.bind(conn);
-  conn.__tableCaseWrapped = true;
-  conn.__rawQuery = original;
-  conn.query = (sql, params) => queryWithResolvedTables(original, sql, params);
-  return conn;
-}
+]);
 
 // Helper: find or create client by name/phone; returns client ID or null
 async function getOrCreateCliente(conn, nombre, telefono) {

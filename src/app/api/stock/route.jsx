@@ -1,5 +1,22 @@
 import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
+import enableCaseMapping from '@/lib/tableCaseMapper';
+
+const wrapConnection = enableCaseMapping(pool, [
+  'productos',
+  'producto_unidades',
+  'producto_existencia',
+  'sucursal',
+  'stock_sucursal',
+  'stock_danados',
+  'reservas',
+  'clientes',
+  'usuarios',
+  'movimientos_inventario',
+  'nivelacion',
+  'subcategorias',
+  'stock_alertas'
+]);
 
 // --- Inlined StockService logic (migrated from src/server/services/StockService.js)
 
@@ -339,6 +356,7 @@ async function getReservados({ sucursal }) {
 
 async function reservar({ usuario_id, producto, producto_id, sucursal, sucursal_id, cantidad, cliente, telefono, fecha_entrega, notas }) {
   const conn = await pool.getConnection();
+  wrapConnection(conn);
   try {
     await conn.beginTransaction();
     await ensureReservasTable(conn);
@@ -420,6 +438,7 @@ async function reservar({ usuario_id, producto, producto_id, sucursal, sucursal_
 
 async function entrada({ usuario_id, producto, producto_id, sucursal, sucursal_id, cantidad, motivo, referencia, descripcion }) {
   const conn = await pool.getConnection();
+  wrapConnection(conn);
   try {
     await conn.beginTransaction();
     // Producto
@@ -480,6 +499,7 @@ async function entrada({ usuario_id, producto, producto_id, sucursal, sucursal_i
 
 async function salida({ usuario_id, producto, producto_id, sucursal, sucursal_id, cantidad, motivo, referencia, descripcion }) {
   const conn = await pool.getConnection();
+  wrapConnection(conn);
   try {
     await conn.beginTransaction();
     // Producto
@@ -540,6 +560,7 @@ async function salida({ usuario_id, producto, producto_id, sucursal, sucursal_id
 
 async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucursal_id, cantidad, descripcion, motivo, tipo_dano, estado_dano, referencia, unidad_id, unidad_nombre }) {
   const conn = await pool.getConnection();
+  wrapConnection(conn);
   try {
     await conn.beginTransaction();
     // Producto y sucursal
@@ -916,6 +937,7 @@ export async function POST(req) {
 export async function PUT(req) {
   // Actualiza o gestiona reservas (editar, confirmar entrega, cancelar)
   const conn = await pool.getConnection();
+  wrapConnection(conn);
   try {
     const body = await req.json();
     const action = (body?.action || '').toString();
