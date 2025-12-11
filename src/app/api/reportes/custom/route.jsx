@@ -12,7 +12,7 @@ async function getUserSucursalFromReq(req) {
 		const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
 		const [[row]] = await pool.query(
-			"SELECT u.ID_SUCURSAL FROM USUARIOS u WHERE u.ID = ? LIMIT 1",
+			"SELECT u.ID_SUCURSAL FROM usuarios u WHERE u.ID = ? LIMIT 1",
 			[decoded.id || decoded.ID]
 		);
 
@@ -42,7 +42,7 @@ function customRange(startDate, endDate) {
 // === FUNCIONES === //
 
 async function getRevenueCustom(start, end, sucursal) {
-	let sql = 'SELECT IFNULL(SUM(TOTAL), 0) AS total FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let sql = 'SELECT IFNULL(SUM(TOTAL), 0) AS total FROM factura WHERE FECHA BETWEEN ? AND ?';
 	const params = [start, end];
 
 	if (sucursal && sucursal !== 'Todas') {
@@ -55,7 +55,7 @@ async function getRevenueCustom(start, end, sucursal) {
 }
 
 async function getInvoicesCustom(start, end, sucursal) {
-	let sql = 'SELECT COUNT(*) AS cnt FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let sql = 'SELECT COUNT(*) AS cnt FROM factura WHERE FECHA BETWEEN ? AND ?';
 	const params = [start, end];
 
 	if (sucursal && sucursal !== 'Todas') {
@@ -69,9 +69,9 @@ async function getInvoicesCustom(start, end, sucursal) {
 
 async function getProductsSoldCustom(start, end, sucursal) {
 	let sql = `
-        SELECT IFNULL(SUM(fd.AMOUNT),0) AS qty
-        FROM FACTURA_DETALLES fd
-        JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
+		SELECT IFNULL(SUM(fd.AMOUNT),0) AS qty
+		FROM factura_detalles fd
+		JOIN factura f ON f.ID_FACTURA = fd.ID_FACTURA
         WHERE f.FECHA BETWEEN ? AND ?
     `;
 	const params = [start, end];
@@ -87,8 +87,8 @@ async function getProductsSoldCustom(start, end, sucursal) {
 
 async function getClientsCustom(start, end, sucursal) {
 	let sql = `
-        SELECT COUNT(DISTINCT ID_CLIENTES) AS cnt
-        FROM FACTURA
+		SELECT COUNT(DISTINCT ID_CLIENTES) AS cnt
+		FROM factura
         WHERE FECHA BETWEEN ? AND ?
     `;
 	const params = [start, end];
@@ -104,15 +104,15 @@ async function getClientsCustom(start, end, sucursal) {
 
 async function getRecentSalesCustom(start, end, sucursal) {
 	let sql = `
-        SELECT f.ID_FACTURA AS id,
-               DATE_FORMAT(f.FECHA,'%Y-%m-%d') AS fecha,
-               DATE_FORMAT(f.FECHA,'%H:%i') AS hora,
-               f.TOTAL AS total,
-               c.NOMBRE_CLIENTE AS cliente,
-               s.NOMBRE_SUCURSAL AS sucursal
-        FROM FACTURA f
-        LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-        LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL
+		SELECT f.ID_FACTURA AS id,
+		       DATE_FORMAT(f.FECHA,'%Y-%m-%d') AS fecha,
+		       DATE_FORMAT(f.FECHA,'%H:%i') AS hora,
+		       f.TOTAL AS total,
+		       c.NOMBRE_CLIENTE AS cliente,
+		       s.NOMBRE_SUCURSAL AS sucursal
+		FROM factura f
+		LEFT JOIN clientes c ON c.ID_CLIENTES = f.ID_CLIENTES
+		LEFT JOIN sucursal s ON s.ID_SUCURSAL = f.ID_SUCURSAL
         WHERE f.FECHA BETWEEN ? AND ?
         ORDER BY f.FECHA DESC
         LIMIT 100
@@ -138,16 +138,16 @@ async function getRecentSalesCustom(start, end, sucursal) {
 
 async function getRecentMovementsCustom(start, end, sucursal) {
 	let sql = `
-        SELECT mi.id,
-               DATE_FORMAT(mi.fecha,'%Y-%m-%d') AS fecha,
-               DATE_FORMAT(mi.fecha,'%H:%i') AS hora,
-               mi.tipo_movimiento AS tipo,
-               s.NOMBRE_SUCURSAL AS sucursal,
-               p.PRODUCT_NAME AS producto,
-               mi.cantidad
-        FROM MOVIMIENTOS_INVENTARIO mi
-        LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = mi.producto_id
-        LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = mi.sucursal_id
+		SELECT mi.id,
+		       DATE_FORMAT(mi.fecha,'%Y-%m-%d') AS fecha,
+		       DATE_FORMAT(mi.fecha,'%H:%i') AS hora,
+		       mi.tipo_movimiento AS tipo,
+		       s.NOMBRE_SUCURSAL AS sucursal,
+		       p.PRODUCT_NAME AS producto,
+		       mi.cantidad
+		FROM movimientos_inventario mi
+		LEFT JOIN productos p ON p.ID_PRODUCT = mi.producto_id
+		LEFT JOIN sucursal s ON s.ID_SUCURSAL = mi.sucursal_id
         WHERE mi.fecha BETWEEN ? AND ?
         ORDER BY mi.fecha DESC
         LIMIT 100

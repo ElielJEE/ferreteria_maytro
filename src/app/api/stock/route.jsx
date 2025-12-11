@@ -17,7 +17,7 @@ async function getUserSucursalFromReq(req) {
     const token = req.cookies?.get?.('token')?.value ?? null;
     if (!token) return { isAdmin: false, sucursalId: null };
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const [[row]] = await pool.query(`SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1`, [decoded.id || decoded.ID]);
+    const [[row]] = await pool.query(`SELECT ID_SUCURSAL FROM usuarios WHERE ID = ? LIMIT 1`, [decoded.id || decoded.ID]);
     const sucursalId = row?.ID_SUCURSAL ?? null;
     return { isAdmin: sucursalId == null, sucursalId };
   } catch {
@@ -37,7 +37,7 @@ const mapTipoMovimiento = (label) => {
 const getAllowedTipoMovimiento = async (conn) => {
   const [rows] = await conn.query(`
     SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'MOVIMIENTOS_INVENTARIO' AND COLUMN_NAME = 'tipo_movimiento'
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movimientos_inventario' AND COLUMN_NAME = 'tipo_movimiento'
   `);
   const ct = rows?.[0]?.COLUMN_TYPE || '';
   const matches = ct.match(/'([^']+)'/g);
@@ -53,7 +53,7 @@ const chooseTipo = (allowed, requested, fallback) => {
 // Ensure RESERVAS table and optional client column
 const ensureReservasTable = async (connOrPool) => {
   await connOrPool.query(`
-    CREATE TABLE IF NOT EXISTS RESERVAS (
+    CREATE TABLE IF NOT EXISTS reservas (
       ID_RESERVA INT AUTO_INCREMENT PRIMARY KEY,
       ID_PRODUCT INT NOT NULL,
       ID_SUCURSAL VARCHAR(10) NOT NULL,
@@ -71,17 +71,17 @@ const ensureReservasTable = async (connOrPool) => {
       INDEX idx_res_suc (ID_SUCURSAL),
       INDEX idx_res_cli (ID_CLIENTES),
       INDEX idx_res_estado (ESTADO),
-      CONSTRAINT fk_res_product  FOREIGN KEY (ID_PRODUCT) REFERENCES PRODUCTOS(ID_PRODUCT) ON DELETE RESTRICT ON UPDATE CASCADE,
-      CONSTRAINT fk_res_sucursal FOREIGN KEY (ID_SUCURSAL) REFERENCES SUCURSAL(ID_SUCURSAL) ON DELETE RESTRICT ON UPDATE CASCADE,
-      CONSTRAINT fk_res_cliente FOREIGN KEY (ID_CLIENTES) REFERENCES CLIENTES(ID_CLIENTES) ON DELETE SET NULL ON UPDATE CASCADE,
-      CONSTRAINT fk_res_user     FOREIGN KEY (RESERVADO_POR) REFERENCES USUARIOS(ID) ON DELETE SET NULL ON UPDATE CASCADE
+      CONSTRAINT fk_res_product  FOREIGN KEY (ID_PRODUCT) REFERENCES productos(ID_PRODUCT) ON DELETE RESTRICT ON UPDATE CASCADE,
+      CONSTRAINT fk_res_sucursal FOREIGN KEY (ID_SUCURSAL) REFERENCES sucursal(ID_SUCURSAL) ON DELETE RESTRICT ON UPDATE CASCADE,
+      CONSTRAINT fk_res_cliente FOREIGN KEY (ID_CLIENTES) REFERENCES clientes(ID_CLIENTES) ON DELETE SET NULL ON UPDATE CASCADE,
+      CONSTRAINT fk_res_user     FOREIGN KEY (RESERVADO_POR) REFERENCES usuarios(ID) ON DELETE SET NULL ON UPDATE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
   const [cliCol] = await connOrPool.query(`
-    SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'RESERVAS' AND COLUMN_NAME = 'ID_CLIENTES'
+    SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reservas' AND COLUMN_NAME = 'ID_CLIENTES'
   `);
   if (!cliCol?.[0] || Number(cliCol[0].CNT || 0) === 0) {
-    try { await connOrPool.query(`ALTER TABLE RESERVAS ADD COLUMN ID_CLIENTES INT NULL`); } catch { }
+    try { await connOrPool.query(`ALTER TABLE reservas ADD COLUMN ID_CLIENTES INT NULL`); } catch { }
   }
 };
 
@@ -103,10 +103,10 @@ async function getMovimientos({ sucursal }) {
       mi.motivo,
       COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') AS usuario,
       mi.referencia_id AS referencia
-    FROM MOVIMIENTOS_INVENTARIO mi
-    LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = mi.producto_id
-    LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = mi.sucursal_id
-    LEFT JOIN USUARIOS u ON u.ID = mi.usuario_id
+    FROM movimientos_inventario mi
+    LEFT JOIN productos p ON p.ID_PRODUCT = mi.producto_id
+    LEFT JOIN sucursal s ON s.ID_SUCURSAL = mi.sucursal_id
+    LEFT JOIN usuarios u ON u.ID = mi.usuario_id
     ${where}
     ORDER BY mi.fecha DESC
     LIMIT 500
@@ -117,14 +117,14 @@ async function getMovimientos({ sucursal }) {
 async function getResumen({ sucursal }) {
   const [totales] = await pool.query(`
     SELECT ID_PRODUCT, SUM(CANTIDAD) AS TOTAL_SUCURSALES
-    FROM STOCK_SUCURSAL GROUP BY ID_PRODUCT
+    FROM stock_sucursal GROUP BY ID_PRODUCT
   `);
   const totalMap = Object.fromEntries(totales.map(t => [t.ID_PRODUCT, Number(t.TOTAL_SUCURSALES)]));
   // Totales globales de dañados por producto (sum across all sucursales)
   let danadosMap = {};
   try {
     const [totDanados] = await pool.query(`
-      SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_DANADOS FROM STOCK_DANADOS GROUP BY ID_PRODUCT
+      SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_DANADOS FROM stock_danados GROUP BY ID_PRODUCT
     `);
     danadosMap = Object.fromEntries((totDanados || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_DANADOS || 0)]));
   } catch (e) {
@@ -135,7 +135,7 @@ async function getResumen({ sucursal }) {
   let reservasMap = {};
   try {
     const [totReservas] = await pool.query(`
-      SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_RESERVADOS FROM RESERVAS GROUP BY ID_PRODUCT
+      SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_RESERVADOS FROM reservas GROUP BY ID_PRODUCT
     `);
     reservasMap = Object.fromEntries((totReservas || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_RESERVADOS || 0)]));
   } catch (e) {
@@ -143,7 +143,7 @@ async function getResumen({ sucursal }) {
   }
   const [colCheck] = await pool.query(`
     SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_SUCURSAL' AND COLUMN_NAME = 'STATUS'
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_sucursal' AND COLUMN_NAME = 'STATUS'
   `);
   const hasStatus = colCheck?.[0] && Number(colCheck[0].CNT || 0) > 0;
   const statusSelect = hasStatus ? "IFNULL(st.STATUS, 'ACTIVO') AS STATUS" : "'ACTIVO' AS STATUS";
@@ -165,21 +165,21 @@ async function getResumen({ sucursal }) {
       IFNULL(nv.CANTIDAD_MAX, '') AS MAXIMO,
       (IFNULL(st.CANTIDAD, 0) * COALESCE(pu.PRECIO, 0)) AS VALOR_TOTAL,
       (
-        SELECT IFNULL(SUM(sd.CANTIDAD), 0) FROM STOCK_DANADOS sd
+        SELECT IFNULL(SUM(sd.CANTIDAD), 0) FROM stock_danados sd
         WHERE sd.ID_PRODUCT = p.ID_PRODUCT AND sd.ID_SUCURSAL = s.ID_SUCURSAL
       ) AS DANADOS,
       (
-        SELECT IFNULL(SUM(mi.cantidad), 0) FROM MOVIMIENTOS_INVENTARIO mi
+        SELECT IFNULL(SUM(mi.cantidad), 0) FROM movimientos_inventario mi
         WHERE mi.producto_id = p.ID_PRODUCT AND mi.sucursal_id = s.ID_SUCURSAL AND mi.tipo_movimiento = 'reservado'
       ) AS RESERVADOS,
       '' AS CRITICOS,
       '' AS AGOTADOS
-  FROM PRODUCTOS p
-  LEFT JOIN producto_unidades pu ON pu.PRODUCT_ID = p.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
-    CROSS JOIN SUCURSAL s
-    LEFT JOIN STOCK_SUCURSAL st ON st.ID_PRODUCT = p.ID_PRODUCT AND st.ID_SUCURSAL = s.ID_SUCURSAL
-    LEFT JOIN SUBCATEGORIAS sc ON sc.ID_SUBCATEGORIAS = p.ID_SUBCATEGORIAS
-    LEFT JOIN NIVELACION nv ON nv.ID_PRODUCT = p.ID_PRODUCT AND nv.ID_SUCURSAL = s.ID_SUCURSAL
+  FROM productos p
+    LEFT JOIN producto_unidades pu ON pu.PRODUCT_ID = p.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
+    CROSS JOIN sucursal s
+    LEFT JOIN stock_sucursal st ON st.ID_PRODUCT = p.ID_PRODUCT AND st.ID_SUCURSAL = s.ID_SUCURSAL
+    LEFT JOIN subcategorias sc ON sc.ID_SUBCATEGORIAS = p.ID_SUBCATEGORIAS
+    LEFT JOIN nivelacion nv ON nv.ID_PRODUCT = p.ID_PRODUCT AND nv.ID_SUCURSAL = s.ID_SUCURSAL
     ${where}
   `, params);
   return rows.map(r => ({
@@ -209,10 +209,10 @@ async function getDanados({ sucursal }) {
        sd.ESTADO AS estado,
        sd.DESCRIPCION AS descripcion,
       COALESCE(sd.UNIDAD_NOMBRE, um.NOMBRE) AS unidad
-     FROM STOCK_DANADOS sd
-     LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = sd.ID_PRODUCT
-     LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = sd.ID_SUCURSAL
-     LEFT JOIN USUARIOS u ON u.ID = sd.USUARIO_ID
+    FROM stock_danados sd
+    LEFT JOIN productos p ON p.ID_PRODUCT = sd.ID_PRODUCT
+    LEFT JOIN sucursal s ON s.ID_SUCURSAL = sd.ID_SUCURSAL
+    LEFT JOIN usuarios u ON u.ID = sd.USUARIO_ID
      LEFT JOIN producto_unidades pu ON pu.PRODUCT_ID = sd.ID_PRODUCT AND pu.ES_POR_DEFECTO = 1
      LEFT JOIN unidades_medidas um ON um.ID_UNIDAD = pu.UNIDAD_ID
      ${whereSucursal}
@@ -222,7 +222,7 @@ async function getDanados({ sucursal }) {
   );
   const [aggRows] = await pool.query(
     `SELECT COUNT(*) AS registros, IFNULL(SUM(sd.CANTIDAD), 0) AS cantidad_total, IFNULL(SUM(sd.PERDIDA), 0) AS perdida_total
-     FROM STOCK_DANADOS sd LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = sd.ID_SUCURSAL ${whereSucursal}`,
+    FROM stock_danados sd LEFT JOIN sucursal s ON s.ID_SUCURSAL = sd.ID_SUCURSAL ${whereSucursal}`,
     params
   );
   const summary = aggRows?.[0] ? {
@@ -238,19 +238,19 @@ async function getAlertas({ sucursal }) {
   // Precompute global maps used for FISICO_TOTAL like in getResumen
   const [totales] = await pool.query(`
     SELECT ID_PRODUCT, SUM(CANTIDAD) AS TOTAL_SUCURSALES
-    FROM STOCK_SUCURSAL GROUP BY ID_PRODUCT
+    FROM stock_sucursal GROUP BY ID_PRODUCT
   `);
   const totalMap = Object.fromEntries((totales || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_SUCURSALES || 0)]));
 
   let danadosMap = {};
   try {
-    const [totDanados] = await pool.query(`SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_DANADOS FROM STOCK_DANADOS GROUP BY ID_PRODUCT`);
+    const [totDanados] = await pool.query(`SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_DANADOS FROM stock_danados GROUP BY ID_PRODUCT`);
     danadosMap = Object.fromEntries((totDanados || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_DANADOS || 0)]));
   } catch { danadosMap = {}; }
 
   let reservasMap = {};
   try {
-    const [totReservas] = await pool.query(`SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_RESERVADOS FROM RESERVAS GROUP BY ID_PRODUCT`);
+    const [totReservas] = await pool.query(`SELECT ID_PRODUCT, IFNULL(SUM(CANTIDAD),0) AS TOTAL_RESERVADOS FROM reservas GROUP BY ID_PRODUCT`);
     reservasMap = Object.fromEntries((totReservas || []).map(t => [t.ID_PRODUCT, Number(t.TOTAL_RESERVADOS || 0)]));
   } catch { reservasMap = {}; }
 
@@ -265,14 +265,14 @@ async function getAlertas({ sucursal }) {
       IFNULL(st.CANTIDAD, 0) AS STOCK_SUCURSAL,
       nv.CANTIDAD      AS MINIMO,
       nv.CANTIDAD_MAX  AS MAXIMO,
-      (SELECT IFNULL(SUM(mi.cantidad), 0) FROM MOVIMIENTOS_INVENTARIO mi
+      (SELECT IFNULL(SUM(mi.cantidad), 0) FROM movimientos_inventario mi
          WHERE mi.producto_id = p.ID_PRODUCT AND mi.sucursal_id = s.ID_SUCURSAL AND mi.tipo_movimiento = 'reservado') AS RESERVADOS,
-      (SELECT IFNULL(SUM(sd.CANTIDAD), 0) FROM STOCK_DANADOS sd
+      (SELECT IFNULL(SUM(sd.CANTIDAD), 0) FROM stock_danados sd
          WHERE sd.ID_PRODUCT = p.ID_PRODUCT AND sd.ID_SUCURSAL = s.ID_SUCURSAL) AS DANADOS
-    FROM PRODUCTOS p
-    CROSS JOIN SUCURSAL s
-    LEFT JOIN STOCK_SUCURSAL st ON st.ID_PRODUCT = p.ID_PRODUCT AND st.ID_SUCURSAL = s.ID_SUCURSAL
-    LEFT JOIN NIVELACION nv ON nv.ID_PRODUCT = p.ID_PRODUCT AND nv.ID_SUCURSAL = s.ID_SUCURSAL
+     FROM productos p
+     CROSS JOIN sucursal s
+     LEFT JOIN stock_sucursal st ON st.ID_PRODUCT = p.ID_PRODUCT AND st.ID_SUCURSAL = s.ID_SUCURSAL
+     LEFT JOIN nivelacion nv ON nv.ID_PRODUCT = p.ID_PRODUCT AND nv.ID_SUCURSAL = s.ID_SUCURSAL
     ${where}
   `, params);
 
@@ -326,11 +326,11 @@ async function getReservados({ sucursal }) {
        c.NOMBRE_CLIENTE AS cliente_nombre,
        c.ID_CLIENTES AS cliente_id,
        r.NOTAS AS notas
-     FROM RESERVAS r
-     JOIN PRODUCTOS p ON p.ID_PRODUCT = r.ID_PRODUCT
-     JOIN SUCURSAL s ON s.ID_SUCURSAL = r.ID_SUCURSAL
-     LEFT JOIN USUARIOS u ON u.ID = r.RESERVADO_POR
-     LEFT JOIN CLIENTES c ON c.ID_CLIENTES = r.ID_CLIENTES
+    FROM reservas r
+    JOIN productos p ON p.ID_PRODUCT = r.ID_PRODUCT
+    JOIN sucursal s ON s.ID_SUCURSAL = r.ID_SUCURSAL
+    LEFT JOIN usuarios u ON u.ID = r.RESERVADO_POR
+    LEFT JOIN clientes c ON c.ID_CLIENTES = r.ID_CLIENTES
      ${whereSucursal}
      ORDER BY r.FECHA_RESERVA DESC, r.ID_RESERVA DESC
      LIMIT 1000`, params);
@@ -345,31 +345,31 @@ async function reservar({ usuario_id, producto, producto_id, sucursal, sucursal_
     // Producto
     let idProduct = producto_id;
     if (!idProduct) {
-      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM PRODUCTOS WHERE PRODUCT_NAME = ?', [producto]);
+      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM productos WHERE PRODUCT_NAME = ?', [producto]);
       if (!prodRows.length) throw new Error('Producto no encontrado');
       idProduct = prodRows[0].ID_PRODUCT;
     } else {
-      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM PRODUCTOS WHERE ID_PRODUCT = ?', [idProduct]);
+      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM productos WHERE ID_PRODUCT = ?', [idProduct]);
       if (!prodRows.length) throw new Error('Producto no encontrado');
     }
     // Sucursal
     let idSucursal = sucursal_id;
     if (!idSucursal) {
-      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ?', [sucursal]);
+      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ?', [sucursal]);
       if (!sucRows.length) throw new Error('Sucursal no encontrada');
       idSucursal = sucRows[0].ID_SUCURSAL;
     } else {
-      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE ID_SUCURSAL = ?', [idSucursal]);
+      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE ID_SUCURSAL = ?', [idSucursal]);
       if (!sucRows.length) throw new Error('Sucursal no encontrada');
     }
     // Stock sucursal
-    const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+    const [stockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
     const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
     if (Number(cantidad) <= 0) throw new Error('Cantidad inválida');
     if (Number(cantidad) > cantidadEnSucursal) throw new Error('Stock en sucursal insuficiente');
     const stockAnterior = cantidadEnSucursal;
     const stockNuevo = cantidadEnSucursal - Number(cantidad);
-    await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
+    await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
 
     // Cliente (upsert simple por nombre exacto o teléfono)
     let idCliente = null;
@@ -379,11 +379,11 @@ async function reservar({ usuario_id, producto, producto_id, sucursal, sucursal_
       const clauses = []; const values = [];
       if (nombreCliente) { clauses.push('NOMBRE_CLIENTE = ?'); values.push(nombreCliente); }
       if (tel) { clauses.push('TELEFONO_CLIENTE = ?'); values.push(tel); }
-      const [cliRows] = await conn.query(`SELECT ID_CLIENTES FROM CLIENTES WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
+      const [cliRows] = await conn.query(`SELECT ID_CLIENTES FROM clientes WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
       if (cliRows?.length) {
         idCliente = cliRows[0].ID_CLIENTES;
       } else if (nombreCliente) {
-        const [ins] = await conn.query(`INSERT INTO CLIENTES (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`, [nombreCliente, tel]);
+        const [ins] = await conn.query(`INSERT INTO clientes (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`, [nombreCliente, tel]);
         idCliente = ins.insertId || null;
       }
     }
@@ -392,7 +392,7 @@ async function reservar({ usuario_id, producto, producto_id, sucursal, sucursal_
     const fechaReserva = new Date();
     const fechaEntrega = fecha_entrega ? new Date(fecha_entrega) : null;
     await conn.query(
-      `INSERT INTO RESERVAS (ID_PRODUCT, ID_SUCURSAL, ID_CLIENTES, RESERVADO_POR, CANTIDAD, FECHA_RESERVA, FECHA_ENTREGA, ESTADO, TELEFONO_CONTACTO, NOTAS)
+      `INSERT INTO reservas (ID_PRODUCT, ID_SUCURSAL, ID_CLIENTES, RESERVADO_POR, CANTIDAD, FECHA_RESERVA, FECHA_ENTREGA, ESTADO, TELEFONO_CONTACTO, NOTAS)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?)`,
       [idProduct, idSucursal, idCliente, usuario_id ?? null, Number(cantidad), fechaReserva, fechaEntrega, tel, (notas || null)]
     );
@@ -402,7 +402,7 @@ async function reservar({ usuario_id, producto, producto_id, sucursal, sucursal_
       const allowed = await getAllowedTipoMovimiento(conn);
       const tipoMov = chooseTipo(allowed, 'reservado', 'salida');
       await conn.query(
-        `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+        `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [idProduct, idSucursal, usuario_id ?? null, tipoMov, Number(cantidad), (notas || ''), null, stockAnterior, stockNuevo]
       );
@@ -426,34 +426,34 @@ async function entrada({ usuario_id, producto, producto_id, sucursal, sucursal_i
     let idProduct = producto_id;
     let cantidadBodega = 0;
     if (!idProduct) {
-      const [prodRows] = await conn.query('SELECT ID_PRODUCT, CANTIDAD FROM PRODUCTOS WHERE PRODUCT_NAME = ?', [producto]);
+      const [prodRows] = await conn.query('SELECT ID_PRODUCT, CANTIDAD FROM productos WHERE PRODUCT_NAME = ?', [producto]);
       if (!prodRows.length) throw new Error('Producto no encontrado');
       idProduct = prodRows[0].ID_PRODUCT;
       cantidadBodega = Number(prodRows[0].CANTIDAD || 0);
     } else {
-      const [prodRows] = await conn.query('SELECT CANTIDAD FROM PRODUCTOS WHERE ID_PRODUCT = ?', [idProduct]);
+      const [prodRows] = await conn.query('SELECT CANTIDAD FROM productos WHERE ID_PRODUCT = ?', [idProduct]);
       if (!prodRows.length) throw new Error('Producto no encontrado');
       cantidadBodega = Number(prodRows[0].CANTIDAD || 0);
     }
     // Sucursal
     let idSucursal = sucursal_id;
     if (!idSucursal) {
-      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ?', [sucursal]);
+      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ?', [sucursal]);
       if (!sucRows.length) throw new Error('Sucursal no encontrada');
       idSucursal = sucRows[0].ID_SUCURSAL;
     } else {
-      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE ID_SUCURSAL = ?', [idSucursal]);
+      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE ID_SUCURSAL = ?', [idSucursal]);
       if (!sucRows.length) throw new Error('Sucursal no encontrada');
     }
     // Validación bodega
     if (Number(cantidad) > cantidadBodega) throw new Error('Stock en bodega insuficiente');
     const nuevaBodega = cantidadBodega - Number(cantidad);
-    await conn.query('UPDATE PRODUCTOS SET CANTIDAD = ? WHERE ID_PRODUCT = ?', [nuevaBodega, idProduct]);
+    await conn.query('UPDATE productos SET CANTIDAD = ? WHERE ID_PRODUCT = ?', [nuevaBodega, idProduct]);
     // Stock previo sucursal
-    const [prevStockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [idProduct, idSucursal]);
+    const [prevStockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [idProduct, idSucursal]);
     const stockAnterior = prevStockRows.length ? Number(prevStockRows[0].CANTIDAD || 0) : 0;
     await conn.query(`
-      INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD)
+      INSERT INTO stock_sucursal (ID_PRODUCT, ID_SUCURSAL, CANTIDAD)
       VALUES (?, ?, ?)
       ON DUPLICATE KEY UPDATE CANTIDAD = CANTIDAD + VALUES(CANTIDAD)
     `, [idProduct, idSucursal, cantidad]);
@@ -463,7 +463,7 @@ async function entrada({ usuario_id, producto, producto_id, sucursal, sucursal_i
       const allowed = await getAllowedTipoMovimiento(conn);
       const tipoMov = chooseTipo(allowed, 'entrada', 'entrada');
       await conn.query(
-        `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+        `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [idProduct, idSucursal, usuario_id, tipoMov, cantidad, motivo || descripcion || '', referencia || null, stockAnterior, stockNuevo]
       );
@@ -485,45 +485,45 @@ async function salida({ usuario_id, producto, producto_id, sucursal, sucursal_id
     // Producto
     let idProduct = producto_id;
     if (!idProduct) {
-      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM PRODUCTOS WHERE PRODUCT_NAME = ?', [producto]);
+      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM productos WHERE PRODUCT_NAME = ?', [producto]);
       if (!prodRows.length) throw new Error('Producto no encontrado');
       idProduct = prodRows[0].ID_PRODUCT;
     } else {
-      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM PRODUCTOS WHERE ID_PRODUCT = ?', [idProduct]);
+      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM productos WHERE ID_PRODUCT = ?', [idProduct]);
       if (!prodRows.length) throw new Error('Producto no encontrado');
     }
     // Sucursal
     let idSucursal = sucursal_id;
     if (!idSucursal) {
-      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ?', [sucursal]);
+      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ?', [sucursal]);
       if (!sucRows.length) throw new Error('Sucursal no encontrada');
       idSucursal = sucRows[0].ID_SUCURSAL;
     } else {
-      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE ID_SUCURSAL = ?', [idSucursal]);
+      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE ID_SUCURSAL = ?', [idSucursal]);
       if (!sucRows.length) throw new Error('Sucursal no encontrada');
     }
     // Stock sucursal
-    const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+    const [stockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
     const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
     if (Number(cantidad) > cantidadEnSucursal) throw new Error('Stock en sucursal insuficiente');
     const stockAnteriorSalida = cantidadEnSucursal;
     const nuevaSucursal = cantidadEnSucursal - Number(cantidad);
     if (stockRows.length) {
-      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevaSucursal, idProduct, idSucursal]);
+      await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevaSucursal, idProduct, idSucursal]);
     } else {
-      await conn.query('INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, 0]);
+      await conn.query('INSERT INTO stock_sucursal (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, 0]);
     }
     // Sumar a bodega
-    const [prodRows2] = await conn.query('SELECT CANTIDAD FROM PRODUCTOS WHERE ID_PRODUCT = ?', [idProduct]);
+    const [prodRows2] = await conn.query('SELECT CANTIDAD FROM productos WHERE ID_PRODUCT = ?', [idProduct]);
     const cantidadBodegaActual = prodRows2.length ? Number(prodRows2[0].CANTIDAD || 0) : 0;
     const nuevaBodega = cantidadBodegaActual + Number(cantidad);
-    await conn.query('UPDATE PRODUCTOS SET CANTIDAD = ? WHERE ID_PRODUCT = ?', [nuevaBodega, idProduct]);
+    await conn.query('UPDATE productos SET CANTIDAD = ? WHERE ID_PRODUCT = ?', [nuevaBodega, idProduct]);
     // Movimiento
     try {
       const allowed = await getAllowedTipoMovimiento(conn);
       const tipoMov = chooseTipo(allowed, 'salida', 'salida');
       await conn.query(
-        `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+        `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [idProduct, idSucursal, usuario_id, tipoMov, cantidad, motivo || descripcion || '', referencia || null, stockAnteriorSalida, nuevaSucursal]
       );
@@ -545,13 +545,13 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
     // Producto y sucursal
     let idProduct = producto_id;
     if (!idProduct) {
-      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM PRODUCTOS WHERE PRODUCT_NAME = ?', [producto]);
+      const [prodRows] = await conn.query('SELECT ID_PRODUCT FROM productos WHERE PRODUCT_NAME = ?', [producto]);
       if (!prodRows.length) throw new Error('Producto no encontrado');
       idProduct = prodRows[0].ID_PRODUCT;
     }
     let idSucursal = sucursal_id;
     if (!idSucursal) {
-      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ?', [sucursal]);
+      const [sucRows] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ?', [sucursal]);
       if (!sucRows.length) throw new Error('Sucursal no encontrada');
       idSucursal = sucRows[0].ID_SUCURSAL;
     }
@@ -575,12 +575,12 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
     }
 
     // Stock sucursal
-    const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+    const [stockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
     const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
     const cantidadBase = Number(cantidad) * Number(factor || 1);
     if (cantidadBase > cantidadEnSucursal) throw new Error('Stock en sucursal insuficiente');
     const nuevaSucursal = cantidadEnSucursal - cantidadBase;
-    await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevaSucursal, idProduct, idSucursal]);
+    await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [nuevaSucursal, idProduct, idSucursal]);
     const stockAnteriorDanado = Number(nuevaSucursal) + Number(cantidadBase);
     const stockNuevoDanado = nuevaSucursal;
     // Movimiento inventario danado
@@ -588,7 +588,7 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
       const allowed = await getAllowedTipoMovimiento(conn);
       const tipoMov = allowed.includes('danado') ? 'danado' : (allowed.includes('ajuste') ? 'ajuste' : (allowed[0] || 'ajuste'));
       await conn.query(
-        `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, stock_anterior, stock_nuevo)
+        `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, stock_anterior, stock_nuevo)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [idProduct, idSucursal, usuario_id, tipoMov, cantidadBase, descripcion || motivo || '', stockAnteriorDanado, stockNuevoDanado]
       );
@@ -611,7 +611,7 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
       } catch { }
       const perdidaCalculada = Number(cantidad || 0) * Number(precioUnitario || 0);
       const [colsRes] = await conn.query(
-        `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS'`
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_danados'`
       );
       const available = new Set((colsRes || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
       const insertCols = []; const insertPlaceholders = []; const insertValues = [];
@@ -621,10 +621,10 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
       };
       // Ensure unit columns if not present
       if (!available.has('UNIDAD_ID') || !available.has('UNIDAD_NOMBRE')) {
-        try { await conn.query(`ALTER TABLE STOCK_DANADOS ADD COLUMN UNIDAD_ID INT NULL`); } catch { }
-        try { await conn.query(`ALTER TABLE STOCK_DANADOS ADD COLUMN UNIDAD_NOMBRE VARCHAR(100) NULL`); } catch { }
+        try { await conn.query(`ALTER TABLE stock_danados ADD COLUMN UNIDAD_ID INT NULL`); } catch { }
+        try { await conn.query(`ALTER TABLE stock_danados ADD COLUMN UNIDAD_NOMBRE VARCHAR(100) NULL`); } catch { }
         const [colsRes2] = await conn.query(
-          `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS'`
+          `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_danados'`
         );
         const available2 = new Set((colsRes2 || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
         available.clear();
@@ -648,7 +648,7 @@ async function marcarDanado({ usuario_id, producto, producto_id, sucursal, sucur
       if (available.has('PERDIDA')) pushCol('PERDIDA', perdidaCalculada);
       if (available.has('CREATED_AT')) pushCol('CREATED_AT', null, true);
       if (insertCols.length) {
-        const insertSql = `INSERT INTO STOCK_DANADOS (${insertCols.join(', ')}) VALUES (${insertPlaceholders.join(', ')})`;
+        const insertSql = `INSERT INTO stock_danados (${insertCols.join(', ')}) VALUES (${insertPlaceholders.join(', ')})`;
         await conn.query(insertSql, insertValues);
       }
     } catch { }
@@ -786,7 +786,7 @@ export async function POST(req) {
       try {
         const [rows] = await conn.query(`
         SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'MOVIMIENTOS_INVENTARIO' AND COLUMN_NAME = 'tipo_movimiento'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movimientos_inventario' AND COLUMN_NAME = 'tipo_movimiento'
       `);
         const ct = rows && rows[0] && rows[0].COLUMN_TYPE ? String(rows[0].COLUMN_TYPE) : '';
         // ct tiene la forma: "enum('entrada','salida',...)"
@@ -940,10 +940,10 @@ export async function PUT(req) {
       const clauses = []; const values = [];
       if (name) { clauses.push('NOMBRE_CLIENTE = ?'); values.push(name); }
       if (tel) { clauses.push('TELEFONO_CLIENTE = ?'); values.push(tel); }
-      const [rows] = await conn.query(`SELECT ID_CLIENTES FROM CLIENTES WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
+      const [rows] = await conn.query(`SELECT ID_CLIENTES FROM clientes WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
       if (rows?.length) return rows[0].ID_CLIENTES;
       if (!name) return null;
-      const [ins] = await conn.query(`INSERT INTO CLIENTES (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`, [name, tel || null]);
+      const [ins] = await conn.query(`INSERT INTO clientes (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`, [name, tel || null]);
       return ins.insertId || null;
     };
 
@@ -954,7 +954,7 @@ export async function PUT(req) {
         return Response.json({ error: 'ID de reserva requerido' }, { status: 400 });
       }
 
-      const [rows] = await conn.query(`SELECT * FROM RESERVAS WHERE ID_RESERVA = ? FOR UPDATE`, [id]);
+      const [rows] = await conn.query(`SELECT * FROM reservas WHERE ID_RESERVA = ? FOR UPDATE`, [id]);
       if (!rows?.length) {
         await conn.rollback();
         return Response.json({ error: 'Reserva no encontrada' }, { status: 404 });
@@ -977,7 +977,7 @@ export async function PUT(req) {
         const delta = nuevaCantidad - Number(resv.CANTIDAD);
         // delta > 0: aumenta reservado -> restar de stock sucursal
         // delta < 0: reduce reservado -> devolver a stock sucursal
-        const [stRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+        const [stRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
         const stockActual = stRows?.length ? Number(stRows[0].CANTIDAD || 0) : 0;
         if (delta > 0 && stockActual < delta) {
           await conn.rollback();
@@ -987,9 +987,9 @@ export async function PUT(req) {
         const stockNuevo = stockActual - delta; // si delta negativo, suma
         // Actualizar stock
         if (stRows?.length) {
-          await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
+          await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
         } else {
-          await conn.query('INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, Math.max(0, stockNuevo)]);
+          await conn.query('INSERT INTO stock_sucursal (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, Math.max(0, stockNuevo)]);
         }
         // Registrar movimiento
         try {
@@ -997,7 +997,7 @@ export async function PUT(req) {
           if (delta > 0) {
             const tipoMov = chooseTipo(allowed, 'reservado', 'salida');
             await conn.query(
-              `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+              `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [idProduct, idSucursal, usuario_id ?? null, tipoMov, delta, 'Ajuste de reserva (aumento)', id, stockAnterior, stockNuevo]
             );
@@ -1005,7 +1005,7 @@ export async function PUT(req) {
             const tipoMov = chooseTipo(allowed, 'entrada', 'entrada');
             const cant = Math.abs(delta);
             await conn.query(
-              `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+              `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [idProduct, idSucursal, usuario_id ?? null, tipoMov, cant, 'Ajuste de reserva (reducción)', id, stockAnterior, stockNuevo]
             );
@@ -1026,7 +1026,7 @@ export async function PUT(req) {
         updates.push('ID_CLIENTES = ?'); values.push(cliId || null);
       }
       if (updates.length) {
-        const sql = `UPDATE RESERVAS SET ${updates.join(', ')} WHERE ID_RESERVA = ?`;
+        const sql = `UPDATE reservas SET ${updates.join(', ')} WHERE ID_RESERVA = ?`;
         values.push(id);
         await conn.query(sql, values);
       }
@@ -1043,7 +1043,7 @@ export async function PUT(req) {
       }
       const fechaEntrega = body?.fecha_entrega ? new Date(body.fecha_entrega) : new Date();
       const notas = body?.notas ?? null;
-      await conn.query(`UPDATE RESERVAS SET ESTADO = 'entregada', FECHA_ENTREGA = ?, NOTAS = COALESCE(?, NOTAS) WHERE ID_RESERVA = ?`, [fechaEntrega, notas, id]);
+      await conn.query(`UPDATE reservas SET ESTADO = 'entregada', FECHA_ENTREGA = ?, NOTAS = COALESCE(?, NOTAS) WHERE ID_RESERVA = ?`, [fechaEntrega, notas, id]);
       await conn.commit();
       return Response.json({ ok: true, id });
     }
@@ -1054,7 +1054,7 @@ export async function PUT(req) {
         await conn.rollback();
         return Response.json({ error: 'ID de reserva requerido' }, { status: 400 });
       }
-      const [rows] = await conn.query(`SELECT * FROM RESERVAS WHERE ID_RESERVA = ? FOR UPDATE`, [id]);
+      const [rows] = await conn.query(`SELECT * FROM reservas WHERE ID_RESERVA = ? FOR UPDATE`, [id]);
       if (!rows?.length) {
         await conn.rollback();
         return Response.json({ error: 'Reserva no encontrada' }, { status: 404 });
@@ -1064,25 +1064,25 @@ export async function PUT(req) {
       const idSucursal = resv.ID_SUCURSAL;
       const cant = Number(resv.CANTIDAD || 0);
       // Devolver stock
-      const [stRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+      const [stRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
       const stockActual = stRows?.length ? Number(stRows[0].CANTIDAD || 0) : 0;
       const stockAnterior = stockActual;
       const stockNuevo = stockActual + cant;
       if (stRows?.length) {
-        await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
+        await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
       } else {
-        await conn.query('INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, stockNuevo]);
+        await conn.query('INSERT INTO stock_sucursal (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, stockNuevo]);
       }
       // Movimiento entrada por cancelación
       try {
         await conn.query(
-          `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+          `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, 'entrada', ?, 'Cancelación de reserva', ?, ?, ?)`,
           [idProduct, idSucursal, usuario_id ?? null, cant, id, stockAnterior, stockNuevo]
         );
       } catch { }
 
-      await conn.query(`UPDATE RESERVAS SET ESTADO = 'cancelada' WHERE ID_RESERVA = ?`, [id]);
+      await conn.query(`UPDATE reservas SET ESTADO = 'cancelada' WHERE ID_RESERVA = ?`, [id]);
       await conn.commit();
       return Response.json({ ok: true, id });
     }
@@ -1102,7 +1102,7 @@ export async function PUT(req) {
         }
 
         // Cargar registro de dañados
-        const [rows] = await conn.query('SELECT * FROM STOCK_DANADOS WHERE ID_DANADO = ? FOR UPDATE', [id]);
+        const [rows] = await conn.query('SELECT * FROM stock_danados WHERE ID_DANADO = ? FOR UPDATE', [id]);
         if (!rows?.length) {
           await conn.rollback();
           return Response.json({ error: 'Registro de dañado no encontrado' }, { status: 404 });
@@ -1121,13 +1121,13 @@ export async function PUT(req) {
         }
 
         // Sumar al stock de la sucursal
-        const [stRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
+        const [stRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProduct, idSucursal]);
         const stockAnterior = stRows?.length ? Number(stRows[0].CANTIDAD || 0) : 0;
         const stockNuevo = stockAnterior + cantidadRec;
         if (stRows?.length) {
-          await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
+          await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProduct, idSucursal]);
         } else {
-          await conn.query('INSERT INTO STOCK_SUCURSAL (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, stockNuevo]);
+          await conn.query('INSERT INTO stock_sucursal (ID_PRODUCT, ID_SUCURSAL, CANTIDAD) VALUES (?, ?, ?)', [idProduct, idSucursal, stockNuevo]);
         }
 
         // Registrar movimiento como 'entrada' por recuperación
@@ -1135,7 +1135,7 @@ export async function PUT(req) {
           const allowed = await getAllowedTipoMovimiento(conn);
           const tipoMov = chooseTipo(allowed, 'entrada', 'entrada');
           await conn.query(
-            `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+            `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [idProduct, idSucursal, usuario_id ?? null, tipoMov, cantidadRec, 'Recuperado de daño', id, stockAnterior, stockNuevo]
           );
@@ -1153,7 +1153,7 @@ export async function PUT(req) {
         } catch { precioUnit = 0; }
 
         const [colsRes] = await conn.query(
-          `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'STOCK_DANADOS'`
+          `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_danados'`
         );
         const available = new Set((colsRes || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
         const nuevaCant = Math.max(0, cantActual - cantidadRec);
@@ -1166,21 +1166,21 @@ export async function PUT(req) {
           const restar = Number((cantidadRec * precioUnit).toFixed(2));
           // Usar expresión: PERDIDA = GREATEST(PERDIDA - restar, 0)
           try {
-            await conn.query('UPDATE STOCK_DANADOS SET PERDIDA = GREATEST(PERDIDA - ?, 0) WHERE ID_DANADO = ?', [restar, id]);
+            await conn.query('UPDATE stock_danados SET PERDIDA = GREATEST(PERDIDA - ?, 0) WHERE ID_DANADO = ?', [restar, id]);
           } catch { /* ignore */ }
         }
 
         // Actualizar estado a 'recuperado' si quedó en cero
         if (nuevaCant === 0) {
           if (available.has('ESTADO')) {
-            try { await conn.query('UPDATE STOCK_DANADOS SET ESTADO = ? WHERE ID_DANADO = ?', ['recuperado', id]); } catch { }
+            try { await conn.query('UPDATE stock_danados SET ESTADO = ? WHERE ID_DANADO = ?', ['recuperado', id]); } catch { }
           } else if (available.has('ESTADO_DANO')) {
-            try { await conn.query('UPDATE STOCK_DANADOS SET ESTADO_DANO = ? WHERE ID_DANADO = ?', ['recuperado', id]); } catch { }
+            try { await conn.query('UPDATE stock_danados SET ESTADO_DANO = ? WHERE ID_DANADO = ?', ['recuperado', id]); } catch { }
           }
         }
 
         // Aplicar actualización de cantidad y registrar último usuario
-        await conn.query('UPDATE STOCK_DANADOS SET ' + sets.join(', ') + ', USUARIO_ID = ? WHERE ID_DANADO = ?', [...vals.slice(0, -1), usuario_id ?? null, vals[vals.length - 1]]);
+        await conn.query('UPDATE stock_danados SET ' + sets.join(', ') + ', USUARIO_ID = ? WHERE ID_DANADO = ?', [...vals.slice(0, -1), usuario_id ?? null, vals[vals.length - 1]]);
 
         await conn.commit();
         return Response.json({ ok: true, id, recuperado: cantidadRec, stock_nuevo: stockNuevo, cantidad_restante: nuevaCant });
@@ -1205,7 +1205,7 @@ export async function PUT(req) {
         }
 
         // Cargar registro de dañados
-        const [rows] = await conn.query('SELECT * FROM STOCK_DANADOS WHERE ID_DANADO = ? FOR UPDATE', [id]);
+        const [rows] = await conn.query('SELECT * FROM stock_danados WHERE ID_DANADO = ? FOR UPDATE', [id]);
         if (!rows?.length) {
           await conn.rollback();
           return Response.json({ error: 'Registro de dañado no encontrado' }, { status: 404 });
@@ -1238,7 +1238,7 @@ export async function PUT(req) {
 
         if (cantidadEval === cantActual) {
           // Caso simple: todo el registro pasa a Pérdida Total
-          await conn.query('UPDATE STOCK_DANADOS SET ESTADO = ?, USUARIO_ID = ? WHERE ID_DANADO = ?', ['Perdida Total', usuario_id ?? null, id]);
+          await conn.query('UPDATE stock_danados SET ESTADO = ?, USUARIO_ID = ? WHERE ID_DANADO = ?', ['Perdida Total', usuario_id ?? null, id]);
           await conn.commit();
           return Response.json({ ok: true, id, evaluado: cantidadEval, estado: 'Perdida Total' });
         }
@@ -1246,16 +1246,16 @@ export async function PUT(req) {
         // Parcial: crear nuevo registro con estado Perdida Total y restar del original
         // Insert nuevo registro
         await conn.query(
-          `INSERT INTO STOCK_DANADOS (ID_PRODUCT, ID_SUCURSAL, CANTIDAD, TIPO_DANO, ESTADO, DESCRIPCION, USUARIO_ID, REFERENCIA, PERDIDA, CREATED_AT)
+          `INSERT INTO stock_danados (ID_PRODUCT, ID_SUCURSAL, CANTIDAD, TIPO_DANO, ESTADO, DESCRIPCION, USUARIO_ID, REFERENCIA, PERDIDA, CREATED_AT)
            VALUES (?, ?, ?, ?, 'Perdida Total', ?, ?, ?, ?, NOW())`,
           [idProduct, idSucursal, cantidadEval, d.TIPO_DANO || null, d.DESCRIPCION || '', usuario_id ?? null, `eval-perdida:${id}`, valorEval]
         );
 
         // Restar del registro original
         const nuevaCant = Math.max(0, cantActual - cantidadEval);
-        await conn.query('UPDATE STOCK_DANADOS SET CANTIDAD = ?, USUARIO_ID = ? WHERE ID_DANADO = ?', [nuevaCant, usuario_id ?? null, id]);
+        await conn.query('UPDATE stock_danados SET CANTIDAD = ?, USUARIO_ID = ? WHERE ID_DANADO = ?', [nuevaCant, usuario_id ?? null, id]);
         if (precioUnit > 0) {
-          try { await conn.query('UPDATE STOCK_DANADOS SET PERDIDA = GREATEST(PERDIDA - ?, 0) WHERE ID_DANADO = ?', [valorEval, id]); } catch { }
+          try { await conn.query('UPDATE stock_danados SET PERDIDA = GREATEST(PERDIDA - ?, 0) WHERE ID_DANADO = ?', [valorEval, id]); } catch { }
         }
 
         await conn.commit();

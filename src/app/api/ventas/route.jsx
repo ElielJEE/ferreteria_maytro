@@ -9,11 +9,11 @@ async function getOrCreateCliente(conn, nombre, telefono) {
   const clauses = []; const values = [];
   if (name) { clauses.push('NOMBRE_CLIENTE = ?'); values.push(name); }
   if (tel) { clauses.push('TELEFONO_CLIENTE = ?'); values.push(tel); }
-  const [rows] = await conn.query(`SELECT ID_CLIENTES FROM CLIENTES WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
+  const [rows] = await conn.query(`SELECT ID_CLIENTES FROM clientes WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
   if (rows?.length) return rows[0].ID_CLIENTES;
   if (!name) return null;
   const [ins] = await conn.query(
-    `INSERT INTO CLIENTES (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`,
+    `INSERT INTO clientes (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`,
     [name, tel || null]
   );
   return ins.insertId || null;
@@ -46,12 +46,12 @@ export async function POST(req) {
     // Fallback: derive sucursal from the usuario if not present in token/payload
     try {
       if (!sucursalId && usuarioId) {
-        const [uRows] = await conn.query('SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1', [usuarioId]);
+        const [uRows] = await conn.query('SELECT ID_SUCURSAL FROM usuarios WHERE ID = ? LIMIT 1', [usuarioId]);
         if (uRows && uRows[0] && uRows[0].ID_SUCURSAL) sucursalId = uRows[0].ID_SUCURSAL;
       }
       // As an additional fallback, try by sucursal name in payload
       if (!sucursalId && body.sucursal) {
-        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
+        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
         if (suc && suc[0] && suc[0].ID_SUCURSAL) sucursalId = suc[0].ID_SUCURSAL;
       }
     } catch { /* ignore resolution errors */ }
@@ -61,7 +61,7 @@ export async function POST(req) {
     // Detectar si FACTURA_DETALLES contiene columnas de unidad para trabajar de forma compatible
     let hasUnidadCols = { UNIDAD_ID: false, CANTIDAD_POR_UNIDAD: false, UNIDAD_NOMBRE: false };
     try {
-      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES'`);
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura_detalles'`);
       const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
       hasUnidadCols.UNIDAD_ID = colset.has('UNIDAD_ID');
       hasUnidadCols.CANTIDAD_POR_UNIDAD = colset.has('CANTIDAD_POR_UNIDAD');
@@ -81,7 +81,7 @@ export async function POST(req) {
 
       // Ensure stock exists in STOCK_SUCURSAL and lock it
       if (!sucursalId && body.sucursal) {
-        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
+        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
         if (suc?.length) sucursalId = suc[0].ID_SUCURSAL;
       }
       if (!sucursalId) throw new Error('Sucursal no definida');
@@ -91,7 +91,7 @@ export async function POST(req) {
       const totalARestar = qty * cantidadPorUnidad;
 
       const [stockRows] = await conn.query(
-        'SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
+        'SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE',
         [idProd, sucursalId]
       );
       const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
@@ -113,21 +113,21 @@ export async function POST(req) {
     try {
       const [colRows] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'ID_SUCURSAL'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'ID_SUCURSAL'
       `);
       hasFacturaSucursal = (colRows?.[0] && Number(colRows[0].CNT || 0) > 0) || false;
     } catch { hasFacturaSucursal = false; }
     try {
       const [colNum] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'NUMERO_FACTURA'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'NUMERO_FACTURA'
       `);
       hasFacturaNumero = (colNum?.[0] && Number(colNum[0].CNT || 0) > 0) || false;
     } catch { hasFacturaNumero = false; }
     try {
       const [colServ] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'SERVICIO_TRANSPORTE'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'SERVICIO_TRANSPORTE'
       `);
       hasFacturaServicio = (colServ?.[0] && Number(colServ[0].CNT || 0) > 0) || false;
     } catch { hasFacturaServicio = false; }
@@ -146,7 +146,7 @@ export async function POST(req) {
     if (hasFacturaNumero) {
       let intentos = 0;
       while (intentos < 5) {
-        const [dup] = await conn.query('SELECT 1 FROM FACTURA WHERE NUMERO_FACTURA = ? LIMIT 1', [numeroFactura]);
+        const [dup] = await conn.query('SELECT 1 FROM factura WHERE NUMERO_FACTURA = ? LIMIT 1', [numeroFactura]);
         if (!dup?.length) break;
         intentos++;
         numeroFactura = `FAC-${y}${mo}${da}-${hh}${mi}${ss}-${intentos}`;
@@ -154,15 +154,15 @@ export async function POST(req) {
     }
 
     let facturaSql = hasFacturaNumero
-      ? 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, ?, NULL, ?)'
-      : 'INSERT INTO FACTURA (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, NULL, ?)';
+      ? 'INSERT INTO factura (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, ?, NULL, ?)'
+      : 'INSERT INTO factura (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES) VALUES (?, ?, ?, ?, NULL, ?)';
     let facturaParams = hasFacturaNumero
       ? [numeroFactura, fecha, subtotalOk, descuentoOk, totalOk, clienteId || null]
       : [fecha, subtotalOk, descuentoOk, totalOk, clienteId || null];
     if (hasFacturaSucursal) {
       facturaSql = hasFacturaNumero
-        ? 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)'
-        : 'INSERT INTO FACTURA (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, NULL, ?, ?)';
+        ? 'INSERT INTO factura (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)'
+        : 'INSERT INTO factura (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, NULL, ?, ?)';
       facturaParams = hasFacturaNumero
         ? [numeroFactura, fecha, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null]
         : [fecha, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null];
@@ -173,7 +173,7 @@ export async function POST(req) {
     // Si la columna SERVICIO_TRANSPORTE existe, guardarla (compatibilidad con esquemas que no la tengan)
     try {
       if (hasFacturaServicio) {
-        await conn.query('UPDATE FACTURA SET SERVICIO_TRANSPORTE = ? WHERE ID_FACTURA = ?', [servicioTrans, facturaId]);
+        await conn.query('UPDATE factura SET SERVICIO_TRANSPORTE = ? WHERE ID_FACTURA = ?', [servicioTrans, facturaId]);
       }
     } catch (err) {
       // no fatal
@@ -189,7 +189,7 @@ export async function POST(req) {
         const amount = Number(discountPayload?.amount || 0) || 0;
         // Crear tabla si no existe (no asumimos migración previa)
         await conn.query(`
-          CREATE TABLE IF NOT EXISTS FACTURA_DESCUENTO (
+          CREATE TABLE IF NOT EXISTS factura_descuento (
             ID_DESCUENTO_FACTURA INT NOT NULL AUTO_INCREMENT,
             ID_FACTURA INT NOT NULL,
             ID_DESCUENTO INT DEFAULT NULL,
@@ -197,10 +197,10 @@ export async function POST(req) {
             AMOUNT DECIMAL(12,2) DEFAULT 0.00,
             PRIMARY KEY (ID_DESCUENTO_FACTURA),
             KEY idx_fd_fact (ID_FACTURA),
-            CONSTRAINT fk_fd_fact FOREIGN KEY (ID_FACTURA) REFERENCES FACTURA(ID_FACTURA) ON DELETE CASCADE
+            CONSTRAINT fk_fd_fact FOREIGN KEY (ID_FACTURA) REFERENCES factura(ID_FACTURA) ON DELETE CASCADE
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         `);
-        await conn.query('INSERT INTO FACTURA_DESCUENTO (ID_FACTURA, ID_DESCUENTO, PERCENT, AMOUNT) VALUES (?, ?, ?, ?)', [facturaId, discId, percent, amount]);
+        await conn.query('INSERT INTO factura_descuento (ID_FACTURA, ID_DESCUENTO, PERCENT, AMOUNT) VALUES (?, ?, ?, ?)', [facturaId, discId, percent, amount]);
       }
     } catch (err) {
       // No detener la venta por un fallo en el guardado adicional del descuento
@@ -222,7 +222,7 @@ export async function POST(req) {
       // Insert details including unidad columns si existen
       if (hasUnidadCols.UNIDAD_ID || hasUnidadCols.CANTIDAD_POR_UNIDAD || hasUnidadCols.UNIDAD_NOMBRE) {
         await conn.query(
-          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
+          'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
           + (hasUnidadCols.UNIDAD_ID ? ', UNIDAD_ID' : '')
           + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : '')
           + (hasUnidadCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : '')
@@ -238,20 +238,20 @@ export async function POST(req) {
         );
       } else {
         await conn.query(
-          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
+          'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
           [facturaId, idProd, qty, precio, sub, usuarioId || null]
         );
       }
 
-      const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProd, sucursalId]);
+      const [stockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProd, sucursalId]);
       const stockAnterior = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
       const stockNuevo = stockAnterior - totalARestar;
-      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProd, sucursalId]);
+      await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProd, sucursalId]);
 
       // Log movement as 'salida' with la cantidad real descontada
       try {
         await conn.query(
-          `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+          `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`,
           [idProd, sucursalId, usuarioId || null, totalARestar, 'Venta', facturaId, stockAnterior, stockNuevo]
         );
@@ -263,7 +263,7 @@ export async function POST(req) {
     let tasaCambio = Number(pago?.tasaCambio || 0);
     try {
       if (!tasaCambio || isNaN(tasaCambio) || tasaCambio <= 0) {
-        const [cfg] = await conn.query('SELECT TASA FROM CONFIG_TASA_CAMBIO WHERE ID = 1 LIMIT 1');
+        const [cfg] = await conn.query('SELECT TASA FROM config_tasa_cambio WHERE ID = 1 LIMIT 1');
         if (cfg?.length && cfg[0].TASA) tasaCambio = Number(cfg[0].TASA);
       }
     } catch { /* tabla puede no existir */ }
@@ -274,7 +274,7 @@ export async function POST(req) {
     const cambio = Math.max(0, Number((recibidoTotalC - totalOk).toFixed(2)));
     try {
       await conn.query(
-        'INSERT INTO FACTURA_PAGOS (ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, TASA_CAMBIO, METODO) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO factura_pagos (ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, TASA_CAMBIO, METODO) VALUES (?, ?, ?, ?, ?)',
         [facturaId, recibidoCordobas, recibidoDolares, tasaCambio, pago?.metodo || 'efectivo']
       );
     } catch { /* Tabla no existe aún; ignorar para compatibilidad */ }
@@ -297,7 +297,7 @@ export async function GET(req) {
     try {
       const [colRows] = await pool.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'NUMERO_FACTURA'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'NUMERO_FACTURA'
       `);
       hasFacturaNumero = (colRows?.[0] && Number(colRows[0].CNT || 0) > 0) || false;
     } catch { hasFacturaNumero = false; }
@@ -312,7 +312,7 @@ export async function GET(req) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const userId = decoded?.id || decoded?.ID || decoded?.sub || null;
         if (userId) {
-          const [[uRow]] = await pool.query('SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1', [userId]);
+          const [[uRow]] = await pool.query('SELECT ID_SUCURSAL FROM usuarios WHERE ID = ? LIMIT 1', [userId]);
           if (uRow && uRow.ID_SUCURSAL) usuarioSucursalId = uRow.ID_SUCURSAL;
         }
       }
@@ -322,28 +322,28 @@ export async function GET(req) {
     if (id) {
       try {
         const selectDetalle = hasFacturaNumero
-          ? 'SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?'
-          : 'SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM FACTURA WHERE ID_FACTURA = ?';
+          ? 'SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM factura WHERE ID_FACTURA = ?'
+          : 'SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM factura WHERE ID_FACTURA = ?';
         const [factRows] = await pool.query(selectDetalle, [id]);
         if (!factRows || !factRows.length) return Response.json({ error: 'Factura no encontrada' }, { status: 404 });
         const f = factRows[0];
 
         // client
-        const [clientRows] = await pool.query('SELECT ID_CLIENTES, NOMBRE_CLIENTE, TELEFONO_CLIENTE FROM CLIENTES WHERE ID_CLIENTES = ?', [f.ID_CLIENTES || null]);
+        const [clientRows] = await pool.query('SELECT ID_CLIENTES, NOMBRE_CLIENTE, TELEFONO_CLIENTE FROM clientes WHERE ID_CLIENTES = ?', [f.ID_CLIENTES || null]);
         const cliente = clientRows && clientRows[0] ? { id: clientRows[0].ID_CLIENTES, nombre: clientRows[0].NOMBRE_CLIENTE, telefono: clientRows[0].TELEFONO_CLIENTE } : null;
 
         // sucursal
         let sucursal = null;
         if (f.ID_SUCURSAL) {
-          const [sucRows] = await pool.query('SELECT ID_SUCURSAL, NOMBRE_SUCURSAL FROM SUCURSAL WHERE ID_SUCURSAL = ?', [f.ID_SUCURSAL]);
+          const [sucRows] = await pool.query('SELECT ID_SUCURSAL, NOMBRE_SUCURSAL FROM sucursal WHERE ID_SUCURSAL = ?', [f.ID_SUCURSAL]);
           if (sucRows && sucRows[0]) sucursal = { id: sucRows[0].ID_SUCURSAL, nombre: sucRows[0].NOMBRE_SUCURSAL };
         }
 
         // usuario who made the sale (take first user from detalles or from movimientos)
         const [userRows] = await pool.query(`
           SELECT COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') AS usuario, u.ID
-          FROM FACTURA_DETALLES fd
-          LEFT JOIN USUARIOS u ON u.ID = fd.ID_USUARIO
+          FROM factura_detalles fd
+          LEFT JOIN usuarios u ON u.ID = fd.ID_USUARIO
           WHERE fd.ID_FACTURA = ? LIMIT 1
         `, [id]);
         const usuario = userRows && userRows[0] ? { id: userRows[0].ID, nombre: userRows[0].usuario } : null;
@@ -353,8 +353,8 @@ export async function GET(req) {
           SELECT fd.ID_DETALLES_FACTURA, fd.ID_PRODUCT, fd.AMOUNT AS cantidad, fd.PRECIO_UNIT AS precio_unit, fd.SUB_TOTAL AS subtotal,
                  fd.UNIDAD_ID AS unidad_id, fd.CANTIDAD_POR_UNIDAD AS cantidad_por_unidad, fd.UNIDAD_NOMBRE AS unidad_nombre,
                  p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
-          FROM FACTURA_DETALLES fd
-          LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = fd.ID_PRODUCT
+          FROM factura_detalles fd
+          LEFT JOIN productos p ON p.ID_PRODUCT = fd.ID_PRODUCT
           WHERE fd.ID_FACTURA = ?
         `, [id]);
 
@@ -388,8 +388,8 @@ export async function GET(req) {
           // obtener info adicional del descuento (codigo/nombre) si existe
           const [discRows] = await pool.query(
             `SELECT fd.ID_DESCUENTO, fd.PERCENT, fd.AMOUNT, d.CODIGO_DESCUENTO, d.NOMBRE_DESCUENTO
-             FROM FACTURA_DESCUENTO fd
-             LEFT JOIN DESCUENTOS d ON fd.ID_DESCUENTO = d.ID_DESCUENTO
+             FROM factura_descuento fd
+             LEFT JOIN descuentos d ON fd.ID_DESCUENTO = d.ID_DESCUENTO
              WHERE fd.ID_FACTURA = ?`,
             [f.ID_FACTURA]
           );
@@ -429,10 +429,10 @@ export async function GET(req) {
            f.TOTAL AS total,
            c.NOMBRE_CLIENTE AS cliente,
            s.NOMBRE_SUCURSAL AS sucursal,
-           (SELECT COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') FROM FACTURA_DETALLES fd LEFT JOIN USUARIOS u ON u.ID = fd.ID_USUARIO WHERE fd.ID_FACTURA = f.ID_FACTURA LIMIT 1) AS hecho_por
-         FROM FACTURA f
-         LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-         LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL`;
+           (SELECT COALESCE(u.NOMBRE, u.NOMBRE_USUARIO, '') FROM factura_detalles fd LEFT JOIN usuarios u ON u.ID = fd.ID_USUARIO WHERE fd.ID_FACTURA = f.ID_FACTURA LIMIT 1) AS hecho_por
+         FROM factura f
+         LEFT JOIN clientes c ON c.ID_CLIENTES = f.ID_CLIENTES
+         LEFT JOIN sucursal s ON s.ID_SUCURSAL = f.ID_SUCURSAL`;
       const params = [];
       if (sucursal) {
         sql += ' WHERE f.ID_SUCURSAL = ?';
@@ -517,7 +517,7 @@ export async function PUT(req) {
     await conn.beginTransaction();
 
     // Load existing factura and its sucursal
-    const [factRows] = await conn.query('SELECT * FROM FACTURA WHERE ID_FACTURA = ? FOR UPDATE', [id]);
+    const [factRows] = await conn.query('SELECT * FROM factura WHERE ID_FACTURA = ? FOR UPDATE', [id]);
     if (!factRows || !factRows.length) {
       await conn.rollback();
       return Response.json({ error: 'Factura no encontrada' }, { status: 404 });
@@ -528,14 +528,14 @@ export async function PUT(req) {
     // Detectar si FACTURA_DETALLES tiene columna CANTIDAD_POR_UNIDAD para revertir correctamente
     let detalleHasCantidadPorUnidad = false;
     try {
-      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD'`);
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura_detalles' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD'`);
       detalleHasCantidadPorUnidad = (cols && cols.length > 0);
     } catch { detalleHasCantidadPorUnidad = false; }
 
     // Revert previous detalles: add back cantidades multiplicadas por CANTIDAD_POR_UNIDAD
     const selectPrevCols = detalleHasCantidadPorUnidad
-      ? 'SELECT ID_PRODUCT, AMOUNT, IFNULL(CANTIDAD_POR_UNIDAD,1) AS CANTIDAD_POR_UNIDAD, ID_USUARIO FROM FACTURA_DETALLES WHERE ID_FACTURA = ?'
-      : 'SELECT ID_PRODUCT, AMOUNT, ID_USUARIO FROM FACTURA_DETALLES WHERE ID_FACTURA = ?';
+      ? 'SELECT ID_PRODUCT, AMOUNT, IFNULL(CANTIDAD_POR_UNIDAD,1) AS CANTIDAD_POR_UNIDAD, ID_USUARIO FROM factura_detalles WHERE ID_FACTURA = ?'
+      : 'SELECT ID_PRODUCT, AMOUNT, ID_USUARIO FROM factura_detalles WHERE ID_FACTURA = ?';
     const [prevDetalles] = await conn.query(selectPrevCols, [id]);
     const defaultUsuarioId = prevDetalles && prevDetalles[0] ? (prevDetalles[0].ID_USUARIO || null) : null;
     for (const pd of (prevDetalles || [])) {
@@ -545,11 +545,11 @@ export async function PUT(req) {
       const restoreQty = prevQty * mult;
       if (!prodId) continue;
       // Increase stock
-      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = CANTIDAD + ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [restoreQty, prodId, sucursalId]);
+      await conn.query('UPDATE stock_sucursal SET CANTIDAD = CANTIDAD + ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [restoreQty, prodId, sucursalId]);
       // Log movimento as entrada (restock due to edit) and preserve usuario if available
       try {
         await conn.query(
-          `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+          `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, 'entrada', ?, ?, ?, NULL, NULL)`,
           [prodId, sucursalId, defaultUsuarioId, restoreQty, 'Reversión por edición de venta', id]
         );
@@ -557,12 +557,12 @@ export async function PUT(req) {
     }
 
     // Remove old detalles
-    await conn.query('DELETE FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [id]);
+    await conn.query('DELETE FROM factura_detalles WHERE ID_FACTURA = ?', [id]);
 
     // Detectar columnas de unidad para insertar detalles con compatibilidad
     let hasUnidadCols = { UNIDAD_ID: false, CANTIDAD_POR_UNIDAD: false, UNIDAD_NOMBRE: false };
     try {
-      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES'`);
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura_detalles'`);
       const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
       hasUnidadCols.UNIDAD_ID = colset.has('UNIDAD_ID');
       hasUnidadCols.CANTIDAD_POR_UNIDAD = colset.has('CANTIDAD_POR_UNIDAD');
@@ -581,13 +581,13 @@ export async function PUT(req) {
       }
       // check stock
       const [stockRows] = await conn.query(
-        `SELECT 
-     ss.CANTIDAD, 
-     s.NOMBRE_SUCURSAL
-   FROM STOCK_SUCURSAL ss
-   INNER JOIN SUCURSAL s ON ss.ID_SUCURSAL = s.ID_SUCURSAL
-   WHERE ss.ID_PRODUCT = ? AND ss.ID_SUCURSAL = ? 
-   FOR UPDATE`,
+          `SELECT 
+        ss.CANTIDAD, 
+        s.NOMBRE_SUCURSAL
+      FROM stock_sucursal ss
+      INNER JOIN sucursal s ON ss.ID_SUCURSAL = s.ID_SUCURSAL
+      WHERE ss.ID_PRODUCT = ? AND ss.ID_SUCURSAL = ? 
+      FOR UPDATE`,
         [prodId, sucursalId]
       );
       const cantidadEnSucursal = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
@@ -619,7 +619,7 @@ export async function PUT(req) {
 
       if (hasUnidadCols.UNIDAD_ID || hasUnidadCols.CANTIDAD_POR_UNIDAD || hasUnidadCols.UNIDAD_NOMBRE) {
         await conn.query(
-          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
+          'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
           + (hasUnidadCols.UNIDAD_ID ? ', UNIDAD_ID' : '')
           + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : '')
           + (hasUnidadCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : '')
@@ -635,18 +635,18 @@ export async function PUT(req) {
         );
       } else {
         await conn.query(
-          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
+          'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
           [id, prodId, qty, precio, sub, defaultUsuarioId]
         );
       }
 
-      const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [prodId, sucursalId]);
+      const [stockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [prodId, sucursalId]);
       const stockAnterior = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
       const stockNuevo = stockAnterior - totalARestar;
-      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, prodId, sucursalId]);
+      await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, prodId, sucursalId]);
       try {
         await conn.query(
-          `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+          `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`,
           [prodId, sucursalId, defaultUsuarioId, totalARestar, 'Edición venta', id, stockAnterior, stockNuevo]
         );
@@ -662,15 +662,15 @@ export async function PUT(req) {
     try {
       const [colServ] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA' AND COLUMN_NAME = 'SERVICIO_TRANSPORTE'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'SERVICIO_TRANSPORTE'
       `);
       hasFacturaServicio = (colServ?.[0] && Number(colServ[0].CNT || 0) > 0) || false;
     } catch { hasFacturaServicio = false; }
     const servicioTrans = Number((body?.servicio_transporte ?? body?.servicioTransporte) || 0) || 0;
     if (hasFacturaServicio) {
-      await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ?, SERVICIO_TRANSPORTE = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, servicioTrans, id]);
+      await conn.query('UPDATE factura SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ?, SERVICIO_TRANSPORTE = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, servicioTrans, id]);
     } else {
-      await conn.query('UPDATE FACTURA SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, id]);
+      await conn.query('UPDATE factura SET SUBTOTAL = ?, DESCUENTO = ?, TOTAL = ?, ID_CLIENTES = ? WHERE ID_FACTURA = ?', [subtotalOk, descuentoOk, totalOk, clienteId || null, id]);
     }
 
     // Actualizar/insertar información de descuento asociada (si viene en payload)
@@ -681,7 +681,7 @@ export async function PUT(req) {
         const percent = Number(discountPayload?.percent || 0) || 0;
         const amount = Number(discountPayload?.amount || 0) || 0;
         await conn.query(`
-          CREATE TABLE IF NOT EXISTS FACTURA_DESCUENTO (
+          CREATE TABLE IF NOT EXISTS factura_descuento (
             ID_DESCUENTO_FACTURA INT NOT NULL AUTO_INCREMENT,
             ID_FACTURA INT NOT NULL,
             ID_DESCUENTO INT DEFAULT NULL,
@@ -689,18 +689,18 @@ export async function PUT(req) {
             AMOUNT DECIMAL(12,2) DEFAULT 0.00,
             PRIMARY KEY (ID_DESCUENTO_FACTURA),
             KEY idx_fd_fact (ID_FACTURA),
-            CONSTRAINT fk_fd_fact FOREIGN KEY (ID_FACTURA) REFERENCES FACTURA(ID_FACTURA) ON DELETE CASCADE
+            CONSTRAINT fk_fd_fact FOREIGN KEY (ID_FACTURA) REFERENCES factura(ID_FACTURA) ON DELETE CASCADE
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         `);
         // Eliminar registros previos y crear nuevo (mantener simple)
-        await conn.query('DELETE FROM FACTURA_DESCUENTO WHERE ID_FACTURA = ?', [id]);
-        await conn.query('INSERT INTO FACTURA_DESCUENTO (ID_FACTURA, ID_DESCUENTO, PERCENT, AMOUNT) VALUES (?, ?, ?, ?)', [id, discId, percent, amount]);
+        await conn.query('DELETE FROM factura_descuento WHERE ID_FACTURA = ?', [id]);
+        await conn.query('INSERT INTO factura_descuento (ID_FACTURA, ID_DESCUENTO, PERCENT, AMOUNT) VALUES (?, ?, ?, ?)', [id, discId, percent, amount]);
       } else {
         // Si no viene descuento en payload, eliminar cualquier registro previo
-        await conn.query('DELETE FROM FACTURA_DESCUENTO WHERE ID_FACTURA = ?', [id]);
+        await conn.query('DELETE FROM factura_descuento WHERE ID_FACTURA = ?', [id]);
       }
     } catch (err) {
-      console.error('Error actualizando FACTURA_DESCUENTO:', err?.message || err);
+      console.error('Error actualizando factura_descuento:', err?.message || err);
     }
 
     await conn.commit();
@@ -728,7 +728,7 @@ export async function DELETE(req) {
 
     await conn.beginTransaction();
 
-    const [factRows] = await conn.query('SELECT * FROM FACTURA WHERE ID_FACTURA = ? FOR UPDATE', [id]);
+    const [factRows] = await conn.query('SELECT * FROM factura WHERE ID_FACTURA = ? FOR UPDATE', [id]);
     if (!factRows || !factRows.length) {
       await conn.rollback();
       return Response.json({ error: 'Factura no encontrada' }, { status: 404 });
@@ -739,23 +739,23 @@ export async function DELETE(req) {
     // Restore stock from detalles (consider CANTIDAD_POR_UNIDAD if existe)
     let detalleHasCantidadPorUnidad = false;
     try {
-      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD'`);
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura_detalles' AND COLUMN_NAME = 'CANTIDAD_POR_UNIDAD'`);
       detalleHasCantidadPorUnidad = (cols && cols.length > 0);
     } catch { detalleHasCantidadPorUnidad = false; }
 
     const selectDetalleCols = detalleHasCantidadPorUnidad
-      ? 'SELECT ID_PRODUCT, AMOUNT, IFNULL(CANTIDAD_POR_UNIDAD,1) AS CANTIDAD_POR_UNIDAD FROM FACTURA_DETALLES WHERE ID_FACTURA = ?'
-      : 'SELECT ID_PRODUCT, AMOUNT FROM FACTURA_DETALLES WHERE ID_FACTURA = ?';
+      ? 'SELECT ID_PRODUCT, AMOUNT, IFNULL(CANTIDAD_POR_UNIDAD,1) AS CANTIDAD_POR_UNIDAD FROM factura_detalles WHERE ID_FACTURA = ?'
+      : 'SELECT ID_PRODUCT, AMOUNT FROM factura_detalles WHERE ID_FACTURA = ?';
     const [detalles] = await conn.query(selectDetalleCols, [id]);
     for (const d of (detalles || [])) {
       const prodId = Number(d.ID_PRODUCT);
       const qty = Number(d.AMOUNT || 0);
       const mult = Number(d.CANTIDAD_POR_UNIDAD ?? 1) || 1;
       const restoreQty = qty * mult;
-      await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = CANTIDAD + ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [restoreQty, prodId, sucursalId]);
+      await conn.query('UPDATE stock_sucursal SET CANTIDAD = CANTIDAD + ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [restoreQty, prodId, sucursalId]);
       try {
         await conn.query(
-          `INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+          `INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
            VALUES (?, ?, NULL, 'entrada', ?, ?, ?, NULL, NULL)`,
           [prodId, sucursalId, restoreQty, 'Reversión por eliminación de venta', id]
         );
@@ -763,9 +763,9 @@ export async function DELETE(req) {
     }
 
     // Delete detalles, pagos, factura
-    try { await conn.query('DELETE FROM FACTURA_PAGOS WHERE ID_FACTURA = ?', [id]); } catch { }
-    await conn.query('DELETE FROM FACTURA_DETALLES WHERE ID_FACTURA = ?', [id]);
-    await conn.query('DELETE FROM FACTURA WHERE ID_FACTURA = ?', [id]);
+    try { await conn.query('DELETE FROM factura_pagos WHERE ID_FACTURA = ?', [id]); } catch { }
+    await conn.query('DELETE FROM factura_detalles WHERE ID_FACTURA = ?', [id]);
+    await conn.query('DELETE FROM factura WHERE ID_FACTURA = ?', [id]);
 
     await conn.commit();
     return Response.json({ ok: true, deleted: id });
