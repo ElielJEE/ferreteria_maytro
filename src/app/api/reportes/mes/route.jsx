@@ -21,7 +21,7 @@ async function getUserSucursalFromReq(req) {
 		if (!token) return { isAdmin: false, sucursalId: null };
 		const decoded = jwt.verify(token, process.env.JWT_SECRET);
 		const [[row]] = await pool.query(
-			"SELECT u.ID_SUCURSAL FROM USUARIOS u WHERE u.ID = ? LIMIT 1",
+			"SELECT u.ID_SUCURSAL FROM usuarios u WHERE u.ID = ? LIMIT 1",
 			[decoded.id || decoded.ID]
 		);
 		const sucursalId = row?.ID_SUCURSAL ?? null;
@@ -34,7 +34,7 @@ async function getUserSucursalFromReq(req) {
 
 async function getRevenueMonth(sucursal) {
 	const { start, end } = monthRange();
-	let sql = 'SELECT IFNULL(SUM(TOTAL), 0) AS total FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let sql = 'SELECT IFNULL(SUM(TOTAL), 0) AS total FROM factura WHERE FECHA BETWEEN ? AND ?';
 	const params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
 		sql += ' AND ID_SUCURSAL = ?';
@@ -46,7 +46,7 @@ async function getRevenueMonth(sucursal) {
 
 async function getInvoicesMonth(sucursal) {
 	const { start, end } = monthRange();
-	let sql = 'SELECT COUNT(*) AS cnt FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let sql = 'SELECT COUNT(*) AS cnt FROM factura WHERE FECHA BETWEEN ? AND ?';
 	const params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
 		sql += ' AND ID_SUCURSAL = ?';
@@ -59,8 +59,8 @@ async function getInvoicesMonth(sucursal) {
 async function getProductsSoldMonth(sucursal) {
 	const { start, end } = monthRange();
 	let sql = `SELECT IFNULL(SUM(fd.AMOUNT),0) AS qty
-             FROM FACTURA_DETALLES fd
-             JOIN FACTURA f ON f.ID_FACTURA = fd.ID_FACTURA
+			 FROM factura_detalles fd
+			 JOIN factura f ON f.ID_FACTURA = fd.ID_FACTURA
              WHERE f.FECHA BETWEEN ? AND ?`;
 	const params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
@@ -73,7 +73,7 @@ async function getProductsSoldMonth(sucursal) {
 
 async function getClientsMonth(sucursal) {
 	const { start, end } = monthRange();
-	let sql = 'SELECT COUNT(DISTINCT ID_CLIENTES) AS cnt FROM FACTURA WHERE FECHA BETWEEN ? AND ?';
+	let sql = 'SELECT COUNT(DISTINCT ID_CLIENTES) AS cnt FROM factura WHERE FECHA BETWEEN ? AND ?';
 	const params = [start, end];
 	if (sucursal && sucursal !== 'Todas') {
 		sql += ' AND ID_SUCURSAL = ?';
@@ -87,14 +87,14 @@ async function getRecentSalesMonth(sucursal) {
 	const { start, end } = monthRange();
 	let sql = `
     SELECT f.ID_FACTURA AS id,
-           DATE_FORMAT(f.FECHA,'%Y-%m-%d') AS fecha,
-           DATE_FORMAT(f.FECHA,'%H:%i') AS hora,
-           f.TOTAL AS total,
-           c.NOMBRE_CLIENTE AS cliente,
-           s.NOMBRE_SUCURSAL AS sucursal
-    FROM FACTURA f
-    LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-    LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = f.ID_SUCURSAL
+	    DATE_FORMAT(f.FECHA,'%Y-%m-%d') AS fecha,
+	    DATE_FORMAT(f.FECHA,'%H:%i') AS hora,
+	    f.TOTAL AS total,
+	    c.NOMBRE_CLIENTE AS cliente,
+	    s.NOMBRE_SUCURSAL AS sucursal
+    FROM factura f
+    LEFT JOIN clientes c ON c.ID_CLIENTES = f.ID_CLIENTES
+    LEFT JOIN sucursal s ON s.ID_SUCURSAL = f.ID_SUCURSAL
     WHERE f.FECHA BETWEEN ? AND ?
     ORDER BY f.FECHA DESC
   `;
@@ -118,15 +118,15 @@ async function getRecentMovementsMonth(sucursal) {
 	const { start, end } = monthRange();
 	let sql = `
     SELECT mi.id,
-           DATE_FORMAT(mi.fecha,'%Y-%m-%d') AS fecha,
-           DATE_FORMAT(mi.fecha,'%H:%i') AS hora,
-           mi.tipo_movimiento AS tipo,
-           s.NOMBRE_SUCURSAL AS sucursal,
-           p.PRODUCT_NAME AS producto,
-           mi.cantidad
-    FROM MOVIMIENTOS_INVENTARIO mi
-    LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = mi.producto_id
-    LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = mi.sucursal_id
+	    DATE_FORMAT(mi.fecha,'%Y-%m-%d') AS fecha,
+	    DATE_FORMAT(mi.fecha,'%H:%i') AS hora,
+	    mi.tipo_movimiento AS tipo,
+	    s.NOMBRE_SUCURSAL AS sucursal,
+	    p.PRODUCT_NAME AS producto,
+	    mi.cantidad
+    FROM movimientos_inventario mi
+    LEFT JOIN productos p ON p.ID_PRODUCT = mi.producto_id
+    LEFT JOIN sucursal s ON s.ID_SUCURSAL = mi.sucursal_id
     WHERE mi.fecha BETWEEN ? AND ?
     ORDER BY mi.fecha DESC
   `;
@@ -150,12 +150,12 @@ async function getRecentMovementsMonth(sucursal) {
 async function getStockTotals(sucursal) {
 	if (sucursal && sucursal !== 'Todas') {
 		const [[{ stock }]] = await pool.query(
-			'SELECT IFNULL(SUM(CANTIDAD),0) AS stock FROM STOCK_SUCURSAL WHERE ID_SUCURSAL = ?',
+			'SELECT IFNULL(SUM(CANTIDAD),0) AS stock FROM stock_sucursal WHERE ID_SUCURSAL = ?',
 			[sucursal]
 		);
 		return Number(stock);
 	}
-	const [[{ stock }]] = await pool.query('SELECT IFNULL(SUM(CANTIDAD),0) AS stock FROM STOCK_SUCURSAL');
+	const [[{ stock }]] = await pool.query('SELECT IFNULL(SUM(CANTIDAD),0) AS stock FROM stock_sucursal');
 	return Number(stock);
 }
 

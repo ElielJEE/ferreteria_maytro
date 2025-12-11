@@ -9,11 +9,11 @@ async function getOrCreateCliente(conn, nombre, telefono) {
   const clauses = []; const values = [];
   if (name) { clauses.push('NOMBRE_CLIENTE = ?'); values.push(name); }
   if (tel) { clauses.push('TELEFONO_CLIENTE = ?'); values.push(tel); }
-  const [rows] = await conn.query(`SELECT ID_CLIENTES FROM CLIENTES WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
+  const [rows] = await conn.query(`SELECT ID_CLIENTES FROM clientes WHERE ${clauses.join(' OR ')} LIMIT 1`, values);
   if (rows?.length) return rows[0].ID_CLIENTES;
   if (!name) return null;
   const [ins] = await conn.query(
-    `INSERT INTO CLIENTES (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`,
+    `INSERT INTO clientes (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, '', ?)`,
     [name, tel || null]
   );
   return ins.insertId || null;
@@ -35,7 +35,7 @@ function parseAuth(req) {
 
 async function ensureCreditPaymentsTable(conn) {
   try {
-    await conn.query(`CREATE TABLE IF NOT EXISTS CREDITOS_PAGOS (
+    await conn.query(`CREATE TABLE IF NOT EXISTS creditos_pagos (
       ID INT NOT NULL AUTO_INCREMENT,
       ID_CREDITO VARCHAR(64) NOT NULL,
       ID_FACTURA INT NULL,
@@ -53,18 +53,18 @@ async function ensureCreditPaymentsTable(conn) {
       INDEX IDX_FACTURA (ID_FACTURA)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     try {
-      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CREDITOS_PAGOS'`);
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'creditos_pagos'`);
       const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
       if (!colset.has('USUARIO_NOMBRE')) {
-        await conn.query(`ALTER TABLE CREDITOS_PAGOS ADD COLUMN USUARIO_NOMBRE VARCHAR(255) NULL AFTER USUARIO_ID`);
+        await conn.query(`ALTER TABLE creditos_pagos ADD COLUMN USUARIO_NOMBRE VARCHAR(255) NULL AFTER USUARIO_ID`);
       }
     } catch (chkErr) {
       if (!/duplicate|exists/i.test(chkErr?.message || '')) {
-        console.warn('No se pudo ajustar columnas de CREDITOS_PAGOS:', chkErr?.message || chkErr);
+        console.warn('No se pudo ajustar columnas de creditos_pagos:', chkErr?.message || chkErr);
       }
     }
   } catch (err) {
-    console.error('No se pudo asegurar la tabla CREDITOS_PAGOS:', err?.message || err);
+    console.error('No se pudo asegurar la tabla creditos_pagos:', err?.message || err);
   }
 }
 
@@ -90,11 +90,11 @@ export async function createCredit(req) {
 
     try {
       if (!sucursalId && usuarioId) {
-        const [uRows] = await conn.query('SELECT ID_SUCURSAL FROM USUARIOS WHERE ID = ? LIMIT 1', [usuarioId]);
+        const [uRows] = await conn.query('SELECT ID_SUCURSAL FROM usuarios WHERE ID = ? LIMIT 1', [usuarioId]);
         if (uRows && uRows[0] && uRows[0].ID_SUCURSAL) sucursalId = uRows[0].ID_SUCURSAL;
       }
       if (!sucursalId && body.sucursal) {
-        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM SUCURSAL WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
+        const [suc] = await conn.query('SELECT ID_SUCURSAL FROM sucursal WHERE NOMBRE_SUCURSAL = ? LIMIT 1', [body.sucursal]);
         if (suc && suc[0] && suc[0].ID_SUCURSAL) sucursalId = suc[0].ID_SUCURSAL;
       }
     } catch {}
@@ -127,13 +127,13 @@ export async function createCredit(req) {
     let numeroFactura = `FAC-${y}${mo}${da}-${hh}${mi}${ss}`;
     let intentos = 0;
     while (intentos < 3) {
-      const [dup] = await conn.query('SELECT 1 FROM FACTURA WHERE NUMERO_FACTURA = ? LIMIT 1', [numeroFactura]);
+      const [dup] = await conn.query('SELECT 1 FROM factura WHERE NUMERO_FACTURA = ? LIMIT 1', [numeroFactura]);
       if (!dup?.length) break;
       intentos++;
       numeroFactura = `FAC-${y}${mo}${da}-${hh}${mi}${ss}-${intentos}`;
     }
 
-    const facturaSql = 'INSERT INTO FACTURA (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, SERVICIO_TRANSPORTE, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)';
+    const facturaSql = 'INSERT INTO factura (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, SERVICIO_TRANSPORTE, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)';
     const facturaParams = [numeroFactura, fecha, subtotalOk, descuentoOk, transporteOk, totalOk, clienteId || null, sucursalId || null];
     const [factRes] = await conn.query(facturaSql, facturaParams);
     const facturaId = factRes.insertId;
@@ -141,7 +141,7 @@ export async function createCredit(req) {
     // Detectar columnas de unidad en FACTURA_DETALLES para compatibilidad
     let hasUnidadCols = { UNIDAD_ID: false, CANTIDAD_POR_UNIDAD: false, UNIDAD_NOMBRE: false };
     try {
-      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'FACTURA_DETALLES'`);
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura_detalles'`);
       const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
       hasUnidadCols.UNIDAD_ID = colset.has('UNIDAD_ID');
       hasUnidadCols.CANTIDAD_POR_UNIDAD = colset.has('CANTIDAD_POR_UNIDAD');
@@ -159,7 +159,7 @@ export async function createCredit(req) {
 
       if (hasUnidadCols.UNIDAD_ID || hasUnidadCols.CANTIDAD_POR_UNIDAD || hasUnidadCols.UNIDAD_NOMBRE) {
         await conn.query(
-          'INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
+          'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
             + (hasUnidadCols.UNIDAD_ID ? ', UNIDAD_ID' : '')
             + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : '')
             + (hasUnidadCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : '')
@@ -174,17 +174,17 @@ export async function createCredit(req) {
             .concat(hasUnidadCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
         );
       } else {
-        await conn.query('INSERT INTO FACTURA_DETALLES (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)', [facturaId, idProd, qty, precio, sub, usuarioId || null]);
+        await conn.query('INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)', [facturaId, idProd, qty, precio, sub, usuarioId || null]);
       }
 
       try {
-        const [stockRows] = await conn.query('SELECT CANTIDAD FROM STOCK_SUCURSAL WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProd, sucursalId]);
+        const [stockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProd, sucursalId]);
         const totalARestar = qty * cantidadPorUnidad;
         const stockAnterior = stockRows.length ? Number(stockRows[0].CANTIDAD || 0) : 0;
         const stockNuevo = stockAnterior - totalARestar;
-        await conn.query('UPDATE STOCK_SUCURSAL SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProd, sucursalId]);
+        await conn.query('UPDATE stock_sucursal SET CANTIDAD = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?', [stockNuevo, idProd, sucursalId]);
         try {
-          await conn.query(`INSERT INTO MOVIMIENTOS_INVENTARIO (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
+          await conn.query(`INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
             VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`, [idProd, sucursalId, usuarioId || null, totalARestar, 'Credito', facturaId, stockAnterior, stockNuevo]);
         } catch {};
       } catch (e) { }
@@ -193,7 +193,7 @@ export async function createCredit(req) {
     // Build an ID for the credit that fits the DB column length (some schemas use varchar(10)).
     let idCredito;
     try {
-      const [colInfo] = await conn.query(`SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'ID_USUARIOSCRED' LIMIT 1`);
+      const [colInfo] = await conn.query(`SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'ID_USUARIOSCRED' LIMIT 1`);
       const maxLen = colInfo && colInfo[0] && colInfo[0].CHARACTER_MAXIMUM_LENGTH ? Number(colInfo[0].CHARACTER_MAXIMUM_LENGTH) : null;
       const rand = Math.floor(Math.random() * 9000) + 1000;
       const fullId = `CRE-${y}${mo}${da}-${hh}${mi}${ss}-${rand}`;
@@ -215,7 +215,7 @@ export async function createCredit(req) {
       idCredito = `CRE-${y}${mo}${da}-${hh}${mi}${ss}-${rand}`;
     }
     try {
-      const [ucCols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS'`);
+      const [ucCols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos'`);
       const colset = new Set((ucCols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
 
       const cols = [];
@@ -237,7 +237,7 @@ export async function createCredit(req) {
         console.error('USUARIOS_CREDITOS table has no known columns to insert into. Skipping insert.');
       } else {
         const placeholders = cols.map(() => '?').join(', ');
-        const sql = `INSERT INTO USUARIOS_CREDITOS (${cols.join(', ')}) VALUES (${placeholders})`;
+        const sql = `INSERT INTO usuarios_creditos (${cols.join(', ')}) VALUES (${placeholders})`;
         await conn.query(sql, params);
       }
     } catch (e) {
@@ -272,11 +272,11 @@ export async function getCredits() {
         COALESCE(c.TELEFONO_CLIENTE, '') AS telefono,
         COALESCE(u.NOMBRE, '') AS hecho_por,
         COALESCE(uc.ESTADO, 'Activa') AS estado
-      FROM USUARIOS_CREDITOS uc
-      LEFT JOIN FACTURA f ON f.ID_FACTURA = uc.ID_FACTURA
-      LEFT JOIN CLIENTES c ON c.ID_CLIENTES = f.ID_CLIENTES
-      LEFT JOIN SUCURSAL s ON s.ID_SUCURSAL = COALESCE(uc.ID_SUCURSAL, f.ID_SUCURSAL)
-      LEFT JOIN USUARIOS u ON u.ID = uc.ID_USUARIO
+      FROM usuarios_creditos uc
+      LEFT JOIN factura f ON f.ID_FACTURA = uc.ID_FACTURA
+      LEFT JOIN clientes c ON c.ID_CLIENTES = f.ID_CLIENTES
+      LEFT JOIN sucursal s ON s.ID_SUCURSAL = COALESCE(uc.ID_SUCURSAL, f.ID_SUCURSAL)
+      LEFT JOIN usuarios u ON u.ID = uc.ID_USUARIO
       ORDER BY COALESCE(f.FECHA, uc.FECHA_CREACION) DESC
       LIMIT 1000
     `);
@@ -289,8 +289,8 @@ export async function getCredits() {
         SELECT fd.ID_FACTURA AS factura_id, fd.ID_DETALLES_FACTURA, fd.ID_PRODUCT, fd.AMOUNT AS cantidad, fd.PRECIO_UNIT AS precio_unit, fd.SUB_TOTAL AS subtotal,
                fd.UNIDAD_ID AS unidad_id, fd.CANTIDAD_POR_UNIDAD AS cantidad_por_unidad, fd.UNIDAD_NOMBRE AS unidad_nombre,
                p.PRODUCT_NAME AS producto_nombre, p.CODIGO_PRODUCTO AS producto_codigo
-        FROM FACTURA_DETALLES fd
-        LEFT JOIN PRODUCTOS p ON p.ID_PRODUCT = fd.ID_PRODUCT
+        FROM factura_detalles fd
+        LEFT JOIN productos p ON p.ID_PRODUCT = fd.ID_PRODUCT
         WHERE fd.ID_FACTURA IN (${placeholders})
       `;
       const [detallesRows] = await pool.query(detalleSql, facturaIds);
@@ -325,8 +325,8 @@ export async function getCredits() {
         const [pagosRows] = await pool.query(
               `SELECT cp.ID, cp.ID_CREDITO, cp.ID_FACTURA, cp.MONTO_CORDOBAS, cp.MONTO_DOLARES, cp.MONTO_APLICADO, cp.TASA_CAMBIO,
                 cp.METODO, cp.USUARIO_ID, cp.USUARIO_NOMBRE, cp.FECHA_PAGO, u2.NOMBRE AS usuario_nombre, u2.NOMBRE_USUARIO AS usuario_usuario
-               FROM CREDITOS_PAGOS cp
-               LEFT JOIN USUARIOS u2 ON u2.ID = cp.USUARIO_ID
+               FROM creditos_pagos cp
+               LEFT JOIN usuarios u2 ON u2.ID = cp.USUARIO_ID
            WHERE cp.ID_CREDITO IN (${placeholders})
            ORDER BY cp.FECHA_PAGO ASC, cp.ID ASC`,
           creditIds
@@ -370,7 +370,7 @@ export async function updateCredit(payload) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [ucRows] = await conn.query('SELECT ID_FACTURA, ID_CLIENTE FROM USUARIOS_CREDITOS WHERE ID_USUARIOSCRED = ? LIMIT 1', [id]);
+    const [ucRows] = await conn.query('SELECT ID_FACTURA, ID_CLIENTE FROM usuarios_creditos WHERE ID_USUARIOSCRED = ? LIMIT 1', [id]);
     if (!ucRows || !ucRows[0]) {
       await conn.rollback();
       throw new Error('Credito no encontrado');
@@ -378,19 +378,19 @@ export async function updateCredit(payload) {
     const uc = ucRows[0];
     let clienteId = uc.ID_CLIENTE || null;
     if (!clienteId && uc.ID_FACTURA) {
-      const [fRows] = await conn.query('SELECT ID_CLIENTES FROM FACTURA WHERE ID_FACTURA = ? LIMIT 1', [uc.ID_FACTURA]);
+      const [fRows] = await conn.query('SELECT ID_CLIENTES FROM factura WHERE ID_FACTURA = ? LIMIT 1', [uc.ID_FACTURA]);
       if (fRows && fRows[0] && fRows[0].ID_CLIENTES) clienteId = fRows[0].ID_CLIENTES;
     }
     if (clienteNombre) {
       if (clienteId) {
-        await conn.query('UPDATE CLIENTES SET NOMBRE_CLIENTE = ?, TELEFONO_CLIENTE = ? WHERE ID_CLIENTES = ?', [clienteNombre, clienteTelefono || null, clienteId]);
+        await conn.query('UPDATE clientes SET NOMBRE_CLIENTE = ?, TELEFONO_CLIENTE = ? WHERE ID_CLIENTES = ?', [clienteNombre, clienteTelefono || null, clienteId]);
       } else {
-        const [ins] = await conn.query('INSERT INTO CLIENTES (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, "", ?)', [clienteNombre, clienteTelefono || null]);
+        const [ins] = await conn.query('INSERT INTO clientes (NOMBRE_CLIENTE, DIRECCION_CLIENTE, TELEFONO_CLIENTE) VALUES (?, "", ?)', [clienteNombre, clienteTelefono || null]);
         clienteId = ins.insertId;
         if (uc.ID_FACTURA) {
-          try { await conn.query('UPDATE FACTURA SET ID_CLIENTES = ? WHERE ID_FACTURA = ?', [clienteId, uc.ID_FACTURA]); } catch {}
+          try { await conn.query('UPDATE factura SET ID_CLIENTES = ? WHERE ID_FACTURA = ?', [clienteId, uc.ID_FACTURA]); } catch {}
         }
-        try { await conn.query('UPDATE USUARIOS_CREDITOS SET ID_CLIENTE = ? WHERE ID_USUARIOSCRED = ?', [clienteId, id]); } catch {}
+        try { await conn.query('UPDATE usuarios_creditos SET ID_CLIENTE = ? WHERE ID_USUARIOSCRED = ?', [clienteId, id]); } catch {}
       }
     }
     await conn.commit();
@@ -411,7 +411,7 @@ export async function payCredit(payload) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [ucRows] = await conn.query('SELECT ID_FACTURA, DEUDA_ACTUAL, MONTO_PAGO FROM USUARIOS_CREDITOS WHERE ID_USUARIOSCRED = ? LIMIT 1', [id]);
+    const [ucRows] = await conn.query('SELECT ID_FACTURA, DEUDA_ACTUAL, MONTO_PAGO FROM usuarios_creditos WHERE ID_USUARIOSCRED = ? LIMIT 1', [id]);
     if (!ucRows || !ucRows[0]) {
       await conn.rollback();
       throw new Error('Credito no encontrado');
@@ -422,7 +422,7 @@ export async function payCredit(payload) {
     let tasa = Number(tasaCambio || 0);
     if (!tasa || tasa <= 0) {
       try {
-        const [cfg] = await conn.query('SELECT TASA FROM CONFIG_TASA_CAMBIO WHERE ID = 1 LIMIT 1');
+        const [cfg] = await conn.query('SELECT TASA FROM config_tasa_cambio WHERE ID = 1 LIMIT 1');
         if (cfg && cfg[0] && cfg[0].TASA) tasa = Number(cfg[0].TASA);
       } catch {}
     }
@@ -450,7 +450,7 @@ export async function payCredit(payload) {
 
     if (facturaId) {
       try {
-        await conn.query('INSERT INTO FACTURA_PAGOS (ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, TASA_CAMBIO, METODO) VALUES (?, ?, ?, ?, ?)', [facturaId, recibidoCord, recibidoDol, tasa, metodo]);
+        await conn.query('INSERT INTO factura_pagos (ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, TASA_CAMBIO, METODO) VALUES (?, ?, ?, ?, ?)', [facturaId, recibidoCord, recibidoDol, tasa, metodo]);
       } catch (e) { /* ignore if table missing */ }
     }
 
@@ -458,21 +458,21 @@ export async function payCredit(payload) {
     let usuarioNombre = null;
     if (usuarioPagoId) {
       try {
-        const [uInfo] = await conn.query('SELECT COALESCE(NULLIF(NOMBRE, ""), NOMBRE_USUARIO) AS nombre FROM USUARIOS WHERE ID = ? LIMIT 1', [usuarioPagoId]);
+        const [uInfo] = await conn.query('SELECT COALESCE(NULLIF(NOMBRE, ""), NOMBRE_USUARIO) AS nombre FROM usuarios WHERE ID = ? LIMIT 1', [usuarioPagoId]);
         if (uInfo && uInfo[0] && uInfo[0].nombre) usuarioNombre = uInfo[0].nombre;
       } catch (e) { /* ignore lookup errors */ }
     }
     try {
       await conn.query(
-        'INSERT INTO CREDITOS_PAGOS (ID_CREDITO, ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, MONTO_APLICADO, TASA_CAMBIO, METODO, USUARIO_ID, USUARIO_NOMBRE) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO creditos_pagos (ID_CREDITO, ID_FACTURA, MONTO_CORDOBAS, MONTO_DOLARES, MONTO_APLICADO, TASA_CAMBIO, METODO, USUARIO_ID, USUARIO_NOMBRE) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [id, facturaId || null, recibidoCord, recibidoDol, montoPagarC, tasa, metodo || 'efectivo', usuarioPagoId, usuarioNombre]
       );
     } catch (err) {
-      console.error('Error registrando pago en CREDITOS_PAGOS:', err?.message || err);
+      console.error('Error registrando pago en creditos_pagos:', err?.message || err);
     }
 
     try {
-      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS'`);
+      const [cols] = await conn.query(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos'`);
       const colset = new Set((cols || []).map(r => String(r.COLUMN_NAME).toUpperCase()));
 
       let montoPagoPrev = 0;
@@ -492,7 +492,7 @@ export async function payCredit(payload) {
       }
       if (updates.length) {
         params.push(id);
-        await conn.query(`UPDATE USUARIOS_CREDITOS SET ${updates.join(', ')} WHERE ID_USUARIOSCRED = ?`, params);
+        await conn.query(`UPDATE usuarios_creditos SET ${updates.join(', ')} WHERE ID_USUARIOSCRED = ?`, params);
       }
     } catch (e) {
       console.error('Error actualizando USUARIOS_CREDITOS:', e?.message || e);
