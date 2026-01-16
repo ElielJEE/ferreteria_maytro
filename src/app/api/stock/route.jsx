@@ -295,7 +295,7 @@ async function getAlertas({ sucursal }) {
 
   const alerts = [];
   for (const r of rows) {
-    const stock = Number(r.STOCK_SUCURSAL || 0);
+    const stock = Number(r.stock_sucursal || 0);
     const min = r.MINIMO == null || r.MINIMO === '' ? null : Number(r.MINIMO);
     const max = r.MAXIMO == null || r.MAXIMO === '' ? null : Number(r.MAXIMO);
     let status = null;

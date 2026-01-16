@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { SalesService, CotizacionesService, CreditosService } from "@/services";
 import { Flavors } from "next/font/google";
@@ -23,21 +23,37 @@ async function urlToBase64(url) {
   });
 }
 
-
 export const imprimirVoucher = async (data) => {
-
   try {
     const qz = await import("qz-tray");
-    await qz.websocket.connect();
+    // Intenta conectar al WebSocket
+    try {
+      await qz.websocket.connect();
+    } catch {
+      console.warn("QZ Tray no está conectado. Voucher no se imprimirá.");
+      return; // Salir si no hay conexión
+    }
 
-    const printer = await qz.printers.find("POS-80C");
+    // Intenta encontrar la impresora
+    let printer;
+    try {
+      printer = await qz.printers.find("POS-80C");
+    } catch {
+      console.warn(
+        "La impresora POS-80C no está disponible. Voucher no se imprimirá."
+      );
+      await qz.websocket.disconnect().catch(() => {}); // desconectar si estaba parcialmente conectado
+      return;
+    }
     const config = qz.configs.create(printer, { copies: 2 });
 
     const now = new Date();
     const fecha = now.toLocaleDateString();
     const hora = now.toLocaleTimeString();
 
-    const { success, factura } = await SalesService.getSaleDetail(data.facturaId);
+    const { success, factura } = await SalesService.getSaleDetail(
+      data.facturaId
+    );
 
     console.log("Factura completa:", factura);
 
@@ -58,7 +74,6 @@ export const imprimirVoucher = async (data) => {
     const imageUrl = "public/images/logo_thermal_bw.png";
     const base64Image = await urlToBase64(imageUrl);
     console.log(base64Image);
-
 
     const contenido = [
       "\x1B\x40", // Reset impresora
@@ -102,14 +117,13 @@ export const imprimirVoucher = async (data) => {
 
       "\n\n\n\n",
 
-      "\x1D\x56\x00" // Corte
+      "\x1D\x56\x00", // Corte
     ];
 
     console.log(contenido);
 
     await qz.print(config, contenido);
     await qz.websocket.disconnect();
-
   } catch (err) {
     console.error("Error imprimiendo voucher:", err);
   }
@@ -117,77 +131,91 @@ export const imprimirVoucher = async (data) => {
 
 export const imprimirVoucherCotizacion = async (data) => {
   try {
-    const qz = await import('qz-tray');
+    const qz = await import("qz-tray");
     await qz.websocket.connect();
-    const printer = await qz.printers.find('POS-80C');
+    const printer = await qz.printers.find("POS-80C");
     const config = qz.configs.create(printer);
 
     const now = new Date();
     const fecha = now.toLocaleDateString();
     const hora = now.toLocaleTimeString();
 
-    const { success, cotizacion } = await CotizacionesService.getQuoteDetail(data.quoteId || data.id);
+    const { success, cotizacion } = await CotizacionesService.getQuoteDetail(
+      data.quoteId || data.id
+    );
     if (!success || !cotizacion) {
-      console.error('No se encontró la cotización para imprimir');
+      console.error("No se encontró la cotización para imprimir");
       return;
     }
 
-    const clienteNombre = cotizacion.cliente?.nombre || 'Consumidor Final';
-    const sucursalNombre = cotizacion.sucursal?.name || (cotizacion.sucursal?.label || 'Sucursal N/A');
-    const usuarioNombre = cotizacion.creadaPor || cotizacion.usuario?.nombre || 'Vendedor N/A';
+    const clienteNombre = cotizacion.cliente?.nombre || "Consumidor Final";
+    const sucursalNombre =
+      cotizacion.sucursal?.name || cotizacion.sucursal?.label || "Sucursal N/A";
+    const usuarioNombre =
+      cotizacion.creadaPor || cotizacion.usuario?.nombre || "Vendedor N/A";
 
-    let lineasProductos = '';
+    let lineasProductos = "";
     const items = cotizacion.items || cotizacion.products || [];
     for (const item of items) {
-      lineasProductos += `${item.productName || item.producto_nombre || item.producto || ''}\n`;
+      lineasProductos += `${
+        item.productName || item.producto_nombre || item.producto || ""
+      }\n`;
       const qty = item.cantidad ?? item.qty ?? item.quantity ?? 0;
-      const precio = Number(item.PRECIO ?? item.unitPrice ?? item.precio_unit ?? 0).toFixed(2);
+      const precio = Number(
+        item.PRECIO ?? item.unitPrice ?? item.precio_unit ?? 0
+      ).toFixed(2);
       const computedSub = Number(qty) * Number(precio);
-      const sub = Number(item.subtotal ?? item.SUB_TOTAL ?? computedSub).toFixed(2);
-      const unidad = item.unidad || item.unidad_nombre || '';
+      const sub = Number(
+        item.subtotal ?? item.SUB_TOTAL ?? computedSub
+      ).toFixed(2);
+      const unidad = item.unidad || item.unidad_nombre || "";
       lineasProductos += ` ${qty} ${unidad} x C$${precio}   ->   C$${sub}\n`;
     }
 
     const contenido = [
-      '\x1B\x40',
-      '\x1B\x61\x01',
-      'FERRETERIA El MAYTRO\n',
-      '\x1B\x61\x00',
+      "\x1B\x40",
+      "\x1B\x61\x01",
+      "FERRETERIA El MAYTRO\n",
+      "\x1B\x61\x00",
       `Sucursal: ${sucursalNombre}\n`,
       `Vendedor: ${usuarioNombre}\n`,
       `Cliente: ${clienteNombre}\n`,
-      '------------------------------------------\n',
-      `Cotizacion: ${cotizacion.id || cotizacion.numero || ''}\n`,
+      "------------------------------------------\n",
+      `Cotizacion: ${cotizacion.id || cotizacion.numero || ""}\n`,
       `Fecha: ${fecha}  ${hora}\n`,
-      `Valida hasta: ${cotizacion.fechaExp || cotizacion.fecha_vencimiento || ''}\n`,
-      '------------------------------------------\n',
-      'ARTiCULOS:\n',
+      `Valida hasta: ${
+        cotizacion.fechaExp || cotizacion.fecha_vencimiento || ""
+      }\n`,
+      "------------------------------------------\n",
+      "ARTiCULOS:\n",
       lineasProductos,
-      '------------------------------------------\n',
+      "------------------------------------------\n",
       `SUBTOTAL:  C$ ${cotizacion.subtotal ?? cotizacion.SUBTOTAL ?? 0}\n`,
       `DESCUENTO: C$ ${cotizacion.descuento ?? cotizacion.DESCUENTO ?? 0}\n`,
-      `TRANSPORTE: C$ ${cotizacion.transporte ?? cotizacion.SERVICIO_TRANSPORTE ?? 0}\n`,
+      `TRANSPORTE: C$ ${
+        cotizacion.transporte ?? cotizacion.SERVICIO_TRANSPORTE ?? 0
+      }\n`,
       `TOTAL:     C$ ${cotizacion.total ?? cotizacion.TOTAL ?? 0}\n`,
-      '------------------------------------------\n',
-      '\x1B\x61\x01',
-      'Gracias por consultar nuestras ofertas\n',
-      'Valido solo por el periodo indicado\n',
-      '\n\n\n\n',
-      '\x1D\x56\x00'
+      "------------------------------------------\n",
+      "\x1B\x61\x01",
+      "Gracias por consultar nuestras ofertas\n",
+      "Valido solo por el periodo indicado\n",
+      "\n\n\n\n",
+      "\x1D\x56\x00",
     ];
 
     await qz.print(config, contenido);
     await qz.websocket.disconnect();
   } catch (err) {
-    console.error('Error imprimiendo cotizacion:', err);
+    console.error("Error imprimiendo cotizacion:", err);
   }
-}
+};
 
 export const imprimirVoucherCredito = async (data) => {
   try {
-    const qz = await import('qz-tray');
+    const qz = await import("qz-tray");
     await qz.websocket.connect();
-    const printer = await qz.printers.find('POS-80C');
+    const printer = await qz.printers.find("POS-80C");
     const config = qz.configs.create(printer);
 
     const now = new Date();
@@ -195,57 +223,70 @@ export const imprimirVoucherCredito = async (data) => {
     const hora = now.toLocaleTimeString();
 
     const id = data.creditId || data.id;
-    const { success, credito, message } = CreditosService.getCreditDetail ? await CreditosService.getCreditDetail(id) : { success: false, message: 'No detail method' };
+    const { success, credito, message } = CreditosService.getCreditDetail
+      ? await CreditosService.getCreditDetail(id)
+      : { success: false, message: "No detail method" };
     if (!success || !credito) {
-      console.error('No se encontró el crédito para imprimir', message);
+      console.error("No se encontró el crédito para imprimir", message);
       return;
     }
 
-    const clienteNombre = (credito.cliente && (credito.cliente.nombre || credito.cliente)) || 'Consumidor Final';
-    const sucursalNombre = credito.sucursal?.label || credito.sucursal || 'Sucursal N/A';
-    const usuarioNombre = credito.hecho_por || credito.usuario || 'Vendedor N/A';
+    const clienteNombre =
+      (credito.cliente && (credito.cliente.nombre || credito.cliente)) ||
+      "Consumidor Final";
+    const sucursalNombre =
+      credito.sucursal?.label || credito.sucursal || "Sucursal N/A";
+    const usuarioNombre =
+      credito.hecho_por || credito.usuario || "Vendedor N/A";
 
-    let lineasProductos = '';
+    let lineasProductos = "";
     const items = credito.items || [];
     for (const item of items) {
-      lineasProductos += `${item.productName || item.producto_nombre || ''}\n`;
+      lineasProductos += `${item.productName || item.producto_nombre || ""}\n`;
       const qty = item.cantidad ?? item.qty ?? 0;
       const precio = Number(item.unitPrice ?? item.precio_unit ?? 0).toFixed(2);
       const sub = Number(item.subtotal ?? 0).toFixed(2);
-      const unidad = item.unidad || item.unidad_nombre || '';
+      const unidad = item.unidad || item.unidad_nombre || "";
       lineasProductos += ` ${qty} ${unidad} x C$${precio}   ->   C$${sub}\n`;
     }
 
     const contenido = [
-      '\x1B\x40',
-      '\x1B\x61\x01',
-      'FERRETERIA EL MAYTRO - CREDITO\n',
-      '\x1B\x61\x00',
+      "\x1B\x40",
+      "\x1B\x61\x01",
+      "FERRETERIA EL MAYTRO - CREDITO\n",
+      "\x1B\x61\x00",
       `Sucursal: ${sucursalNombre}\n`,
       `Vendedor: ${usuarioNombre}\n`,
       `Cliente: ${clienteNombre}\n`,
-      '------------------------------------------\n',
-      `Credito: ${credito.id || credito.numero || ''}\n`,
+      "------------------------------------------\n",
+      `Credito: ${credito.id || credito.numero || ""}\n`,
       `Fecha: ${fecha}  ${hora}\n`,
-      '------------------------------------------\n',
-      'ARTiCULOS:\n',
+      "------------------------------------------\n",
+      "ARTiCULOS:\n",
       lineasProductos,
-      '------------------------------------------\n',
+      "------------------------------------------\n",
       `TRANSPORTE: C$ ${credito.transporte}\n`,
-      '------------------------------------------\n',
-      `DEUDA INICIAL:  C$ ${credito.deuda_inicial ?? credito.deudaInicio ?? credito.DEUDA_INICIAL ?? 0}\n`,
-      `DEUDA ACTUAL:   C$ ${credito.deuda_actual ?? credito.deudaActual ?? credito.DEUDA_ACTUAL ?? 0}\n`,
-      '------------------------------------------\n',
-      '\x1B\x61\x01',
-      'Información de pago disponible en sistema\n',
-      '-----------------------------------------\n',
-      '\n\n\n\n\n',
-      '\x1D\x56\x00'
+      "------------------------------------------\n",
+      `DEUDA INICIAL:  C$ ${
+        credito.deuda_inicial ??
+        credito.deudaInicio ??
+        credito.DEUDA_INICIAL ??
+        0
+      }\n`,
+      `DEUDA ACTUAL:   C$ ${
+        credito.deuda_actual ?? credito.deudaActual ?? credito.DEUDA_ACTUAL ?? 0
+      }\n`,
+      "------------------------------------------\n",
+      "\x1B\x61\x01",
+      "Información de pago disponible en sistema\n",
+      "-----------------------------------------\n",
+      "\n\n\n\n\n",
+      "\x1D\x56\x00",
     ];
 
     await qz.print(config, contenido);
     await qz.websocket.disconnect();
   } catch (err) {
-    console.error('Error imprimiendo credito:', err);
+    console.error("Error imprimiendo credito:", err);
   }
-}
+};

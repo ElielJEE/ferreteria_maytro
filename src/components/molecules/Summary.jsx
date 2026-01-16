@@ -113,7 +113,7 @@ export default function Summary({ sucursalFilter }) {
 													{item.NOMBRE_SUCURSAL ? item.NOMBRE_SUCURSAL : 'Bodega'}
 												</span>
 											</td>
-											<td className='p-2 text-success bg-success/10 text-center'>{item.STOCK_SUCURSAL}</td>
+											<td className='p-2 text-success bg-success/10 text-center'>{item.stock_sucursal}</td>
 											<td className='p-2 text-primary bg-primary/10 text-center'>{item.STOCK_BODEGA}</td>
 											<td className='p-2 text-blue bg-blue/10 text-center'>{item.FISICO_TOTAL}</td>
 											<td className='p-2 text-danger bg-danger/10 text-center'>{item.DANADOS !== undefined && item.DANADOS !== null ? item.DANADOS : ''}</td>
