@@ -118,7 +118,7 @@ export default function PuntoVentaOrg() {
 					CODIGO_PRODUCTO: r.CODIGO_PRODUCTO,
 					PRODUCT_NAME: r.PRODUCT_NAME,
 					PRECIO: Number(r.PRECIO_UNIT || r.PRECIO || 0),
-					CANTIDAD: Number(r.STOCK_SUCURSAL || 0),
+					CANTIDAD: Number(r.stock_sucursal || 0),
 					ID_SUBCATEGORIAS: r.ID_SUBCATEGORIAS,
 					NOMBRE_SUBCATEGORIA: r.SUBCATEGORY,
 					NOMBRE_SUCURSAL: r.NOMBRE_SUCURSAL,
