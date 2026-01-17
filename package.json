@@ -16,7 +16,7 @@
     "escpos-usb": "^3.0.0-alpha.4",
     "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",
-    "jspdf": "^3.0.3",
+    "jspdf": "^4.0.0",
     "mysql2": "^3.14.4",
     "next": "^15.5.2",
     "qz-tray": "^2.2.5",
