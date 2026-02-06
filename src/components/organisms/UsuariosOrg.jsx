@@ -300,7 +300,7 @@ console.log(usuarios);
 												<td className='p-2 text-start'>{item.nombreUsuario}</td>
 												<td className='p-2 text-start'>{item.correo}</td>
 												<td className='p-2 text-start'>{item.rol}</td>
-												<td className='p-2 text-start'>{item.nombresucursal || 'N/A'}</td>
+												<td className='p-2 text-start'>{item.sucursal}</td>
 												<td className='p-2 text-start'>
 													<div className={`${item.estado === 'ACTIVO' ? 'bg-success' : 'bg-secondary'} text-light w-max px-3 text-center rounded-full`}>
 														{item.estado.toLowerCase()}
