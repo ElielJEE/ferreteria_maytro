@@ -300,7 +300,7 @@ console.log(usuarios);
 												<td className='p-2 text-start'>{item.nombreUsuario}</td>
 												<td className='p-2 text-start'>{item.correo}</td>
 												<td className='p-2 text-start'>{item.rol}</td>
-												<td className='p-2 text-start'>{item.sucursal}</td>
+												<td className='p-2 text-start'>{item.id_sucursal}</td>
 												<td className='p-2 text-start'>
 													<div className={`${item.estado === 'ACTIVO' ? 'bg-success' : 'bg-secondary'} text-light w-max px-3 text-center rounded-full`}>
 														{item.estado.toLowerCase()}
@@ -328,7 +328,7 @@ console.log(usuarios);
 						) : (
 							<div className='w-full overflow-x-auto mt-2 flex flex-col gap-2'>
 								{
-									filteredCustomers.map((item, index) => (
+									filteredUsuarios.map((item, index) => (
 										<Card
 											key={index}
 											productName={item.nombre}
