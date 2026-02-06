@@ -1,5 +1,3 @@
-CREATE DATABASE  IF NOT EXISTS `ferreteria_maytro` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
-USE `ferreteria_maytro`;
 -- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
 -- Host: localhost    Database: ferreteria_maytro
@@ -942,63 +940,63 @@ CREATE TABLE `usuarios_creditos` (
 -- extra metadata the application expects (credits metadata, unit columns, etc.).
 -- -----------------------------------------------------------------
 
--- Ensure columns and indices for `USUARIOS_CREDITOS`
-SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'FECHA_CREACION');
-SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD COLUMN `FECHA_CREACION` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP', 'SELECT 1');
+-- Ensure columns and indices for `usuarios_creditos`
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'FECHA_CREACION');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD COLUMN `FECHA_CREACION` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP', 'SELECT 1');
 PREPARE stmt_uc1 FROM @sql_stmt; EXECUTE stmt_uc1; DEALLOCATE PREPARE stmt_uc1;
 
-SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'DEUDA_INICIAL');
-SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD COLUMN `DEUDA_INICIAL` decimal(12,2) DEFAULT NULL', 'SELECT 1');
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'DEUDA_INICIAL');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD COLUMN `DEUDA_INICIAL` decimal(12,2) DEFAULT NULL', 'SELECT 1');
 PREPARE stmt_uc2 FROM @sql_stmt; EXECUTE stmt_uc2; DEALLOCATE PREPARE stmt_uc2;
 
-SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'DEUDA_ACTUAL');
-SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD COLUMN `DEUDA_ACTUAL` decimal(12,2) DEFAULT NULL', 'SELECT 1');
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'DEUDA_ACTUAL');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD COLUMN `DEUDA_ACTUAL` decimal(12,2) DEFAULT NULL', 'SELECT 1');
 PREPARE stmt_uc3 FROM @sql_stmt; EXECUTE stmt_uc3; DEALLOCATE PREPARE stmt_uc3;
 
-SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'ID_USUARIO');
-SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD COLUMN `ID_USUARIO` int DEFAULT NULL', 'SELECT 1');
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'ID_USUARIO');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD COLUMN `ID_USUARIO` int DEFAULT NULL', 'SELECT 1');
 PREPARE stmt_uc4 FROM @sql_stmt; EXECUTE stmt_uc4; DEALLOCATE PREPARE stmt_uc4;
 
-SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'ESTADO');
-SET @sql_stmt := IF(@col_exists = 0, "ALTER TABLE `USUARIOS_CREDITOS` ADD COLUMN `ESTADO` varchar(20) DEFAULT 'activa'", 'SELECT 1');
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'ESTADO');
+SET @sql_stmt := IF(@col_exists = 0, "ALTER TABLE `usuarios_creditos` ADD COLUMN `ESTADO` varchar(20) DEFAULT 'activa'", 'SELECT 1');
 PREPARE stmt_uc5 FROM @sql_stmt; EXECUTE stmt_uc5; DEALLOCATE PREPARE stmt_uc5;
 
-SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'NUMERO_FACTURA');
-SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD COLUMN `NUMERO_FACTURA` varchar(50) DEFAULT NULL', 'SELECT 1');
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'NUMERO_FACTURA');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD COLUMN `NUMERO_FACTURA` varchar(50) DEFAULT NULL', 'SELECT 1');
 PREPARE stmt_uc6 FROM @sql_stmt; EXECUTE stmt_uc6; DEALLOCATE PREPARE stmt_uc6;
 
-SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'ID_SUCURSAL');
-SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD COLUMN `ID_SUCURSAL` varchar(10) DEFAULT NULL', 'SELECT 1');
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'ID_SUCURSAL');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD COLUMN `ID_SUCURSAL` varchar(10) DEFAULT NULL', 'SELECT 1');
 PREPARE stmt_uc7 FROM @sql_stmt; EXECUTE stmt_uc7; DEALLOCATE PREPARE stmt_uc7;
 
-SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND COLUMN_NAME = 'ID_CLIENTE');
-SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD COLUMN `ID_CLIENTE` int DEFAULT NULL', 'SELECT 1');
+SET @col_exists := (SELECT COUNT(1) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND COLUMN_NAME = 'ID_CLIENTE');
+SET @sql_stmt := IF(@col_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD COLUMN `ID_CLIENTE` int DEFAULT NULL', 'SELECT 1');
 PREPARE stmt_uc8 FROM @sql_stmt; EXECUTE stmt_uc8; DEALLOCATE PREPARE stmt_uc8;
 
 -- Create indices if not exists
-SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND INDEX_NAME = 'idx_usucred_usuario');
-SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_usucred_usuario ON USUARIOS_CREDITOS (ID_USUARIO)', 'SELECT 1');
+SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND INDEX_NAME = 'idx_usucred_usuario');
+SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_usucred_usuario ON `usuarios_creditos` (ID_USUARIO)', 'SELECT 1');
 PREPARE stmt_ui1 FROM @sql_stmt; EXECUTE stmt_ui1; DEALLOCATE PREPARE stmt_ui1;
 
-SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND INDEX_NAME = 'idx_usucred_sucursal');
-SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_usucred_sucursal ON USUARIOS_CREDITOS (ID_SUCURSAL)', 'SELECT 1');
+SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND INDEX_NAME = 'idx_usucred_sucursal');
+SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_usucred_sucursal ON `usuarios_creditos` (ID_SUCURSAL)', 'SELECT 1');
 PREPARE stmt_ui2 FROM @sql_stmt; EXECUTE stmt_ui2; DEALLOCATE PREPARE stmt_ui2;
 
-SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND INDEX_NAME = 'idx_usucred_cliente');
-SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_usucred_cliente ON USUARIOS_CREDITOS (ID_CLIENTE)', 'SELECT 1');
+SET @idx_exists := (SELECT COUNT(1) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND INDEX_NAME = 'idx_usucred_cliente');
+SET @sql_stmt := IF(@idx_exists = 0, 'CREATE INDEX idx_usucred_cliente ON `usuarios_creditos` (ID_CLIENTE)', 'SELECT 1');
 PREPARE stmt_ui3 FROM @sql_stmt; EXECUTE stmt_ui3; DEALLOCATE PREPARE stmt_ui3;
 
 -- Add FK constraints for usuarios_creditos if missing
-SET @fk_exists := (SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND CONSTRAINT_NAME = 'fk_usucred_usuario');
-SET @sql_stmt := IF(@fk_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD CONSTRAINT fk_usucred_usuario FOREIGN KEY (ID_USUARIO) REFERENCES usuarios(ID) ON DELETE SET NULL ON UPDATE CASCADE', 'SELECT 1');
+SET @fk_exists := (SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND CONSTRAINT_NAME = 'fk_usucred_usuario');
+SET @sql_stmt := IF(@fk_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD CONSTRAINT fk_usucred_usuario FOREIGN KEY (ID_USUARIO) REFERENCES usuarios(ID) ON DELETE SET NULL ON UPDATE CASCADE', 'SELECT 1');
 PREPARE stmt_ufk1 FROM @sql_stmt; EXECUTE stmt_ufk1; DEALLOCATE PREPARE stmt_ufk1;
 
-SET @fk_exists := (SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND CONSTRAINT_NAME = 'fk_usucred_sucursal');
-SET @sql_stmt := IF(@fk_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD CONSTRAINT fk_usucred_sucursal FOREIGN KEY (ID_SUCURSAL) REFERENCES sucursal(ID_SUCURSAL) ON DELETE SET NULL ON UPDATE CASCADE', 'SELECT 1');
+SET @fk_exists := (SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND CONSTRAINT_NAME = 'fk_usucred_sucursal');
+SET @sql_stmt := IF(@fk_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD CONSTRAINT fk_usucred_sucursal FOREIGN KEY (ID_SUCURSAL) REFERENCES sucursal(ID_SUCURSAL) ON DELETE SET NULL ON UPDATE CASCADE', 'SELECT 1');
 PREPARE stmt_ufk2 FROM @sql_stmt; EXECUTE stmt_ufk2; DEALLOCATE PREPARE stmt_ufk2;
 
-SET @fk_exists := (SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIOS_CREDITOS' AND CONSTRAINT_NAME = 'fk_usucred_cliente');
-SET @sql_stmt := IF(@fk_exists = 0, 'ALTER TABLE `USUARIOS_CREDITOS` ADD CONSTRAINT fk_usucred_cliente FOREIGN KEY (ID_CLIENTE) REFERENCES clientes(ID_CLIENTES) ON DELETE SET NULL ON UPDATE CASCADE', 'SELECT 1');
+SET @fk_exists := (SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios_creditos' AND CONSTRAINT_NAME = 'fk_usucred_cliente');
+SET @sql_stmt := IF(@fk_exists = 0, 'ALTER TABLE `usuarios_creditos` ADD CONSTRAINT fk_usucred_cliente FOREIGN KEY (ID_CLIENTE) REFERENCES clientes(ID_CLIENTES) ON DELETE SET NULL ON UPDATE CASCADE', 'SELECT 1');
 PREPARE stmt_ufk3 FROM @sql_stmt; EXECUTE stmt_ufk3; DEALLOCATE PREPARE stmt_ufk3;
 
 -- Ensure unit columns exist in COTIZACION_DETALLES and FACTURA_DETALLES
