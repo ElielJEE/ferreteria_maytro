@@ -17,3 +17,4 @@ export { default as CreditosOrg } from './CreditosOrg';
 export { default as DescuentosOrg } from './DescuentosOrg';
 export { default as UsuariosOrg } from './UsuariosOrg';
 export { default as RolesOrg } from './RolesOrg';
+export { default as FacturasOrg } from './FacturasOrg';

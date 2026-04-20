@@ -19,3 +19,5 @@ export { default as CreditosEdit } from './CreditosEdit';
 export { default as DescuentoCard } from './DescuentoCard';
 export { default as CreditosPayment } from './CreditosPayment';
 export { default as PaymentHistory } from './PaymentHistory';
+export { default as FacturaView } from './FacturaView';
+export { default as FacturaEdit } from './FacturaEdit';

@@ -1,6 +1,7 @@
 "use client";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button, InfoCard, ModalContainer, SwitchButton } from "../atoms";
+import { Card, FacturaEdit, FacturaView, Input, QueoteView, QuoteEdit } from "../molecules";
 import {
   FiEdit,
   FiEye,
@@ -9,73 +10,104 @@ import {
   FiSearch,
   FiUser,
 } from "react-icons/fi";
-import { Card, Input, QueoteView, QuoteEdit } from "../molecules";
-import { useActive, useIsMobile } from "@/hooks";
 import { BsBuilding } from "react-icons/bs";
-import { CotizacionesService, SalesService } from "@/services";
+import { useActive, useIsMobile } from "@/hooks";
 
-export default function QuotationsOrg() {
-  const [mostrarExpirados, setMostrarExpirados] = useState(false);
-  const isMobile = useIsMobile({ breakpoint: 1024 });
-  const [mode, setMode] = useState("ver");
-  const { isActiveModal, setIsActiveModal } = useActive();
-  const [selectedQuote, setSelectedQuote] = useState(null);
-  const [quotes, setQuotes] = useState([]);
+export default function FacturasOrg() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const isMobile = useIsMobile({ breakpoint: 1024 });
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const { isActiveModal, setIsActiveModal } = useActive();
+  const [mostrarCanceladas, setMostrarCanceladas] = useState(false);
+  const [mode, setMode] = useState("");
+  const [selectedFactura, setSelectedFactura] = useState(null);
+
+  const toggleModalMode = (mode, factura) => {
+    setMode(mode);
+    setSelectedFactura(factura);
+    setIsActiveModal(true);
+  };
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const res = await CotizacionesService.getQuotes();
-      if (!res.success) {
-        setError(res.message || "Error cargando cotizaciones");
-      } else {
-        setQuotes(res.cotizaciones || []);
-      }
+
       setLoading(false);
     };
     load();
   }, []);
 
-  // Parse fechaExp as a LOCAL calendar date to avoid TZ shifts
-  const parseLocalDate = (str) => {
-    if (!str || typeof str !== "string") return null;
-    // yyyy-MM-dd (preferred)
-    const ymd = /^\d{4}-\d{2}-\d{2}$/;
-    if (ymd.test(str)) {
-      const [y, m, d] = str.split("-").map(Number);
-      return new Date(y, m - 1, d);
-    }
-    // dd/MM/yyyy (legacy)
-    const dmy = /^\d{2}\/\d{2}\/\d{4}$/;
-    if (dmy.test(str)) {
-      const [d, m, y] = str.split("/").map(Number);
-      return new Date(y, m - 1, d);
-    }
-    return null;
-  };
-
-  const isExpired = (q) => {
-    try {
-      if (!q) return false;
-      if ((q.estado || "").toLowerCase() === "expirada") return true;
-      const exp = parseLocalDate(q.fechaExp);
-      if (!exp) return false;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      exp.setHours(0, 0, 0, 0);
-      // Inclusive: el mismo día de vencimiento ya se considera expirado
-      return exp <= today;
-    } catch {
-      return false;
-    }
-  };
-
   const filtered = useMemo(() => {
-    let list = quotes;
+    let list = [
+      {
+        id: "VEN-001",
+        fecha: "2024-06-01",
+        cliente: "Juan Perez",
+        telefono: "555-1234",
+        items: 3,
+        total: 1500,
+        fechaExp: "2024-06-15",
+        estado: "activa",
+        creadaPor: "Admin",
+        sucursal: { name: "Sucursal Central" },
+        subtotal: 1200,
+        descuento: 100,
+        transporte: 50,
+        products: [
+          {
+            id: "PROD-001",
+            codigo: "PROD-001",
+            nombre: "Producto A",
+            unidadMedida: "Unidad",
+            cantidad: 2,
+            precio: 500,
+          },
+          {
+            id: "PROD-002",
+            codigo: "PROD-002",
+            nombre: "Producto B",
+            unidadMedida: "Caja",
+            cantidad: 1,
+            precio: 200,
+          },
+        ],
+      },
+      {
+        id: "VEN-001",
+        fecha: "2024-06-01",
+        cliente: "Juan Perez",
+        telefono: "555-1234",
+        items: 3,
+        total: 1500,
+        fechaExp: "2024-06-15",
+        estado: "cancelada",
+        creadaPor: "Admin",
+        sucursal: { name: "Sucursal Central" },
+        subtotal: 1200,
+        descuento: 100,
+        transporte: 50,
+        products: [
+          {
+            id: "PROD-001",
+            codigo: "PROD-001",
+            nombre: "Producto A",
+            unidadMedida: "Unidad",
+            cantidad: 2,
+            precio: 500,
+          },
+          {
+            id: "PROD-002",
+            codigo: "PROD-002",
+            nombre: "Producto B",
+            unidadMedida: "Caja",
+            cantidad: 1,
+            precio: 200,
+          },
+        ],
+      },
+    ];
     if (search.trim()) {
       const term = search.toLowerCase();
       list = list.filter(
@@ -89,66 +121,18 @@ export default function QuotationsOrg() {
     if (filterDate) {
       list = list.filter((q) => String(q.fecha) === filterDate);
     }
-    if (!mostrarExpirados) {
-      list = list.filter((q) => q.estado !== "expirada");
-    }
     return list;
-  }, [quotes, search, filterDate, mostrarExpirados]);
+  }, [search, filterDate]);
 
-  const refreshQuotes = async () => {
-    const res = await CotizacionesService.getQuotes();
-    if (res.success) setQuotes(res.cotizaciones || []);
+  const handleFacturaProcess = (factura) => {
+    console.log("Procesar factura", factura);
+    // Aquí puedes agregar la lógica para procesar la factura
   };
 
-  const toggleModalMode = async (type, itemData) => {
-    setMode(type);
-    if (type === "ver" || type === "edit") {
-      // Si no tenemos productos en la lista, traer detalle
-      let quoteData = itemData;
-      const detail = await CotizacionesService.getQuoteDetail(itemData.id);
-      if (detail.success && detail.cotizacion) {
-        quoteData = { ...itemData, ...detail.cotizacion };
-      }
-      setSelectedQuote(quoteData);
-      setIsActiveModal(true);
-    }
-  };
-
-  console.log(quotes);
-
-  const handleProcessQuote = async () => {
-    if (!selectedQuote?.id) return;
-    try {
-      // Llamar endpoint de procesamiento
-      const res = await CotizacionesService.processQuote(selectedQuote.id);
-      if (!res.success) {
-        try {
-          alert(res.message || "No se pudo procesar la cotización");
-        } catch {}
-        return;
-      }
-      // Marcar estado local
-      setSelectedQuote((prev) =>
-        prev ? { ...prev, estado: "procesada" } : prev,
-      );
-      await refreshQuotes();
-      // Opcional: obtener detalle de factura creada (no mostrar alert en UI)
-      if (res.facturaId) {
-        try {
-          await SalesService.getSaleDetail(res.facturaId);
-        } catch {
-          /* ignore */
-        }
-      }
-    } catch (e) {
-      console.error("Error al procesar cotización:", e);
-    }
-  };
-
-  const handleQuoteSaved = async () => {
-    setIsActiveModal(false);
-    await refreshQuotes();
-  };
+	const handleFacturaSaved = (factura) => {
+		console.log("Factura guardada", factura);
+		// Aquí puedes agregar la lógica para actualizar la lista de facturas después de guardar
+	}
 
   return (
     <>
@@ -156,7 +140,7 @@ export default function QuotationsOrg() {
         <section className="grid md:grid-cols-4 grid-cols-1">
           <InfoCard
             CardTitle={"Total"}
-            cardValue={String(quotes.length)}
+            cardValue={String(4)}
             cardIcon={<FiFileText className="h-5 w-5 text-primary" />}
             cardIconColor={"primary"}
           />
@@ -165,24 +149,24 @@ export default function QuotationsOrg() {
           <div className="flex flex-col md:flex-row justify-between">
             <div>
               <h2 className="md:text-2xl font-semibold">
-                Gestion de Cotizaciones
+                Gestion de Facturas
               </h2>
               <span className="text-sm md:text-medium text-dark/50">
-                Administra cotizaciones para clientes.
+                Administra facturas para clientes.
               </span>
             </div>
             <SwitchButton
-              text={"Mostrar Expirados"}
-              onToggle={setMostrarExpirados}
+              text={"Mostrar Canceladas"}
+              onToggle={setMostrarCanceladas}
             />
           </div>
           <div className="flex gap-2 w-full">
             <div className="w-[100%]">
               <Input
                 type={"search"}
-                placeholder={"Buscar cotizaciones..."}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                placeholder={"Buscar facturas..."}
+                /* value={search}
+                onChange={(e) => setSearch(e.target.value)} */
                 iconInput={
                   <FiSearch className="absolute left-3 top-3 h-5 w-5 text-dark/50" />
                 }
@@ -191,13 +175,13 @@ export default function QuotationsOrg() {
             <Input
               type={"date"}
               inputClass={"no icon"}
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
+              /* value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)} */
             />
           </div>
           <div>
             {loading ? (
-              <div className="p-4 text-sm">Cargando cotizaciones...</div>
+              <div className="p-4 text-sm">Cargando facturas...</div>
             ) : error ? (
               <div className="p-4 text-danger text-sm">{error}</div>
             ) : !isMobile ? (
@@ -221,9 +205,6 @@ export default function QuotationsOrg() {
                         Total
                       </th>
                       <th className="text-start text-dark/50 font-semibold p-2">
-                        Validad Hasta
-                      </th>
-                      <th className="text-start text-dark/50 font-semibold p-2">
                         Estado
                       </th>
                       <th className="text-start text-dark/50 font-semibold p-2">
@@ -241,7 +222,7 @@ export default function QuotationsOrg() {
                     {filtered.map((item, index) => (
                       <tr
                         key={index}
-                        className={`${!mostrarExpirados ? item.estado === "expirada" && "hidden" : ""} text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3`}
+                        className={`${!mostrarCanceladas ? item.estado === "cancelada" && "hidden" : ""} text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3`}
                       >
                         <td className="p-2 text-center">{item.id}</td>
                         <td className="p-2">{item.fecha}</td>
@@ -253,7 +234,6 @@ export default function QuotationsOrg() {
                         </td>
                         <td className="p-2 text-center">{item.items}</td>
                         <td className="p-2 text-primary">C$ {item.total}</td>
-                        <td className="p-2">{item.fechaExp}</td>
                         <td className="p-2">
                           <span
                             className={`${item.estado === "activa" ? "bg-success" : "bg-dark"} text-light rounded-full px-2 text-sm`}
@@ -285,17 +265,18 @@ export default function QuotationsOrg() {
                               className={"blue"}
                               icon={<FiEdit />}
                               func={() => toggleModalMode("edit", item)}
-                              disabled={isExpired(item)}
+                              disabled={item.estado === "cancelada"}
                             />
                             <Button
+                              disabled={item.estado === "cancelada"}
                               className={"success"}
                               icon={<FiPrinter />}
                               func={async () => {
                                 try {
                                   const mod =
                                     await import("@/utils/imprimirVoucher");
-                                  if (mod && mod.imprimirVoucherCotizacion)
-                                    mod.imprimirVoucherCotizacion({
+                                  if (mod && mod.imprimirVoucherfactura)
+                                    mod.imprimirVoucherfactura({
                                       quoteId: item.id,
                                     });
                                 } catch (e) {
@@ -315,7 +296,7 @@ export default function QuotationsOrg() {
                 {filtered.map((item, index) => (
                   <div
                     key={index}
-                    className={`${!mostrarExpirados ? item.estado === "expirada" && "hidden" : ""}`}
+                    /* className={`${!mostrarExpirados ? item.estado === "expirada" && "hidden" : ""}`} */
                   >
                     <Card
                       productName={item.cliente || "Consumidor Final"}
@@ -376,7 +357,7 @@ export default function QuotationsOrg() {
                           text={"Editar"}
                           icon={<FiEdit />}
                           func={() => toggleModalMode("edit", item)}
-                          disabled={isExpired(item)}
+                          /* disabled={isExpired(item)} */
                         />
                         <Button
                           className={"success"}
@@ -386,8 +367,8 @@ export default function QuotationsOrg() {
                             try {
                               const mod =
                                 await import("@/utils/imprimirVoucher");
-                              if (mod && mod.imprimirVoucherCotizacion)
-                                mod.imprimirVoucherCotizacion({
+                              if (mod && mod.imprimirVoucherfactura)
+                                mod.imprimirVoucherfactura({
                                   quoteId: item.id,
                                 });
                             } catch (e) {
@@ -409,18 +390,18 @@ export default function QuotationsOrg() {
           setIsActiveModal={setIsActiveModal}
           modalTitle={
             mode === "ver"
-              ? "Detalles de Cotizacion"
+              ? "Detalles de factura"
               : mode === "edit"
-                ? "Editar Cotizacion"
+                ? "Editar factura"
                 : mode === "eliminar"
                   ? "Eliminar venta"
                   : ""
           }
           modalDescription={
             mode === "ver"
-              ? "Información completa de la cotizacion."
+              ? "Información completa de la factura."
               : mode === "edit"
-                ? "Editar cotizacion"
+                ? "Editar factura"
                 : mode === "eliminar"
                   ? "Eliminar venta"
                   : ""
@@ -428,17 +409,17 @@ export default function QuotationsOrg() {
           isForm={mode === "edit" ? true : false}
         >
           {mode === "ver" && (
-            <QueoteView
-              quote={selectedQuote}
+            <FacturaView
+              factura={selectedFactura}
               onClose={() => setIsActiveModal(false)}
-              onProcess={handleProcessQuote}
+              onProcess={handleFacturaProcess}
             />
           )}
           {mode === "edit" && (
-            <QuoteEdit
-              quote={selectedQuote}
+            <FacturaEdit
+              factura={selectedFactura}
               onClose={() => setIsActiveModal(false)}
-              onSave={handleQuoteSaved}
+              onSave={handleFacturaSaved}
             />
           )}
         </ModalContainer>

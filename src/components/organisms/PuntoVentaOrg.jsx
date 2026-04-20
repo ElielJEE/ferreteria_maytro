@@ -1019,7 +1019,7 @@ export default function PuntoVentaOrg() {
 						</div>
 						<Button
 							className={'success'}
-							text={'Procesar Venta'}
+							text={'Crear Factura'}
 							icon={<FiShoppingBag className='h-5 w-5' />}
 							func={() => toggleModalType('venta')}
 						/>
