@@ -235,7 +235,8 @@ export default function UsuariosOrg() {
 		}
 	};
 
-
+console.log(usuario);
+console.log(usuarios);
 	return (
 		<>
 			<div className='w-full p-6 flex flex-col'>
@@ -299,7 +300,7 @@ export default function UsuariosOrg() {
 												<td className='p-2 text-start'>{item.nombreUsuario}</td>
 												<td className='p-2 text-start'>{item.correo}</td>
 												<td className='p-2 text-start'>{item.rol}</td>
-												<td className='p-2 text-start'>{item.sucursal || 'N/A'}</td>
+												<td className='p-2 text-start'>{item.id_sucursal}</td>
 												<td className='p-2 text-start'>
 													<div className={`${item.estado === 'ACTIVO' ? 'bg-success' : 'bg-secondary'} text-light w-max px-3 text-center rounded-full`}>
 														{item.estado.toLowerCase()}
@@ -327,7 +328,7 @@ export default function UsuariosOrg() {
 						) : (
 							<div className='w-full overflow-x-auto mt-2 flex flex-col gap-2'>
 								{
-									filteredCustomers.map((item, index) => (
+									filteredUsuarios.map((item, index) => (
 										<Card
 											key={index}
 											productName={item.nombre}
