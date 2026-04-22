@@ -169,6 +169,11 @@ export default function FacturaView({ factura, onClose, onProcess }) {
           func={() => onClose()}
         />
         <Button
+          text={"Cancelar Venta"}
+          className={"dark"}
+          func={() => onClose()}
+        />
+        <Button
           text={"Procesar Venta"}
           icon={<FiShoppingBag />}
           className={"success"}
