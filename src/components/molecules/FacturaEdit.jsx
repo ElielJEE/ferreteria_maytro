@@ -13,7 +13,9 @@ import { FiTrash2 } from "react-icons/fi";
 export default function QuoteEdit({ factura, onClose, onSave }) {
   const [clienteNombre, setClienteNombre] = useState(factura?.cliente || "");
   const [clientes, setClientes] = useState([]);
-  const [clienteTelefono, setClienteTelefono] = useState(factura?.telefono || "");
+  const [clienteTelefono, setClienteTelefono] = useState(
+    factura?.telefono || "",
+  );
   const [clienteFiltrados, setClienteFiltrados] = useState([]);
   const [products, setProducts] = useState([]);
   const [error, setError] = useState();
@@ -31,8 +33,8 @@ export default function QuoteEdit({ factura, onClose, onSave }) {
           ),
           // preserve unidad metadata if present
           unidad_id: it.unidad_id || it.UNIDAD_ID || null,
-          unidad_nombre:
-            it.unidad_nombre || it.UNIDAD_NOMBRE || it.measureUnit || null,
+          unidadMedida:
+            it.unidadMedida || it.UNIDAD_NOMBRE || it.measureUnit || null,
           cantidad_por_unidad:
             Number(it.cantidad_por_unidad || it.CANTIDAD_POR_UNIDAD || 1) || 1,
         }))
@@ -147,10 +149,11 @@ export default function QuoteEdit({ factura, onClose, onSave }) {
       setError(e?.message || "Error al guardar");
     }
   };
+  console.log(items);
 
   return (
     <>
-      <div className="py-4 w-full">
+      <div className="py-4 w-full max-h-[500px] overflow-y-scroll">
         <div className="mb-2 flex gap-4 w-full">
           <div>
             <Input
@@ -188,10 +191,10 @@ export default function QuoteEdit({ factura, onClose, onSave }) {
 
         <div className="mt-4">
           <div className="text-sm text-dark/70 mb-2">Items</div>
-          <div className="flex flex-col gap-2 overflow-y-scroll max-h-[350px]">
+          <div className="flex flex-col gap-2">
             {(items || []).map((it, idx) => (
               <div key={idx}>
-                <div className="p-2 border border-dark/10 rounded-md flex justify-between gap-2">
+                <div className="p-2 border border-dark/10 rounded-md flex md:flex-row flex-col justify-between md:min-w-[700px] gap-2">
                   <div className="flex flex-col w-1/10">
                     <div className="text-xs text-dark/60">Cantidad</div>
                     <Input
@@ -203,20 +206,26 @@ export default function QuoteEdit({ factura, onClose, onSave }) {
                       inputClass={"no icon"}
                     />
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col w-1/3">
+                    <div className="text-xs text-dark/60">Unidad de Medida</div>
+                    <DropdownMenu
+                      defaultValue={"Unidad"}
+                    />
+                  </div>
+                  <div className="flex flex-col w-full">
                     <div className="text-xs text-dark/60">Producto</div>
                     <DropdownMenu
                       options={products}
                       defaultValue={it.productName || ""}
                     />
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col w-1/4">
                     <div className="text-xs text-dark/60">Precio</div>
                     <div className="font-semibold">
                       C${Number(it.unitPrice || 0).toLocaleString()}
                     </div>
                   </div>
-                  <div className="flex flex-col justify-end items-end">
+                  <div className="flex flex-col justify-end md:items-end">
                     <div className="text-xs text-dark/60">Subtotal</div>
                     <div className="font-semibold">
                       C$
