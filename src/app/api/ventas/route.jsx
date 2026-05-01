@@ -322,6 +322,16 @@ export async function GET(req) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    let hasFacturaServicio = false;
+    try {
+      const [colServ] = await pool.query(`
+        SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'SERVICIO_TRANSPORTE'
+      `);
+      hasFacturaServicio = (colServ?.[0] && Number(colServ[0].CNT || 0) > 0) || false;
+    } catch {
+      hasFacturaServicio = false;
+    }
     // Determinar sucursal efectiva segun el usuario (si tiene sucursal asignada => no es admin)
     let usuarioSucursalId = null;
     try {
@@ -340,8 +350,8 @@ export async function GET(req) {
     if (id) {
       try {
         const selectDetalle = hasFacturaNumero
-          ? 'SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM factura WHERE ID_FACTURA = ?'
-          : 'SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM factura WHERE ID_FACTURA = ?';
+          ? `SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ${hasFacturaServicio ? 'SERVICIO_TRANSPORTE' : 'NULL AS SERVICIO_TRANSPORTE'}, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM factura WHERE ID_FACTURA = ?`
+          : `SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ${hasFacturaServicio ? 'SERVICIO_TRANSPORTE' : 'NULL AS SERVICIO_TRANSPORTE'}, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL FROM factura WHERE ID_FACTURA = ?`;
         const [factRows] = await pool.query(selectDetalle, [id]);
         if (!factRows || !factRows.length) return Response.json({ error: 'Factura no encontrada' }, { status: 404 });
         const f = factRows[0];
