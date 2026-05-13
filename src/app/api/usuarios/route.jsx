@@ -66,7 +66,7 @@ export async function POST(req) {
 		} = body;
 
 		// Validaciones básicas
-		if (!nombre || !nombreUsuario || !correo || !contrasenia || !confirmarContrasenia) {
+		if (!nombre || !nombreUsuario || !contrasenia || !confirmarContrasenia) {
 			return NextResponse.json(
 				{ error: "Todos los campos son obligatorios." },
 				{ status: 400 }
@@ -81,10 +81,15 @@ export async function POST(req) {
 		}
 
 		// Verificar si el usuario ya existe
-		const [existing] = await pool.query(
-			"SELECT ID FROM usuarios WHERE NOMBRE_USUARIO = ? OR CORREO = ?",
-			[nombreUsuario, correo]
-		);
+		let existingSql = "SELECT ID FROM usuarios WHERE NOMBRE_USUARIO = ?";
+		const existingParams = [nombreUsuario];
+
+		if (correo && correo.trim() !== "") {
+			existingSql += " OR CORREO = ?";
+			existingParams.push(correo);
+		}
+
+		const [existing] = await pool.query(existingSql, existingParams);
 
 		if (existing.length > 0) {
 			return NextResponse.json(
@@ -104,7 +109,7 @@ export async function POST(req) {
 		const [result] = await pool.query(sql, [
 			nombre,
 			nombreUsuario,
-			correo,
+			correo || null,
 			hashedPassword,
 			idRol || null,
 			idSucursal || null,
@@ -143,8 +148,8 @@ export async function PUT(req) {
 			return NextResponse.json({ error: "El ID del usuario es obligatorio." }, { status: 400 });
 		}
 
-		if (!nombre || !nombreUsuario || !correo) {
-			return NextResponse.json({ error: "Nombre, usuario y correo son obligatorios." }, { status: 400 });
+		if (!nombre || !nombreUsuario) {
+			return NextResponse.json({ error: "Nombre, usuario son obligatorios." }, { status: 400 });
 		}
 
 		// Verificar si el usuario existe
@@ -154,10 +159,21 @@ export async function PUT(req) {
 		}
 
 		// Verificar si el nuevo nombreUsuario o correo ya están registrados en otro usuario
-		const [existing] = await pool.query(
-			"SELECT ID FROM usuarios WHERE (NOMBRE_USUARIO = ? OR CORREO = ?) AND ID != ?",
-			[nombreUsuario, correo, id]
-		);
+		let existingSql = `
+	SELECT ID 
+	FROM usuarios 
+	WHERE NOMBRE_USUARIO = ?
+	AND ID != ?
+`;
+
+		const existingParams = [nombreUsuario, id];
+
+		if (correo && correo.trim() !== "") {
+			existingSql += " OR (CORREO = ? AND ID != ?)";
+			existingParams.push(correo, id);
+		}
+
+		const [existing] = await pool.query(existingSql, existingParams);
 		if (existing.length > 0) {
 			return NextResponse.json(
 				{ error: "El nombre de usuario o correo ya están registrados por otro usuario." },
@@ -182,7 +198,13 @@ export async function PUT(req) {
 			ID_ROL = ?, 
 			ID_SUCURSAL = ?`;
 
-		const params = [nombre, nombreUsuario, correo, idRol || null, idSucursal || null];
+		const params = [
+			nombre,
+			nombreUsuario,
+			correo || null,
+			idRol || null,
+			idSucursal || null
+		];
 
 		// Agregar la contraseña si se cambió
 		if (hashedPassword) {
