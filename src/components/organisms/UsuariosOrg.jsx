@@ -123,8 +123,10 @@ export default function UsuariosOrg() {
 		const fieldLabels = {
 			nombre: 'nombre',
 			nombreUsuario: 'nombre de usuario',
-			correo: 'correo',
-			...(mode === 'create' ? { contrasenia: 'contraseña', confirmarContrasenia: 'confirmar contraseña' } : {}),
+			...(mode === 'create' ? {
+				contrasenia: 'contraseña',
+				confirmarContrasenia: 'confirmar contraseña'
+			} : {}),
 		};
 
 		const data = mode === 'create' ? newUsuario : editUsuario; // Elegir el objeto correcto
@@ -143,13 +145,6 @@ export default function UsuariosOrg() {
 			isValid = false;
 		} else {
 			newErrors.rol = '';
-		}
-
-		if (!data.idSucursal) {
-			newErrors.sucursal = 'Debes seleccionar una sucursal';
-			isValid = false;
-		} else {
-			newErrors.sucursal = '';
 		}
 
 		setError(newErrors);
@@ -235,8 +230,8 @@ export default function UsuariosOrg() {
 		}
 	};
 
-console.log(usuario);
-console.log(usuarios);
+	console.log(usuario);
+	console.log(usuarios);
 	return (
 		<>
 			<div className='w-full p-6 flex flex-col'>
@@ -300,7 +295,7 @@ console.log(usuarios);
 												<td className='p-2 text-start'>{item.nombreUsuario}</td>
 												<td className='p-2 text-start'>{item.correo}</td>
 												<td className='p-2 text-start'>{item.rol}</td>
-												<td className='p-2 text-start'>{item.id_sucursal}</td>
+												<td className='p-2 text-start'>{item.sucursal}</td>
 												<td className='p-2 text-start'>
 													<div className={`${item.estado === 'ACTIVO' ? 'bg-success' : 'bg-secondary'} text-light w-max px-3 text-center rounded-full`}>
 														{item.estado.toLowerCase()}
@@ -407,7 +402,7 @@ console.log(usuarios);
 										error={error.rol && error.rol}
 									/>
 									<DropdownMenu
-										label={'Sucursal del Usuario'}
+										label={'Sucursal del Usuario (opcional)'}
 										defaultValue={"Selecciona una sucursal"}
 										options={sucursales}
 										onChange={(selected) => {
