@@ -66,6 +66,14 @@ export const updateSale = async (payload) => {
   try {
     const id = payload?.id || payload?.codigo || payload?.facturaId || '';
     const url = id ? `${API_URL}?id=${encodeURIComponent(id)}` : API_URL;
+    
+    // LOG de debugging
+    console.log('[SalesService] Enviando payload a:', url);
+    console.log('[SalesService] Payload completo:', JSON.stringify(payload, null, 2));
+    if (payload.items && payload.items.length > 0) {
+      console.log('[SalesService] Primer item:', JSON.stringify(payload.items[0], null, 2));
+    }
+    
     const res = await fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -81,6 +89,27 @@ export const updateSale = async (payload) => {
     return { success: true, ...data };
   } catch (err) {
     console.error('updateSale error:', err);
+    throw err;
+  }
+}
+
+export const cancelSale = async (id) => {
+  try {
+    if (!id) return { success: false, message: 'ID de venta requerido' };
+    const url = `${API_URL}?id=${encodeURIComponent(id)}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = data && (data.error || data.message) ? (data.error || data.message) : 'Error al cancelar la venta';
+      return { success: false, message };
+    }
+    return { success: true, ...data };
+  } catch (err) {
+    console.error('cancelSale error:', err);
     throw err;
   }
 }

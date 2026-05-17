@@ -712,29 +712,56 @@ export async function PUT(req) {
           const qty = Number(it.cantidad || 0);
           const precio = Number(it.precio_unit || 0);
           const sub = Number((precio * qty).toFixed(2));
-          // declarar variables de unidad en el scope del bucle
-          let unidadId = null;
-          let cantidadPorUnidad = 1;
-          let unidadNombre = null;
-          if (fdCols.UNIDAD_ID || fdCols.CANTIDAD_POR_UNIDAD || fdCols.UNIDAD_NOMBRE) {
-            unidadId = it.unidad_id || it.UNIDAD_ID || it.unit_id || it.unit || null;
-            cantidadPorUnidad = Number((it.cantidad_por_unidad ?? it.cantidadPorUnidad ?? it.CANTIDAD_POR_UNIDAD ?? 1)) || 1;
-            unidadNombre = it.unidad_nombre || it.UNIDAD_NOMBRE || it.unit_name || it.unit || null;
-            await conn.query(
-              `INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL${fdCols.UNIDAD_ID ? ', UNIDAD_ID' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : ''}${fdCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : ''}, ID_USUARIO)
-               VALUES (?, ?, ?, ?, ?${fdCols.UNIDAD_ID ? ', ?' : ''}${fdCols.CANTIDAD_POR_UNIDAD ? ', ?' : ''}${fdCols.UNIDAD_NOMBRE ? ', ?' : ''}, ?)`,
-              [facturaId, idProd, qty, precio, sub]
-                .concat(fdCols.UNIDAD_ID ? [unidadId] : [])
-                .concat(fdCols.CANTIDAD_POR_UNIDAD ? [cantidadPorUnidad] : [])
-                .concat(fdCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
-                .concat([c.ID_USUARIO || null])
-            );
-          } else {
-            await conn.query(
-              'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
-              [facturaId, idProd, qty, precio, sub, c.ID_USUARIO || null]
-            );
+          
+          let unidadId = it.unidad_id || it.UNIDAD_ID || it.unit_id || null;
+          if (unidadId !== null) unidadId = Number(unidadId) || null;
+          
+          let cantidadPorUnidad = Number((it.cantidad_por_unidad ?? it.cantidadPorUnidad ?? it.CANTIDAD_POR_UNIDAD ?? 1)) || 1;
+          
+          let unidadNombre = it.unidad_nombre || it.UNIDAD_NOMBRE || it.unit_name || it.unit || null;
+          if (unidadNombre) unidadNombre = String(unidadNombre).trim() || null;
+          
+          // Si no hay unidad, buscar la unidad principal del producto en producto_unidades
+          if (!unidadId || !unidadNombre) {
+            try {
+              const [puRows] = await conn.query(
+                'SELECT UNIDAD_ID FROM producto_unidades WHERE PRODUCT_ID = ? ORDER BY ES_POR_DEFECTO DESC, ID ASC LIMIT 1',
+                [idProd]
+              );
+              if (Array.isArray(puRows) && puRows.length > 0) {
+                const puRow = puRows[0];
+                const colValue = puRow.UNIDAD_ID ?? puRow.unidad_id ?? puRow.unidadId ?? null;
+                if (!unidadId && colValue) {
+                  unidadId = Number(colValue) || null;
+                }
+                
+                if (unidadId && !unidadNombre) {
+                  try {
+                    const [nameRows] = await conn.query(
+                      'SELECT NOMBRE FROM unidades_medidas WHERE ID_UNIDAD = ? LIMIT 1',
+                      [unidadId]
+                    );
+                    if (Array.isArray(nameRows) && nameRows.length > 0) {
+                      const nameRow = nameRows[0];
+                      const nameValue = nameRow.NOMBRE ?? nameRow.nombre ?? null;
+                      if (nameValue) {
+                        unidadNombre = String(nameValue).trim() || null;
+                      }
+                    }
+                  } catch (nameErr) {
+                    // Silent
+                  }
+                }
+              }
+            } catch (e) {
+              console.error('Error buscando unidad en cotizaciones:', e?.message);
+            }
           }
+          
+          await conn.query(
+            'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [facturaId, idProd, qty, precio, sub, unidadId || null, cantidadPorUnidad, unidadNombre || null, c.ID_USUARIO || null]
+          );
         }
 
         // Marcar cotización como procesada (no le afecta fecha de vencimiento)

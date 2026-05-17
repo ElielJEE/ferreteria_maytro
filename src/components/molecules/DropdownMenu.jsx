@@ -97,7 +97,11 @@ export default function DropdownMenu({ options, defaultValue, onChange, label, e
 								);
 							})
 						) : (
-							<li className="p-2 text-sm text-dark/50">No hay opciones</li>
+							<li className="p-2 text-sm text-dark/50">
+								{selectedOption && selectedOption !== "Selecciona una opción" 
+									? `"${selectedOption}" (no encontrada)` 
+									: "No hay opciones"}
+							</li>
 						)}
 					</ul>,
 					document.body

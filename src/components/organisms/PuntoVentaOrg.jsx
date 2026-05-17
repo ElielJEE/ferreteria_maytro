@@ -218,10 +218,13 @@ export default function PuntoVentaOrg() {
 			return;
 		}
 
-		setProductList(prevList => [...prevList, productEntry]);
 		if (unitOptions.length > 1) {
 			showUnitModal(productEntry, unitOptions, null);
+			return;
 		}
+
+		// Si no hay unidades disponibles, agregar sin unidad (fallback)
+		setProductList(prevList => [...prevList, productEntry]);
 	};
 
 	const updateQuantity = (id, newQuantity) => {
@@ -288,7 +291,7 @@ export default function PuntoVentaOrg() {
 
 		// Casos previos sin carga extra
 		if (type === 'venta' && productList.length > 0) {
-			setIsActiveModal(true);
+			handleSubmitVenta({ showResultModal: false });
 
 		} else if (type === 'cotizacion' && productList.length > 0) {
 			handleCotizacion();
@@ -344,6 +347,57 @@ export default function PuntoVentaOrg() {
 		toggleModalType('confirmar venta');
 	};
 
+	const handleCreateFacturaPending = async () => {
+		try {
+			setProcessing(true);
+			const items = productList.map(p => ({
+				ID_PRODUCT: p.ID_PRODUCT,
+				CODIGO_PRODUCTO: p.CODIGO_PRODUCTO,
+				PRODUCT_NAME: p.PRODUCT_NAME,
+				PRECIO: Number(p.PRECIO || 0),
+				quantity: Number(p.quantity || 0),
+				unit_id: p.unit_id ?? p.UNIDAD_ID ?? null,
+				unidad_id: p.unit_id ?? p.UNIDAD_ID ?? null,
+				UNIDAD_ID: p.unit_id ?? p.UNIDAD_ID ?? null,
+				unit_name: p.unit ?? p.UNIDAD_NOMBRE ?? null,
+				unidad_nombre: p.unit ?? p.UNIDAD_NOMBRE ?? null,
+				UNIDAD_NOMBRE: p.unit ?? p.UNIDAD_NOMBRE ?? null,
+				cantidad_por_unidad: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1,
+				cantidadPorUnidad: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1,
+				CANTIDAD_POR_UNIDAD: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1
+			}));
+			const payload = {
+				items,
+				subtotal: Number(subtotal.toFixed(2)),
+				descuento: Number(descuento || 0),
+				total: Number(total.toFixed(2)),
+				servicio_transporte: Number(transportation || 0),
+				cliente: {
+					nombre: clienteNombre,
+					telefono: clienteTelefono,
+				},
+				sucursal_id: currentUser?.ID_SUCURSAL || (selectedSucursal?.value ?? null),
+				sucursal: currentUser?.ID_SUCURSAL
+					? (currentUser?.SUCURSAL_NOMBRE || null)
+					: selectedSucursal?.label || null,
+				sucursal_nombre: currentUser?.ID_SUCURSAL || selectedSucursal?.label || null,
+				estado: 'Pendiente'
+			};
+
+			const res = await SalesService.createSale(payload);
+			if (!res || res.success === false) {
+				setError({ general: res?.message || 'Error al crear la factura' });
+				return;
+			}
+			handleDone();
+		} catch (e) {
+			console.error('Error creando factura pendiente:', e);
+			setError({ general: e?.message || 'Error creando la factura' });
+		} finally {
+			setProcessing(false);
+		}
+	};
+
 
 	const calcularCambio = (totalCompra, montoCordobas = 0, montoDolares = 0, tasaCambio = 36.55) => {
 		if (montoCordobas + (montoDolares * tasaCambio) < totalCompra) {
@@ -365,7 +419,7 @@ export default function PuntoVentaOrg() {
 		setCambio(cambioCalculado);
 	}, [montoCordobas, montoDolares, total, tasaCambio]);
 
-	const handleSubmitVenta = async () => {
+	const handleSubmitVenta = async ({ showResultModal = true } = {}) => {
 		try {
 			setProcessing(true);
 			// Construir payload separado de la UI/form
@@ -376,8 +430,14 @@ export default function PuntoVentaOrg() {
 				PRECIO: Number(p.PRECIO || 0),
 				quantity: Number(p.quantity || 0),
 				unit_id: p.unit_id ?? p.UNIDAD_ID ?? null,
+				unidad_id: p.unit_id ?? p.UNIDAD_ID ?? null,
+				UNIDAD_ID: p.unit_id ?? p.UNIDAD_ID ?? null,
 				unit_name: p.unit ?? p.UNIDAD_NOMBRE ?? null,
-				cantidad_por_unidad: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1
+				unidad_nombre: p.unit ?? p.UNIDAD_NOMBRE ?? null,
+				UNIDAD_NOMBRE: p.unit ?? p.UNIDAD_NOMBRE ?? null,
+				cantidad_por_unidad: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1,
+				cantidadPorUnidad: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1,
+				CANTIDAD_POR_UNIDAD: Number(p.cantidad_por_unidad ?? p.CANTIDAD_POR_UNIDAD ?? 1) || 1
 			}));
 			const payload = {
 				items,
@@ -402,13 +462,26 @@ export default function PuntoVentaOrg() {
 					telefono: clienteTelefono,
 				},
 				// Si usuario tiene sucursal se usa; si es admin, usar la sucursal seleccionada
-				sucursal_id: currentUser?.ID_SUCURSAL || (selectedSucursal?.value ?? null)
+				sucursal_id: currentUser?.ID_SUCURSAL || (selectedSucursal?.value ?? null),
+				sucursal: currentUser?.ID_SUCURSAL
+					? (currentUser?.SUCURSAL_NOMBRE || null)
+					: selectedSucursal?.label || null,
+				sucursal_nombre: currentUser?.SUCURSAL_NOMBRE || selectedSucursal?.label || null,
+				sucursal_name: currentUser?.SUCURSAL_NOMBRE || selectedSucursal?.label || null,
 			};
+
+			console.log('[PUNTO VENTA] Items a enviar:', items.map(it => ({
+				ID_PRODUCT: it.ID_PRODUCT,
+				PRODUCT_NAME: it.PRODUCT_NAME,
+				unit_id: it.unit_id,
+				unit_name: it.unit_name,
+				UNIDAD_ID: it.UNIDAD_ID,
+				UNIDAD_NOMBRE: it.UNIDAD_NOMBRE,
+			})));
 
 			const res = await SalesService.createSale(payload);
 			console.log(res);
 			console.log(payload);
-
 			const dataParaVoucher = {
 				numero: res.numero,
 				facturaId: res.facturaId,
@@ -417,13 +490,14 @@ export default function PuntoVentaOrg() {
 				items: payload.items,
 			};
 
-			console.log(dataParaVoucher);
-
-			await imprimirVoucher(res);
-
-			setMode('confirmar venta');
-			setIsActiveModal(true);
-			setCambio(res?.cambio ?? cambio);
+			if (showResultModal) {
+				await imprimirVoucher(res);
+				setMode('confirmar venta');
+				setIsActiveModal(true);
+				setCambio(res?.cambio ?? cambio);
+			} else {
+				handleDone();
+			}
 		} catch (e) {
 			console.error('Error procesando venta:', e);
 			setError({ general: e?.message || 'Error al procesar la venta' });
@@ -632,22 +706,33 @@ export default function PuntoVentaOrg() {
 
 	const handleUnitSubmit = () => {
 		if (unitProduct && selectedUnitOption) {
-			setProductList((prev) => prev.map(p => {
-				if (p.ID_PRODUCT === unitProduct.ID_PRODUCT) {
-					const updated = {
-						...p,
-						unit: selectedUnitOption.label,
-						unit_id: selectedUnitOption.value,
-						cantidad_por_unidad: selectedUnitOption.cantidad_por_unidad ?? 1
-					};
-					// Si la unidad tiene precio asociado, actualizar PRECIO
-					if (selectedUnitOption.precio !== undefined && selectedUnitOption.precio !== null) {
-						updated.PRECIO = Number(selectedUnitOption.precio) || updated.PRECIO;
+			// Crear producto con unidad seleccionada
+			const productWithUnit = {
+				...unitProduct,
+				unit: selectedUnitOption.label,
+				unit_id: selectedUnitOption.value,
+				cantidad_por_unidad: selectedUnitOption.cantidad_por_unidad ?? 1
+			};
+			// Si la unidad tiene precio asociado, actualizar PRECIO
+			if (selectedUnitOption.precio !== undefined && selectedUnitOption.precio !== null) {
+				productWithUnit.PRECIO = Number(selectedUnitOption.precio) || unitProduct.PRECIO;
+			}
+			
+			// Verificar si el producto ya existe en la lista
+			const productoExiste = productList.some(p => p.ID_PRODUCT === unitProduct.ID_PRODUCT);
+			
+			if (productoExiste) {
+				// Si existe, actualizar
+				setProductList((prev) => prev.map(p => {
+					if (p.ID_PRODUCT === unitProduct.ID_PRODUCT) {
+						return { ...p, ...productWithUnit };
 					}
-					return updated;
-				}
-				return p;
-			}));
+					return p;
+				}));
+			} else {
+				// Si no existe, agregar
+				setProductList((prev) => [...prev, productWithUnit]);
+			}
 		}
 		// cerrar modal y limpiar estado de unidad
 		setIsActiveModal(false);
@@ -1021,7 +1106,7 @@ export default function PuntoVentaOrg() {
 							className={'success'}
 							text={'Crear Factura'}
 							icon={<FiShoppingBag className='h-5 w-5' />}
-							func={() => toggleModalType('venta')}
+							func={() => handleSubmitVenta({ showResultModal: false })}
 						/>
 						<div className='flex gap-2'>
 							<Button

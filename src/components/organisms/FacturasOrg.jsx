@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Button, InfoCard, ModalContainer, SwitchButton } from "../atoms";
 import { Card, FacturaEdit, FacturaView, Input, QueoteView, QuoteEdit } from "../molecules";
+import { SalesService } from "@/services";
+import { imprimirVoucher } from "@/utils/imprimirVoucher";
 import {
   FiEdit,
   FiEye,
@@ -9,13 +11,18 @@ import {
   FiPrinter,
   FiSearch,
   FiUser,
+  FiX,
+  FiCheck,
 } from "react-icons/fi";
 import { BsBuilding } from "react-icons/bs";
 import { useActive, useIsMobile } from "@/hooks";
+import { BsCashCoin } from "react-icons/bs";
+import { FiDollarSign } from "react-icons/fi";
 
 export default function FacturasOrg() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [facturas, setFacturas] = useState([]);
   const isMobile = useIsMobile({ breakpoint: 1024 });
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -23,124 +30,162 @@ export default function FacturasOrg() {
   const [mostrarCanceladas, setMostrarCanceladas] = useState(false);
   const [mode, setMode] = useState("");
   const [selectedFactura, setSelectedFactura] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [montoCordobas, setMontoCordobas] = useState("");
+  const [montoDolares, setMontoDolares] = useState("");
+  const [tasaCambio, setTasaCambio] = useState(36.55);
+  const [cambio, setCambio] = useState(0);
+  const [paymentError, setPaymentError] = useState("");
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const toggleModalMode = (mode, factura) => {
+  useEffect(() => {
+    const totalValue = Number(selectedFactura?.total || 0);
+    const received = Number(montoCordobas || 0) + Number(montoDolares || 0) * Number(tasaCambio || 36.55);
+    const change = received - totalValue;
+    setCambio(change > 0 ? Number(change.toFixed(2)) : 0);
+  }, [montoCordobas, montoDolares, tasaCambio, selectedFactura]);
+
+  const toggleModalMode = async (mode, factura) => {
     setMode(mode);
     setSelectedFactura(factura);
+    if ((mode === "ver" || mode === "edit") && factura?.id) {
+      const { success, factura: detalle } = await SalesService.getSaleDetail(factura.id);
+      if (success && detalle) {
+        setSelectedFactura(detalle);
+      }
+    }
     setIsActiveModal(true);
   };
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-
+  const loadFacturas = async () => {
+    setLoading(true);
+    try {
+      const res = await SalesService.getSalesHistory();
+      const facturasData = Array.isArray(res?.ventas) ? res.ventas : Array.isArray(res) ? res : [];
+      const mappedFacturas = facturasData.map((item) => ({
+        ...item,
+        estado: (item.estado || item.ESTADO || 'Pendiente').toString().trim(),
+        items: item.items ?? item.cantidad_productos ?? 0,
+        telefono: item.telefono || item.TELEFONO || '',
+        sucursal: typeof item.sucursal === 'string' ? item.sucursal : item.sucursal?.name || item.sucursal?.nombre || 'Sin sucursal',
+        cliente: item.cliente || item.cliente?.nombre || 'Consumidor Final',
+        creadaPor: item.hecho_por || item.creado_por || item.creadaPor || '',
+      }));
+      setFacturas(mappedFacturas);
+    } catch (err) {
+      console.error('Error cargando facturas:', err);
+      setFacturas([]);
+      setError('No se pudieron cargar las facturas');
+    } finally {
       setLoading(false);
-    };
-    load();
+    }
+  };
+
+  useEffect(() => {
+    loadFacturas();
   }, []);
 
   const filtered = useMemo(() => {
-    let list = [
-      {
-        id: "VEN-001",
-        fecha: "2024-06-01",
-        cliente: "Juan Perez",
-        telefono: "555-1234",
-        items: 3,
-        total: 1500,
-        fechaExp: "2024-06-15",
-        estado: "activa",
-        creadaPor: "Admin",
-        sucursal: { name: "Sucursal Central" },
-        subtotal: 1200,
-        descuento: 100,
-        transporte: 50,
-        products: [
-          {
-            id: "PROD-001",
-            codigo: "PROD-001",
-            nombre: "Producto A",
-            unidadMedida: "Unidad",
-            cantidad: 2,
-            precio: 500,
-          },
-          {
-            id: "PROD-002",
-            codigo: "PROD-002",
-            nombre: "Producto B",
-            unidadMedida: "Caja",
-            cantidad: 1,
-            precio: 200,
-          },
-        ],
-      },
-      {
-        id: "VEN-001",
-        fecha: "2024-06-01",
-        cliente: "Juan Perez",
-        telefono: "555-1234",
-        items: 3,
-        total: 1500,
-        fechaExp: "2024-06-15",
-        estado: "cancelada",
-        creadaPor: "Admin",
-        sucursal: { name: "Sucursal Central" },
-        subtotal: 1200,
-        descuento: 100,
-        transporte: 50,
-        products: [
-          {
-            id: "PROD-001",
-            codigo: "PROD-001",
-            nombre: "Producto A",
-            unidadMedida: "Unidad",
-            cantidad: 2,
-            precio: 500,
-          },
-          {
-            id: "PROD-002",
-            codigo: "PROD-002",
-            nombre: "Producto B",
-            unidadMedida: "Caja",
-            cantidad: 1,
-            precio: 200,
-          },
-        ],
-      },
-    ];
+    let list = Array.isArray(facturas) ? facturas : [];
+    if (!mostrarCanceladas) {
+      list = list.filter((fact) => {
+        const estado = String(fact.estado || '').toLowerCase().trim();
+        return estado !== 'cancelado';
+      });
+    }
     if (search.trim()) {
       const term = search.toLowerCase();
       list = list.filter(
         (q) =>
-          (q.id || "").toLowerCase().includes(term) ||
-          (q.cliente || "").toLowerCase().includes(term) ||
-          (q.telefono || "").toLowerCase().includes(term) ||
-          (q.creadaPor || "").toLowerCase().includes(term),
+          (q.id || '').toString().toLowerCase().includes(term) ||
+          (q.numero || '').toString().toLowerCase().includes(term) ||
+          (q.cliente || '').toLowerCase().includes(term) ||
+          (q.telefono || '').toLowerCase().includes(term) ||
+          (q.creadaPor || '').toLowerCase().includes(term) ||
+          (q.hecho_por || '').toLowerCase().includes(term),
       );
     }
     if (filterDate) {
-      list = list.filter((q) => String(q.fecha) === filterDate);
+      list = list.filter((q) => String(q.fecha || '').startsWith(filterDate));
     }
     return list;
-  }, [search, filterDate]);
+  }, [facturas, search, filterDate, mostrarCanceladas]);
 
   const handleFacturaProcess = (factura) => {
-    console.log("Procesar factura", factura);
-    // Aquí puedes agregar la lógica para procesar la factura
+    setSelectedFactura(factura);
+    setMontoCordobas("");
+    setMontoDolares("");
+    setPaymentError("");
+    setShowPaymentModal(true);
   };
 
-	const handleFacturaSaved = (factura) => {
-		console.log("Factura guardada", factura);
-		// Aquí puedes agregar la lógica para actualizar la lista de facturas después de guardar
-	}
+  const handleProcessPayment = async () => {
+    const totalValue = Number(selectedFactura?.total || 0);
+    const recibidoCordobas = parseFloat(montoCordobas || 0);
+    const recibidoDolares = parseFloat(montoDolares || 0);
+    const montoTotal = recibidoCordobas + recibidoDolares * Number(tasaCambio || 36.55);
+
+    if (montoTotal < totalValue) {
+      setPaymentError("Monto no válido: el monto recibido es menor al total de la compra.");
+      return;
+    }
+
+    setPaymentError("");
+    setProcessingPayment(true);
+    try {
+      const payload = {
+        id: selectedFactura.id,
+        estado: "Confirmado",
+        pago: {
+          cordobas: recibidoCordobas,
+          dolares: recibidoDolares,
+          tasaCambio: Number(tasaCambio || 36.55),
+        },
+      };
+      const result = await SalesService.updateSale(payload);
+      if (!result.success) {
+        setPaymentError("Error al procesar la factura: " + (result.message || "No se pudo procesar la venta"));
+        return;
+      }
+      await imprimirVoucher({ facturaId: selectedFactura.id, total: selectedFactura.total || 0, cambio });
+      await loadFacturas();
+      setShowSuccessModal(true);
+      setShowPaymentModal(false);
+    } catch (error) {
+      console.error("Error procesando factura:", error);
+      setPaymentError("Error al procesar la factura");
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleFacturaCanceled = async (factura) => {
+    console.log("Factura cancelada", factura);
+    // Actualizar el estado en memoria inmediatamente
+    setFacturas(prevFacturas => 
+      prevFacturas.map(f => 
+        f.id === factura.id ? { ...f, estado: 'Cancelado' } : f
+      )
+    );
+    // Luego recargar desde la BD
+    await loadFacturas();
+    setIsActiveModal(false);
+  };
+
+  const handleFacturaSaved = async (factura) => {
+    console.log("Factura guardada", factura);
+    await loadFacturas();
+    setIsActiveModal(false);
+  };
 
   return (
     <>
       <div className="p-6 flex flex-col gap-4">
         <section className="grid md:grid-cols-4 grid-cols-1">
           <InfoCard
-            CardTitle={"Total"}
-            cardValue={String(4)}
+            CardTitle={"Total facturas"}
+            cardValue={String(facturas.length)}
             cardIcon={<FiFileText className="h-5 w-5 text-primary" />}
             cardIconColor={"primary"}
           />
@@ -165,8 +210,8 @@ export default function FacturasOrg() {
               <Input
                 type={"search"}
                 placeholder={"Buscar facturas..."}
-                /* value={search}
-                onChange={(e) => setSearch(e.target.value)} */
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 iconInput={
                   <FiSearch className="absolute left-3 top-3 h-5 w-5 text-dark/50" />
                 }
@@ -175,8 +220,8 @@ export default function FacturasOrg() {
             <Input
               type={"date"}
               inputClass={"no icon"}
-              /* value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)} */
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
             />
           </div>
           <div>
@@ -224,34 +269,33 @@ export default function FacturasOrg() {
                         key={index}
                         className={`${!mostrarCanceladas ? item.estado === "cancelada" && "hidden" : ""} text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3`}
                       >
-                        <td className="p-2 text-center">{item.id}</td>
+                        <td className="p-2 text-center">{item.numero || item.id}</td>
                         <td className="p-2">{item.fecha}</td>
                         <td className="p-2 flex flex-col">
                           <span>{item.cliente}</span>
                           <span className="text-sm text-dark/60">
-                            {item.telefono}
+                            {item.telefono || "N/A"}
                           </span>
                         </td>
-                        <td className="p-2 text-center">{item.items}</td>
-                        <td className="p-2 text-primary">C$ {item.total}</td>
+                        <td className="p-2 text-center">{item.items ?? 0}</td>
+                        <td className="p-2 text-primary">C$ {Number(item.total || 0).toLocaleString()}</td>
                         <td className="p-2">
                           <span
-                            className={`${item.estado === "activa" ? "bg-success" : "bg-dark"} text-light rounded-full px-2 text-sm`}
+                            className={`${String(item.estado || 'Pendiente').toLowerCase() === "cancelado" ? "bg-danger" : "bg-success"} text-light rounded-full px-2 text-sm`}
                           >
-                            {item.estado.charAt(0).toUpperCase() +
-                              item.estado.slice(1).toLowerCase()}
+                            {String(item.estado || 'Pendiente')}
                           </span>
                         </td>
                         <td className="p-2">
                           <div className="flex items-center gap-1 truncate">
                             <FiUser />
-                            {item.creadaPor}
+                            {item.hecho_por || item.creadaPor || "N/A"}
                           </div>
                         </td>
                         <td className="p-2">
                           <div className="flex items-center gap-1 truncate text-dark/70">
                             <BsBuilding />
-                            {item.sucursal.name}
+                            {item.sucursal || "Sin sucursal"}
                           </div>
                         </td>
                         <td className="p-2 flex justify-center items-center">
@@ -265,10 +309,10 @@ export default function FacturasOrg() {
                               className={"blue"}
                               icon={<FiEdit />}
                               func={() => toggleModalMode("edit", item)}
-                              disabled={item.estado === "cancelada"}
+                              disabled={["cancelado", "confirmado"].includes(String(item.estado || '').toLowerCase())}
                             />
                             <Button
-                              disabled={item.estado === "cancelada"}
+                              disabled={["cancelado", "confirmado"].includes(String(item.estado || '').toLowerCase())}
                               className={"success"}
                               icon={<FiPrinter />}
                               func={async () => {
@@ -357,12 +401,13 @@ export default function FacturasOrg() {
                           text={"Editar"}
                           icon={<FiEdit />}
                           func={() => toggleModalMode("edit", item)}
-                          /* disabled={isExpired(item)} */
+                          disabled={["cancelado", "confirmado"].includes(String(item.estado || '').toLowerCase())}
                         />
                         <Button
                           className={"success"}
                           text={"Imprimir"}
                           icon={<FiPrinter />}
+                          disabled={["cancelado", "confirmado"].includes(String(item.estado || '').toLowerCase())}
                           func={async () => {
                             try {
                               const mod =
@@ -413,6 +458,7 @@ export default function FacturasOrg() {
               factura={selectedFactura}
               onClose={() => setIsActiveModal(false)}
               onProcess={handleFacturaProcess}
+              onCancel={handleFacturaCanceled}
             />
           )}
           {mode === "edit" && (
@@ -422,6 +468,101 @@ export default function FacturasOrg() {
               onSave={handleFacturaSaved}
             />
           )}
+        </ModalContainer>
+      )}
+      {showPaymentModal && selectedFactura && (
+        <ModalContainer
+          setIsActiveModal={() => setShowPaymentModal(false)}
+          modalTitle={"Procesar Venta"}
+          modalDescription={"Ingresa el monto recibido para procesar la venta"}
+          isForm={true}
+        >
+          <div className="flex flex-col gap-4">
+            <div className="p-3 rounded-lg bg-slate-50 border border-dark/10">
+              <div className="flex justify-between mb-2">
+                <span className="text-dark/70">Total:</span>
+                <span className="font-bold text-primary">C$ {Number(selectedFactura?.total || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="text-dark/70">Recibido:</span>
+                <span className="font-bold">C$ {(Number(montoCordobas || 0) + Number(montoDolares || 0) * Number(tasaCambio || 36.55)).toFixed(2)}</span>
+              </div>
+              <div className="border-t border-dark/10 pt-2 flex justify-between">
+                <span className="text-dark/70">Cambio:</span>
+                <span className="font-bold text-success">C$ {cambio.toFixed(2)}</span>
+              </div>
+            </div>
+            
+            <Input
+              label={"Monto recibido en Cordobas"}
+              placeholder={"Ingresar monto recibido en cordobas..."}
+              iconInput={<BsCashCoin className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
+              value={montoCordobas}
+              onChange={(e) => setMontoCordobas(e.target.value)}
+            />
+            
+            <Input
+              label={"Monto recibido en Dolares"}
+              placeholder={"Ingresar monto recibido en dolares..."}
+              iconInput={<FiDollarSign className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
+              value={montoDolares}
+              onChange={(e) => setMontoDolares(e.target.value)}
+            />
+            
+            {paymentError && (
+              <div className="p-2 rounded-lg bg-danger/10 text-danger text-sm">
+                {paymentError}
+              </div>
+            )}
+            
+            <div className="flex gap-4 pt-4">
+              <Button
+                className={'danger'}
+                text={'Cancelar'}
+                func={() => {
+                  setShowPaymentModal(false);
+                  setPaymentError('');
+                  setMontoCordobas('');
+                  setMontoDolares('');
+                }}
+              />
+              <Button
+                className={'success'}
+                text={processingPayment ? 'Procesando...' : 'Confirmar Venta'}
+                disabled={processingPayment}
+                func={handleProcessPayment}
+              />
+            </div>
+          </div>
+        </ModalContainer>
+      )}
+      {showSuccessModal && (
+        <ModalContainer
+          setIsActiveModal={() => {
+            setShowSuccessModal(false);
+            setIsActiveModal(false);
+          }}
+          modalTitle={"¡Venta Completada!"}
+          modalDescription={"La venta ha sido procesada y registrada correctamente"}
+          isForm={false}
+        >
+          <div className="flex flex-col items-center justify-center gap-4 py-6">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-success/10">
+              <FiCheck className="w-8 h-8 text-success" />
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-dark">Venta Procesada Correctamente</p>
+              <p className="text-sm text-dark/70 mt-1">El voucher ha sido enviado a la impresora</p>
+            </div>
+            <Button
+              className={'success'}
+              text={'Confirmar'}
+              func={() => {
+                setShowSuccessModal(false);
+                setIsActiveModal(false);
+              }}
+            />
+          </div>
         </ModalContainer>
       )}
     </>

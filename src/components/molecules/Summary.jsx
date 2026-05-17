@@ -13,26 +13,28 @@ export default function Summary({ sucursalFilter }) {
 	const isMobile = useIsMobile({ breakpoint: 768 });
 
 	const computeEstado = (item) => {
-		const toNum = (v) => {
-			if (v === null || v === undefined || v === '') return null;
-			const n = Number(v);
-			return Number.isFinite(n) ? n : null;
-		};
-		const stock = Number(item?.STOCK_SUCURSAL || 0);
-		const min = toNum(item?.MINIMO);
-		const max = toNum(item?.MAXIMO);
+		// El backend devuelve en minúsculas por case mapping
+		const stock = Number(item?.stock_sucursal || item?.STOCK_SUCURSAL || 0);
+		
+		// Obtener min y max de forma defensiva
+		let minVal = item?.MINIMO || item?.minimo;
+		let maxVal = item?.MAXIMO || item?.maximo;
+		
+		const min = (minVal && minVal !== '' && !isNaN(minVal)) ? Number(minVal) : null;
+		const max = (maxVal && maxVal !== '' && !isNaN(maxVal)) ? Number(maxVal) : null;
 
+		// Lógica según especificación:
+		// 1. Si stock es 0 → Agotado
 		if (stock === 0) return 'Agotado';
-		if (min != null && stock < min) return 'Bajo';
-		if (max != null && stock > max) return 'Exceso';
-		// Si tenemos ambos rangos, considerar disponible cuando está dentro o en los bordes
-		if (min != null && max != null && stock >= min && stock <= max) return 'Disponible';
-		// Si solo hay max
-		if (min == null && max != null) return stock <= max ? 'Disponible' : 'Exceso';
-		// Si solo hay min
-		if (min != null && max == null) return stock >= min ? 'Disponible' : 'Bajo';
-		// Sin rangos definidos
-		return stock > 0 ? 'Disponible' : 'Agotado';
+		
+		// 2. Si stock está por debajo del mínimo → Bajo
+		if (min !== null && stock < min) return 'Bajo';
+		
+		// 3. Si stock es mayor al máximo → Exceso
+		if (max !== null && stock > max) return 'Exceso';
+		
+		// 4. Si está dentro del rango o sin rango definido → Disponible
+		return 'Disponible';
 	};
 
 	const estadoStyles = {

@@ -617,7 +617,6 @@ CREATE TABLE `factura_detalles` (
   `SUB_TOTAL` decimal(12,2) NOT NULL,
   `UNIDAD_ID` int DEFAULT NULL,
   `CANTIDAD_POR_UNIDAD` decimal(12,4) NOT NULL DEFAULT '1.0000',
-  `ESTADO` enum('Pendiente','Cancelado','Completado') DEFAULT 'Pendiente',
   `UNIDAD_NOMBRE` varchar(100) DEFAULT NULL,
   `ID_USUARIO` int DEFAULT NULL,
   `ESTADO` ENUM('Pendiente', 'Confirmado', 'Cancelado') NOT NULL DEFAULT 'Pendiente',

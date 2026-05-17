@@ -19,8 +19,8 @@ export async function GET(req) {
     u.ESTATUS AS estado,
 		u.ID_ROL as idRol,
 		u.ID_SUCURSAL as idSucursal,
-    r.ROL_NAME AS ROL,
-		s.NOMBRE_SUCURSAL AS SUCURSAL
+    r.ROL_NAME AS rol,
+		s.NOMBRE_SUCURSAL AS sucursal
 FROM usuarios u
 LEFT JOIN rol r ON u.ID_ROL = r.ID_ROL
 LEFT JOIN sucursal s ON u.ID_SUCURSAL = s.ID_SUCURSAL
@@ -40,9 +40,9 @@ LEFT JOIN sucursal s ON u.ID_SUCURSAL = s.ID_SUCURSAL
 			nombreUsuario: r.nombreUsuario || '',
 			correo: r.correo || '',
 			estado: r.estado || '',
-			rol: r.ROL || '',
+			rol: r.rol || '',
 			idRol: r.idRol || '',
-			sucursal: r.SUCURSAL || '',
+			sucursal: r.sucursal || '',
 			idSucursal: r.idSucursal || '',
 		}));
 		return NextResponse.json({ usuarios });
