@@ -216,20 +216,34 @@ export async function POST(req) {
       }
     }
 
-    let facturaSql = hasFacturaNumero
-      ? 'INSERT INTO factura (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES' + (hasFacturaEstado ? ', ESTADO' : '') + ') VALUES (?, ?, ?, ?, ?, NULL, ?' + (hasFacturaEstado ? ', ?' : '') + ')'
-      : 'INSERT INTO factura (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES' + (hasFacturaEstado ? ', ESTADO' : '') + ') VALUES (?, ?, ?, ?, NULL, ?' + (hasFacturaEstado ? ', ?' : '') + ')';
-    let facturaParams = hasFacturaNumero
-      ? [numeroFactura, fecha, subtotalOk, descuentoOk, totalOk, clienteId || null].concat(hasFacturaEstado ? [facturaEstado] : [])
-      : [fecha, subtotalOk, descuentoOk, totalOk, clienteId || null].concat(hasFacturaEstado ? [facturaEstado] : []);
-    if (hasFacturaSucursal) {
-      facturaSql = hasFacturaNumero
-        ? 'INSERT INTO factura (NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL' + (hasFacturaEstado ? ', ESTADO' : '') + ') VALUES (?, ?, ?, ?, ?, NULL, ?, ?' + (hasFacturaEstado ? ', ?' : '') + ')'
-        : 'INSERT INTO factura (FECHA, SUBTOTAL, DESCUENTO, TOTAL, D_APERTURA, ID_CLIENTES, ID_SUCURSAL' + (hasFacturaEstado ? ', ESTADO' : '') + ') VALUES (?, ?, ?, ?, NULL, ?, ?' + (hasFacturaEstado ? ', ?' : '') + ')';
-      facturaParams = hasFacturaNumero
-        ? [numeroFactura, fecha, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null].concat(hasFacturaEstado ? [facturaEstado] : [])
-        : [fecha, subtotalOk, descuentoOk, totalOk, clienteId || null, sucursalId || null].concat(hasFacturaEstado ? [facturaEstado] : []);
+    let facturaSql = '';
+    let facturaParams = [];
+
+    // Construir el INSERT de forma clara y segura
+    // Armar las columnas dinámicamente
+    const cols = [];
+    const vals = [];
+    const params = [];
+
+    // Columnas siempre presentes
+    if (hasFacturaNumero) {
+      cols.push('NUMERO_FACTURA');
+      vals.push('?');
+      params.push(numeroFactura);
     }
+    cols.push('FECHA', 'SUBTOTAL', 'DESCUENTO', 'SERVICIO_TRANSPORTE', 'TOTAL', 'ID_CLIENTES');
+    vals.push('?', '?', '?', '?', '?', '?');
+    params.push(fecha, subtotalOk, descuentoOk, servicioTrans, totalOk, clienteId || null);
+
+    // Sucursal (si existe la columna)
+    if (hasFacturaSucursal) {
+      cols.push('ID_SUCURSAL');
+      vals.push('?');
+      params.push(sucursalId || null);
+    }
+
+    facturaSql = `INSERT INTO factura (${cols.join(', ')}) VALUES (${vals.join(', ')})`;
+    facturaParams = params;
     const [factRes] = await conn.query(facturaSql, facturaParams);
     const facturaId = factRes.insertId;
 
@@ -238,16 +252,6 @@ export async function POST(req) {
       try {
         await conn.query('UPDATE factura SET ID_SUCURSAL = ? WHERE ID_FACTURA = ?', [sucursalId, facturaId]);
       } catch { /* ignore if column is absent or update fails */ }
-    }
-
-    // Si la columna SERVICIO_TRANSPORTE existe, guardarla (compatibilidad con esquemas que no la tengan)
-    try {
-      if (hasFacturaServicio) {
-        await conn.query('UPDATE factura SET SERVICIO_TRANSPORTE = ? WHERE ID_FACTURA = ?', [servicioTrans, facturaId]);
-      }
-    } catch (err) {
-      // no fatal
-      console.error('No se pudo guardar SERVICIO_TRANSPORTE:', err?.message || err);
     }
 
     // Si se envió información detallada del descuento, almacenarla en tabla auxiliar
@@ -423,8 +427,8 @@ export async function GET(req) {
     if (id) {
       try {
         const selectDetalle = hasFacturaNumero
-          ? `SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ${hasFacturaServicio ? 'SERVICIO_TRANSPORTE' : 'NULL AS SERVICIO_TRANSPORTE'}, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL, IFNULL(ESTADO, 'Pendiente') AS ESTADO FROM factura WHERE ID_FACTURA = ?`
-          : `SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, ${hasFacturaServicio ? 'SERVICIO_TRANSPORTE' : 'NULL AS SERVICIO_TRANSPORTE'}, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL, IFNULL(ESTADO, 'Pendiente') AS ESTADO FROM factura WHERE ID_FACTURA = ?`;
+          ? `SELECT ID_FACTURA, NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, IFNULL(SERVICIO_TRANSPORTE, 0) AS SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL, IFNULL(ESTADO, 'Pendiente') AS ESTADO FROM factura WHERE ID_FACTURA = ?`
+          : `SELECT ID_FACTURA, NULL AS NUMERO_FACTURA, FECHA, SUBTOTAL, DESCUENTO, TOTAL, IFNULL(SERVICIO_TRANSPORTE, 0) AS SERVICIO_TRANSPORTE, ID_CLIENTES, IFNULL(ID_SUCURSAL, NULL) AS ID_SUCURSAL, IFNULL(ESTADO, 'Pendiente') AS ESTADO FROM factura WHERE ID_FACTURA = ?`;
         const [factRows] = await pool.query(selectDetalle, [id]);
         if (!factRows || !factRows.length) return Response.json({ error: 'Factura no encontrada' }, { status: 404 });
         const f = factRows[0];
@@ -460,14 +464,19 @@ export async function GET(req) {
         `, [id]);
 
         // Construir el objeto factura básico
+        const transporteValue = Number(
+          (f.SERVICIO_TRANSPORTE ?? f.servicio_transporte ?? f.servicioTransporte ?? f.transporte ?? 0)
+        );
         const facturaObj = {
           id: f.ID_FACTURA,
           numero: f.NUMERO_FACTURA || null,
           fecha: f.FECHA,
-          subtotal: Number(f.SUBTOTAL || 0),
-          descuento: Number(f.DESCUENTO || 0),
-          total: Number(f.TOTAL || 0),
-          servicio_transporte: Number(f.SERVICIO_TRANSPORTE || 0),
+          subtotal: Number(f.SUBTOTAL || f.subtotal || 0),
+          descuento: Number(f.DESCUENTO || f.descuento || 0),
+          total: Number(f.TOTAL || f.total || 0),
+          // Servicio transporte: soportar distintas formas de clave devueltas por el driver
+          servicio_transporte: transporteValue,
+          transporte: transporteValue,
           estado: f.ESTADO || 'Pendiente',
           cliente,
           sucursal,
@@ -480,9 +489,9 @@ export async function GET(req) {
             cantidad: Number(it.cantidad || 0),
             precio_unit: Number(it.precio_unit || 0),
             subtotal: Number(it.subtotal || 0),
-            unidad_id: it.unidad_id ?? null,
-            cantidad_por_unidad: Number(it.cantidad_por_unidad || 1),
-            unidad_nombre: it.unidad_nombre || null
+            unidad_id: it.unidad_id ?? it.UNIDAD_ID ?? null,
+            cantidad_por_unidad: Number(it.cantidad_por_unidad ?? it.CANTIDAD_POR_UNIDAD ?? 1),
+            unidad_nombre: it.unidad_nombre ?? it.UNIDAD_NOMBRE ?? null
           }))
         };
         // Intentar adjuntar info de descuento si existe
@@ -827,12 +836,8 @@ export async function PUT(req) {
       hasFacturaEstado = (colEst?.[0] && Number(colEst[0].CNT || 0) > 0) || false;
     } catch { hasFacturaEstado = false; }
 
-    const updateFields = ['SUBTOTAL = ?', 'DESCUENTO = ?', 'TOTAL = ?', 'ID_CLIENTES = ?'];
-    const updateParams = [subtotalOk, descuentoOk, totalOk, clienteId || null];
-    if (hasFacturaServicio) {
-      updateFields.push('SERVICIO_TRANSPORTE = ?');
-      updateParams.push(servicioTrans);
-    }
+    const updateFields = ['SUBTOTAL = ?', 'DESCUENTO = ?', 'SERVICIO_TRANSPORTE = ?', 'TOTAL = ?', 'ID_CLIENTES = ?'];
+    const updateParams = [subtotalOk, descuentoOk, servicioTrans, totalOk, clienteId || null];
     if (nuevoEstado && hasFacturaEstado) {
       updateFields.push('ESTADO = ?');
       updateParams.push(nuevoEstado);

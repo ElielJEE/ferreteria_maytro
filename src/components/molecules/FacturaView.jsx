@@ -3,6 +3,11 @@ import { Button } from "../atoms";
 import { FiShoppingBag } from "react-icons/fi";
 import { SalesService } from "@/services";
 
+const parseNumber = (value) => {
+  const num = Number(value ?? 0);
+  return Number.isFinite(num) ? num : 0;
+};
+
 export default function FacturaView({ factura, onClose, onProcess, onCancel }) {
   const [canceling, setCanceling] = useState(false);
   
@@ -41,18 +46,15 @@ export default function FacturaView({ factura, onClose, onProcess, onCancel }) {
       .toUpperCase() + String(factura.estado).slice(1)
     : "Pendiente";
   const referencia = factura?.numero || factura?.id || "";
-  const subtotalValue =
-    typeof factura?.subtotal === "number"
-      ? factura.subtotal
-      : factura?.SUBTOTAL;
-  const descuentoValue =
-    typeof factura?.descuento === "number"
-      ? factura.descuento
-      : factura?.discount?.amount ?? factura?.DESCUENTO;
-  const transporteValue =
-    typeof factura?.servicio_transporte === "number"
-      ? factura.servicio_transporte
-      : factura?.transporte;
+  const subtotalValue = parseNumber(
+    factura?.subtotal ?? factura?.SUBTOTAL
+  );
+  const descuentoValue = parseNumber(
+    factura?.descuento ?? factura?.discount?.amount ?? factura?.DESCUENTO
+  );
+  const transporteValue = parseNumber(
+    factura?.servicio_transporte ?? factura?.transporte ?? factura?.SERVICIO_TRANSPORTE ?? factura?.servicioTransporte
+  );
 
   return (
     <div className="py-4">
@@ -187,9 +189,7 @@ export default function FacturaView({ factura, onClose, onProcess, onCancel }) {
           <div className="text-md font-semibold">Descuento:</div>
           <div className="text-md font-semibold">
             {typeof descuentoValue === "number"
-              ? descuentoValue === 0
-                ? "N/A"
-                : `C$ ${descuentoValue.toFixed(2)}`
+              ? `C$ ${Number(descuentoValue || 0).toFixed(2)}`
               : "-"}
           </div>
         </div>
@@ -197,9 +197,7 @@ export default function FacturaView({ factura, onClose, onProcess, onCancel }) {
           <div className="text-md font-semibold">Transporte:</div>
           <div className="text-md font-semibold">
             {typeof transporteValue === "number"
-              ? transporteValue === 0
-                ? "N/A"
-                : `C$ ${transporteValue.toFixed(2)}`
+              ? `C$ ${Number(transporteValue || 0).toFixed(2)}`
               : "-"}
           </div>
         </div>
