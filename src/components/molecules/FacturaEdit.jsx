@@ -10,6 +10,11 @@ import {
 import { Button } from "../atoms";
 import { FiTrash2 } from "react-icons/fi";
 
+const parseNumber = (value) => {
+  const num = Number(value ?? 0);
+  return Number.isFinite(num) ? num : 0;
+};
+
 export default function FacturaEdit({ factura, onClose, onSave }) {
   const [clienteNombre, setClienteNombre] = useState(
     factura?.cliente?.nombre || factura?.cliente || "",
@@ -254,8 +259,9 @@ export default function FacturaEdit({ factura, onClose, onSave }) {
         (acc, it) => acc + Number(it.unitPrice ?? it.precio_unit ?? it.precio ?? 0) * Number(it.cantidad || 0),
         0,
       );
-      const descuento = 0;
-      const total = Math.max(0, subtotal - descuento);
+      const descuento = parseNumber(factura?.descuento ?? factura?.DESCUENTO);
+      const transporte = parseNumber(factura?.servicio_transporte ?? factura?.transporte ?? factura?.SERVICIO_TRANSPORTE ?? factura?.servicioTransporte);
+      const total = Math.max(0, subtotal - descuento + transporte);
       const payloadCliente = {};
       if (clienteNombre?.trim()) payloadCliente.nombre = clienteNombre.trim();
       if (clienteTelefono?.trim()) payloadCliente.telefono = clienteTelefono.trim();
@@ -270,6 +276,7 @@ export default function FacturaEdit({ factura, onClose, onSave }) {
         items: payloadItems,
         subtotal: Number(subtotal.toFixed(2)),
         descuento,
+        servicio_transporte: transporte,
         total: Number(total.toFixed(2)),
         cliente: payloadCliente,
       });
@@ -413,11 +420,15 @@ export default function FacturaEdit({ factura, onClose, onSave }) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-dark/70">Descuento:</span>
-            <span className="font-semibold">C$0.00</span>
+            <span className="font-semibold">C${(typeof factura?.descuento === "number" ? factura.descuento : factura?.DESCUENTO || 0).toLocaleString('es-ES')}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-dark/70">Transporte:</span>
+            <span className="font-semibold">C${(typeof factura?.servicio_transporte === "number" ? factura.servicio_transporte : factura?.transporte || 0).toLocaleString('es-ES')}</span>
           </div>
           <div className="flex justify-between text-lg font-semibold border-t border-dark/20 pt-2">
             <span>Total:</span>
-            <span className="text-primary">C${Number(items.reduce((acc, it) => acc + Number(it.subtotal || 0), 0)).toLocaleString('es-ES')}</span>
+            <span className="text-primary">C${Number(items.reduce((acc, it) => acc + Number(it.subtotal || 0), 0) - (typeof factura?.descuento === "number" ? factura.descuento : factura?.DESCUENTO || 0) + (typeof factura?.servicio_transporte === "number" ? factura.servicio_transporte : factura?.transporte || 0)).toLocaleString('es-ES')}</span>
           </div>
         </div>
 

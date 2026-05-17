@@ -49,6 +49,12 @@ export default function SaleView({ sale, onClose, onSaleUpdate }) {
 		return 0;
 	}, [currentSale]);
 
+	const transporteActual = useMemo(() => {
+		if (!currentSale) return 0;
+		const direct = parseNumber(currentSale?.servicio_transporte ?? currentSale?.SERVICIO_TRANSPORTE ?? currentSale?.transporte);
+		return direct;
+	}, [currentSale]);
+
 	const totalActual = useMemo(() => {
 		if (!currentSale) return 0;
 		const direct = parseNumber(currentSale?.total ?? currentSale?.total_venta ?? currentSale?.TOTAL);
@@ -205,11 +211,11 @@ export default function SaleView({ sale, onClose, onSaleUpdate }) {
 					</div>
 					<div className='flex justify-between'>
 						<div className='text-md font-semibold'>Descuento:</div>
-						<div className='text-md font-semibold'>{descuentoActual ? `C$ ${descuentoActual.toLocaleString()}` : 'N/A'}</div>
+						<div className='text-md font-semibold'>{`C$ ${descuentoActual.toLocaleString()}`}</div>
 					</div>
 					<div className='flex justify-between'>
 						<div className='text-md font-semibold'>Transporte:</div>
-						<div className='text-md font-semibold'>{`${sale.servicio_transporte !== 0 ? 'C$ ' + sale.servicio_transporte : 'N/A'}`}</div>
+						<div className='text-md font-semibold'>{`C$ ${transporteActual.toLocaleString()}`}</div>
 					</div>
 				</div>
 				<div className='mt-4 flex justify-between gap-5 border-t border-dark/10 pt-2'>

@@ -529,20 +529,33 @@ export default function PuntoVentaOrg() {
 	const handleDone = () => {
 		setIsActiveModal(false);
 		setMode('');
+		// Limpiar montos de pago
 		setMontoCordobas("");
 		setMontoDolares("");
+		setCambio(0);
+		// Limpiar productos
 		setProductList([]);
+		// Limpiar información del cliente
+		setClienteNombre('');
+		setClienteTelefono('');
+		// Limpiar transporte y descuento
+		setTransportation(0);
+		// `setDescuento` no existe; el monto de descuento se deriva de `appliedDiscount`
+		// Limpiar errores
 		setError({
 			nombre: '',
 			telefono: '',
 			fecha: '',
 			general: '',
 		});
+		// Limpiar descuentos aplicados
 		setAppliedDiscount(null);
 		setSelectedDiscountOpt([]);
-		// limpiar custom price state
+		// Limpiar custom price state
 		setCustomPriceProduct(null);
 		setCustomPriceInput('');
+		// Limpiar sucursal seleccionada
+		setSelectedSucursal(null);
 	}
 
 	const [activeTab, setActiveTab] = useState("productos");
