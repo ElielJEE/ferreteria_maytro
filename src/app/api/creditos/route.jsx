@@ -115,29 +115,55 @@ async function createCredit(req) {
       const idProd = Number(it.ID_PRODUCT || it.producto_id || it.id);
       const qty = Number(it.quantity || it.cantidad || 0);
       const precio = Number(it.PRECIO || it.precio_unit || it.precio || 0);
-      const unidadId = it.unit_id ?? it.UNIDAD_ID ?? null;
-      const unidadNombre = it.unit_name ?? it.UNIDAD_NOMBRE ?? null;
+      let unidadId = it.unit_id ?? it.unidad_id ?? it.UNIDAD_ID ?? null;
+      if (unidadId !== null) unidadId = Number(unidadId) || null;
+      
+      let unidadNombre = it.unit_name ?? it.unidad_nombre ?? it.UNIDAD_NOMBRE ?? null;
+      if (unidadNombre) unidadNombre = String(unidadNombre).trim() || null;
+      
+      // Si no hay unidad, buscar la unidad principal del producto en producto_unidades
+      if (!unidadId || !unidadNombre) {
+        try {
+          const [puRows] = await conn.query(
+            'SELECT UNIDAD_ID FROM producto_unidades WHERE PRODUCT_ID = ? ORDER BY ES_POR_DEFECTO DESC, ID ASC LIMIT 1',
+            [idProd]
+          );
+          if (Array.isArray(puRows) && puRows.length > 0) {
+            const puRow = puRows[0];
+            const colValue = puRow.UNIDAD_ID ?? puRow.unidad_id ?? puRow.unidadId ?? null;
+            if (!unidadId && colValue) {
+              unidadId = Number(colValue) || null;
+            }
+            
+            if (unidadId && !unidadNombre) {
+              try {
+                const [nameRows] = await conn.query(
+                  'SELECT NOMBRE FROM unidades_medidas WHERE ID_UNIDAD = ? LIMIT 1',
+                  [unidadId]
+                );
+                if (Array.isArray(nameRows) && nameRows.length > 0) {
+                  const nameRow = nameRows[0];
+                  const nameValue = nameRow.NOMBRE ?? nameRow.nombre ?? null;
+                  if (nameValue) {
+                    unidadNombre = String(nameValue).trim() || null;
+                  }
+                }
+              } catch (nameErr) {
+                console.error(`[CREDITOS] Error buscando nombre unidad:`, nameErr?.message);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[CREDITOS] Error buscando unidad:', e?.message);
+        }
+      }
       const cantidadPorUnidad = Number(it.cantidad_por_unidad ?? it.CANTIDAD_POR_UNIDAD ?? 1) || 1;
       const sub = Number((precio * qty).toFixed(2));
 
-      if (hasUnidadCols.UNIDAD_ID || hasUnidadCols.CANTIDAD_POR_UNIDAD || hasUnidadCols.UNIDAD_NOMBRE) {
-        await conn.query(
-          'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
-            + (hasUnidadCols.UNIDAD_ID ? ', UNIDAD_ID' : '')
-            + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : '')
-            + (hasUnidadCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : '')
-            + ') VALUES (?, ?, ?, ?, ?, ?'
-            + (hasUnidadCols.UNIDAD_ID ? ', ?' : '')
-            + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', ?' : '')
-            + (hasUnidadCols.UNIDAD_NOMBRE ? ', ?' : '')
-            + ')',
-          [facturaId, idProd, qty, precio, sub, usuarioId || null]
-            .concat(hasUnidadCols.UNIDAD_ID ? [unidadId] : [])
-            .concat(hasUnidadCols.CANTIDAD_POR_UNIDAD ? [cantidadPorUnidad] : [])
-            .concat(hasUnidadCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
-        );
-      } else {
-        await conn.query('INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)', [facturaId, idProd, qty, precio, sub, usuarioId || null]);
+      await conn.query(
+        'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [facturaId, idProd, qty, precio, sub, unidadId || null, cantidadPorUnidad, unidadNombre || null, usuarioId || null]
+      );
       }
 
       try {

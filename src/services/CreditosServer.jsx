@@ -157,25 +157,10 @@ export async function createCredit(req) {
       const cantidadPorUnidad = Number(it.cantidad_por_unidad ?? it.CANTIDAD_POR_UNIDAD ?? 1) || 1;
       const sub = Number((precio * qty).toFixed(2));
 
-      if (hasUnidadCols.UNIDAD_ID || hasUnidadCols.CANTIDAD_POR_UNIDAD || hasUnidadCols.UNIDAD_NOMBRE) {
-        await conn.query(
-          'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO'
-            + (hasUnidadCols.UNIDAD_ID ? ', UNIDAD_ID' : '')
-            + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', CANTIDAD_POR_UNIDAD' : '')
-            + (hasUnidadCols.UNIDAD_NOMBRE ? ', UNIDAD_NOMBRE' : '')
-            + ') VALUES (?, ?, ?, ?, ?, ?'
-            + (hasUnidadCols.UNIDAD_ID ? ', ?' : '')
-            + (hasUnidadCols.CANTIDAD_POR_UNIDAD ? ', ?' : '')
-            + (hasUnidadCols.UNIDAD_NOMBRE ? ', ?' : '')
-            + ')',
-          [facturaId, idProd, qty, precio, sub, usuarioId || null]
-            .concat(hasUnidadCols.UNIDAD_ID ? [unidadId] : [])
-            .concat(hasUnidadCols.CANTIDAD_POR_UNIDAD ? [cantidadPorUnidad] : [])
-            .concat(hasUnidadCols.UNIDAD_NOMBRE ? [unidadNombre] : [])
-        );
-      } else {
-        await conn.query('INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)', [facturaId, idProd, qty, precio, sub, usuarioId || null]);
-      }
+      await conn.query(
+        'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [facturaId, idProd, qty, precio, sub, unidadId || null, cantidadPorUnidad, unidadNombre || null, usuarioId || null]
+      );
 
       try {
         const [stockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProd, sucursalId]);
