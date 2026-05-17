@@ -164,7 +164,6 @@ async function createCredit(req) {
         'INSERT INTO factura_detalles (ID_FACTURA, ID_PRODUCT, AMOUNT, PRECIO_UNIT, SUB_TOTAL, UNIDAD_ID, CANTIDAD_POR_UNIDAD, UNIDAD_NOMBRE, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [facturaId, idProd, qty, precio, sub, unidadId || null, cantidadPorUnidad, unidadNombre || null, usuarioId || null]
       );
-      }
 
       try {
         const [stockRows] = await conn.query('SELECT CANTIDAD FROM stock_sucursal WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? FOR UPDATE', [idProd, sucursalId]);
@@ -175,7 +174,7 @@ async function createCredit(req) {
         try {
           await conn.query(`INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
             VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`, [idProd, sucursalId, usuarioId || null, totalARestar, 'Credito', facturaId, stockAnterior, stockNuevo]);
-        } catch {};
+        } catch {}
       } catch (e) { }
     }
 
