@@ -42,7 +42,7 @@ export async function POST(req) {
   const conn = await pool.getConnection();
   try {
     const body = await req.json();
-    const producto_id = Number(body.producto_id);
+    const producto_id = body.producto_id ? Number(body.producto_id) : null;
     let sucursal_id = body.sucursal_id || null;
     const userSucursal = await getUserSucursal(req);
     if (userSucursal) {
@@ -51,23 +51,33 @@ export async function POST(req) {
     }
     const minimo = body.minimo != null ? String(body.minimo) : null;
     const maximo = body.maximo != null ? String(body.maximo) : null;
-    if (!producto_id || !sucursal_id) {
-      return Response.json({ error: 'producto_id y sucursal_id son requeridos' }, { status: 400 });
+    if (!sucursal_id) {
+      return Response.json({ error: 'sucursal_id es requerido' }, { status: 400 });
     }
     await conn.beginTransaction();
-    const [rows] = await conn.query(
-      `SELECT ID_NIVELACION FROM nivelacion WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? LIMIT 1`,
-      [producto_id, sucursal_id]
-    );
-    if (rows && rows.length) {
-      await conn.query(
-        `UPDATE nivelacion SET CANTIDAD = ?, CANTIDAD_MAX = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?`,
-        [minimo, maximo, producto_id, sucursal_id]
+    if (producto_id) {
+      const [rows] = await conn.query(
+        `SELECT ID_NIVELACION FROM nivelacion WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ? LIMIT 1`,
+        [producto_id, sucursal_id]
       );
+      if (rows && rows.length) {
+        await conn.query(
+          `UPDATE nivelacion SET CANTIDAD = ?, CANTIDAD_MAX = ? WHERE ID_PRODUCT = ? AND ID_SUCURSAL = ?`,
+          [minimo, maximo, producto_id, sucursal_id]
+        );
+      } else {
+        await conn.query(
+          `INSERT INTO nivelacion (ID_PRODUCT, ID_SUCURSAL, CANTIDAD, CANTIDAD_MAX) VALUES (?, ?, ?, ?)`,
+          [producto_id, sucursal_id, minimo, maximo]
+        );
+      }
     } else {
       await conn.query(
-        `INSERT INTO nivelacion (ID_PRODUCT, ID_SUCURSAL, CANTIDAD, CANTIDAD_MAX) VALUES (?, ?, ?, ?)`,
-        [producto_id, sucursal_id, minimo, maximo]
+        `INSERT INTO nivelacion (ID_PRODUCT, ID_SUCURSAL, CANTIDAD, CANTIDAD_MAX)
+         SELECT p.ID_PRODUCT, ?, ?, ?
+         FROM productos p
+         ON DUPLICATE KEY UPDATE CANTIDAD = VALUES(CANTIDAD), CANTIDAD_MAX = VALUES(CANTIDAD_MAX)`,
+        [sucursal_id, minimo, maximo]
       );
     }
     await conn.commit();

@@ -520,14 +520,13 @@ export default function ControlStockOrg() {
 		e?.preventDefault?.();
 		const errors = {};
 		if (!selectedSucursal) errors.sucursal = 'Este campo es requerido';
-		if (!selectedProducto) errors.producto = 'Este campo es requerido';
 		if (minimo === '' || isNaN(Number(minimo)) || Number(minimo) < 0) errors.minimo = 'Ingresa un mínimo válido';
 		if (maximo === '' || isNaN(Number(maximo)) || Number(maximo) < 0) errors.maximo = 'Ingresa un máximo válido';
 		if (Object.keys(errors).length) { setFormErrors(prev => ({ ...prev, ...errors })); return; }
 
 		const res = await NivelacionService.saveNivelacion({
 			sucursal: selectedSucursal.value,
-			productoId: selectedProducto.value,
+			productoId: selectedProducto?.value ?? null,
 			minimo: String(minimo),
 			maximo: String(maximo),
 		});
@@ -660,8 +659,7 @@ export default function ControlStockOrg() {
 
 									{/* 🔹 Producto */}
 									<DropdownMenu
-										label={"Producto"}
-										options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
+							label={"Producto (opcional)"}
 										defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
 										onChange={(opt) => {
 											setSelectedProducto(opt);
