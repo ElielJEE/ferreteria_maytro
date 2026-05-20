@@ -26,7 +26,7 @@ export default function SalesBackgroundOrg() {
 			// Try SalesService.getSales if available, otherwise call API directly
 			let res
 			if (SalesService && typeof SalesService.getSalesHistory === 'function') {
-				res = await SalesService.getSalesHistory()
+				res = await SalesService.getSalesHistory(undefined, 'Confirmado')
 			}
 
 			// Normalize response to always be an array

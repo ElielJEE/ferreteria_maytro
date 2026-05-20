@@ -186,8 +186,8 @@ async function getResumen({ sucursal }) {
         WHERE sd.ID_PRODUCT = p.ID_PRODUCT AND sd.ID_SUCURSAL = s.ID_SUCURSAL
       ) AS DANADOS,
       (
-        SELECT IFNULL(SUM(mi.cantidad), 0) FROM movimientos_inventario mi
-        WHERE mi.producto_id = p.ID_PRODUCT AND mi.sucursal_id = s.ID_SUCURSAL AND mi.tipo_movimiento = 'reservado'
+        SELECT IFNULL(SUM(r.CANTIDAD), 0) FROM reservas r
+        WHERE r.ID_PRODUCT = p.ID_PRODUCT AND r.ID_SUCURSAL = s.ID_SUCURSAL
       ) AS RESERVADOS,
       '' AS CRITICOS,
       '' AS AGOTADOS

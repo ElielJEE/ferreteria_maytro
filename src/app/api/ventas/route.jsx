@@ -167,28 +167,28 @@ export async function POST(req) {
     try {
       const [colRows] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'ID_SUCURSAL'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND UPPER(COLUMN_NAME) = 'ID_SUCURSAL'
       `);
       hasFacturaSucursal = (colRows?.[0] && Number(colRows[0].CNT || 0) > 0) || false;
     } catch { hasFacturaSucursal = false; }
     try {
       const [colNum] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'NUMERO_FACTURA'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND UPPER(COLUMN_NAME) = 'NUMERO_FACTURA'
       `);
       hasFacturaNumero = (colNum?.[0] && Number(colNum[0].CNT || 0) > 0) || false;
     } catch { hasFacturaNumero = false; }
     try {
       const [colServ] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'SERVICIO_TRANSPORTE'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND UPPER(COLUMN_NAME) = 'SERVICIO_TRANSPORTE'
       `);
       hasFacturaServicio = (colServ?.[0] && Number(colServ[0].CNT || 0) > 0) || false;
     } catch { hasFacturaServicio = false; }
     try {
       const [colEst] = await conn.query(`
         SELECT COUNT(*) AS CNT FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND COLUMN_NAME = 'ESTADO'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'factura' AND UPPER(COLUMN_NAME) = 'ESTADO'
       `);
       hasFacturaEstado = (colEst?.[0] && Number(colEst[0].CNT || 0) > 0) || false;
     } catch { hasFacturaEstado = false; }
@@ -525,13 +525,25 @@ export async function GET(req) {
     // Otherwise return list of ventas (general view). Si el usuario no es admin (tiene sucursal asignada) forzamos ese filtro.
     try {
       let sucursal = (searchParams.get('sucursal') || '').toString().trim();
+      let estado = (searchParams.get('estado') || '').toString().trim();
       if (usuarioSucursalId) {
         // Usuario no admin: ignorar sucursal enviada y usar la suya
         sucursal = usuarioSucursalId;
       }
 
-      // Construir SQL con filtro opcional por sucursal
-            let sql = `
+      const whereClauses = [];
+      const params = [];
+      if (sucursal) {
+        whereClauses.push('f.ID_SUCURSAL = ?');
+        params.push(sucursal);
+      }
+      if (estado) {
+        whereClauses.push(`IFNULL(f.ESTADO, 'Pendiente') = ?`);
+        params.push(estado);
+      }
+
+      // Construir SQL con filtro opcional por sucursal y estado
+      let sql = `
          SELECT f.ID_FACTURA AS id,
            ${hasFacturaNumero ? 'f.NUMERO_FACTURA' : 'NULL'} AS numero,
            DATE_FORMAT(f.FECHA, '%Y-%m-%d') AS fecha,
@@ -547,10 +559,8 @@ export async function GET(req) {
          FROM factura f
          LEFT JOIN clientes c ON c.ID_CLIENTES = f.ID_CLIENTES
          LEFT JOIN sucursal s ON s.ID_SUCURSAL = f.ID_SUCURSAL`;
-      const params = [];
-      if (sucursal) {
-        sql += ' WHERE f.ID_SUCURSAL = ?';
-        params.push(sucursal);
+      if (whereClauses.length) {
+        sql += ' WHERE ' + whereClauses.join(' AND ');
       }
       sql += ' ORDER BY f.FECHA DESC LIMIT 1000';
 

@@ -8,6 +8,8 @@ import { HiOutlineUser } from "react-icons/hi2";
 
 export default function Input({ checked, name, min, max, type, placeholder, iconInput, value = "", onChange, label, inputClass, isTextarea, error = "", isLastElement }) {
 	const [showPassword, setShowPassword] = useState(false);
+	const normalizedValue = value ?? "";
+	const normalizedChecked = checked ?? false;
 
 	return (
 		<>
@@ -32,7 +34,7 @@ export default function Input({ checked, name, min, max, type, placeholder, icon
 							<textarea
 								name={name}
 								placeholder={placeholder}
-								{...(onChange ? { value, onChange } : { defaultValue: value })}
+								{...(onChange ? { value: normalizedValue, onChange } : { defaultValue: normalizedValue })}
 								id={type}
 								className={`w-full h-30 min-h-30 border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} transition-colors outline-none focus-visible:ring-1`}
 							/* required */
@@ -49,9 +51,9 @@ export default function Input({ checked, name, min, max, type, placeholder, icon
 											type={type}
 											placeholder={placeholder}
 											id={type}
-											value={value}
+											value={normalizedValue}
 											className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
-											checked={checked}
+											checked={normalizedChecked}
 											onChange={onChange}
 										/>
 										{error && <span className='text-danger text-sm'>{error}</span>}
@@ -62,7 +64,7 @@ export default function Input({ checked, name, min, max, type, placeholder, icon
 											name={name}
 											type={type === 'password' ? showPassword ? 'text' : 'password' : type}
 											placeholder={placeholder}
-											{...(onChange ? { value, onChange } : { defaultValue: value })}
+											{...(onChange ? { value: normalizedValue, onChange } : { defaultValue: normalizedValue })}
 											id={type}
 											className={`w-full border border-dark/20 hover:border-dark/30 rounded-lg bg-light ${inputClass === "no icon" ? "pl-3" : "pl-10"} h-10 transition-colors outline-none focus-visible:ring-1`}
 											min={min || null}

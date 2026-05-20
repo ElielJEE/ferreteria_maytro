@@ -22,9 +22,12 @@ export const createSale = async (payload) => {
   }
 }
 
-export const getSalesHistory = async (sucursalId) => {
+export const getSalesHistory = async (sucursalId, estado) => {
   try {
-    const url = sucursalId ? `${API_URL}?sucursal=${encodeURIComponent(sucursalId)}` : API_URL;
+    const params = new URLSearchParams();
+    if (sucursalId) params.append('sucursal', String(sucursalId));
+    if (estado) params.append('estado', String(estado));
+    const url = params.toString() ? `${API_URL}?${params.toString()}` : API_URL;
     const res = await fetch(url, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
