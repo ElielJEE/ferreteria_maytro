@@ -174,7 +174,7 @@ async function createCredit(req) {
         try {
           await conn.query(`INSERT INTO movimientos_inventario (producto_id, sucursal_id, usuario_id, tipo_movimiento, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo)
             VALUES (?, ?, ?, 'salida', ?, ?, ?, ?, ?)`, [idProd, sucursalId, usuarioId || null, totalARestar, 'Credito', facturaId, stockAnterior, stockNuevo]);
-        } catch {};
+        } catch {}
       } catch (e) { }
     }
 
