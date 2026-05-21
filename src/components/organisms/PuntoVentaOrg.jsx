@@ -294,6 +294,7 @@ export default function PuntoVentaOrg() {
 			handleSubmitVenta({ showResultModal: false });
 
 		} else if (type === 'cotizacion' && productList.length > 0) {
+			setIsActiveModal(true);
 			handleCotizacion();
 
 		} else if (type === 'credito' && productList.length > 0) {
