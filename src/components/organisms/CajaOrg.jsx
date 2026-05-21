@@ -72,7 +72,7 @@ export default function CajaOrg() {
 					const d = String(today.getDate()).padStart(2, '0');
 					const todayStr = `${y}-${m}-${d}`;
 					const totalHoy = (ventas || []).reduce((acc, v) => {
-						const vFecha = (v.fecha || '').toString();
+						const vFecha = (v.fechaFiltro || v.fecha || '').toString();
 						if (vFecha === todayStr) return acc + Number(v.total || 0);
 						return acc;
 					}, 0);

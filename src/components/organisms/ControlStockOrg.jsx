@@ -337,7 +337,6 @@ export default function ControlStockOrg() {
 	}, [topSucursal]);
 
 
-
 	const data = [
 		{ producto: "Martillo de Carpintero 16oz", sucursal: "Sucursal Sur" },
 		{ producto: "Destornillador Phillips #2", sucursal: "Sucursal Centro" },
@@ -673,24 +672,29 @@ export default function ControlStockOrg() {
 						label={"Producto (opcional)"}
 						options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
 						defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
+						searchable={true}
+						searchPlaceholder="Buscar producto..."
 						onChange={(opt) => {
-										}}
-										error={formErrors.producto}
-									/>
+								setSelectedProducto(opt);
+								if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
+							}}
+							error={formErrors.producto}
+					/>
+
 
 									{/* 🔹 Tipo de Movimiento */}
-									<DropdownMenu
-										label={"Tipo de Movimiento"}
-										options={movimientos}
-										defaultValue={"Selecciona un tipo"}
-										onChange={(value) => {
-											setTipoMovimiento(value);
-											if (value) setFormErrors(prev => ({ ...prev, tipoMovimiento: '' }));
-										}}
-										error={formErrors.tipoMovimiento}
-									/>
+						<DropdownMenu
+							label={"Tipo de Movimiento"}
+							options={movimientos}
+							defaultValue={"Selecciona un tipo"}
+							onChange={(value) => {
+								setTipoMovimiento(value);
+								if (value) setFormErrors(prev => ({ ...prev, tipoMovimiento: '' }));
+							}}
+							error={formErrors.tipoMovimiento}
+						/>
 
-									{/* 🔹 Campos dinámicos */}
+						{/* 🔹 Campos dinámicos */}
 									{tipoMovimiento === "Marcar como Dañado" && (
 										<>
 											{/* Estado del daño */}
@@ -895,6 +899,8 @@ export default function ControlStockOrg() {
 										label={"Producto"}
 										options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
 										defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
+						searchable={true}
+						searchPlaceholder="Buscar producto..."
 										onChange={(opt) => {
 											setSelectedProducto(opt);
 											if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
