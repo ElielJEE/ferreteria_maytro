@@ -639,6 +639,7 @@ export default function ControlStockOrg() {
 				isActiveModal && (
 					<ModalContainer
 						setIsActiveModal={setIsActiveModal}
+						isForm={true}
 						txtButton={mode === "stock"
 							? "Registrar Movimiento"
 							: "Guardar Cambios"
