@@ -281,7 +281,7 @@ export default function FacturasOrg() {
                         <td className="p-2 text-primary">C$ {Number(item.total || 0).toLocaleString()}</td>
                         <td className="p-2">
                           <span
-                            className={`${String(item.estado || 'Pendiente').toLowerCase() === "cancelado" ? "bg-danger" : "bg-success"} text-light rounded-full px-2 text-sm`}
+                            className={`${String(item.estado || 'Pendiente').toLowerCase() === "cancelado" ? "bg-danger" : String(item.estado || 'Pendiente').toLowerCase() === "pendiente" ? 'bg-success' : 'bg-blue'} text-light rounded-full px-2 text-sm`}
                           >
                             {String(item.estado || 'Pendiente')}
                           </span>
