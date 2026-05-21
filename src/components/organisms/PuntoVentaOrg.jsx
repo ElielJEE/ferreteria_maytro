@@ -184,9 +184,9 @@ export default function PuntoVentaOrg() {
 			setProductList((prevList) => prevList.map((item) => {
 				if (item.ID_PRODUCT === product.ID_PRODUCT) {
 					const newQuantity = item.quantity + 1;
-					if (newQuantity > product.CANTIDAD) {
+					/*if (newQuantity > product.CANTIDAD) {
 						return item;
-					}
+					}*/
 					return { ...item, quantity: newQuantity };
 				}
 				return item;
@@ -233,9 +233,9 @@ export default function PuntoVentaOrg() {
 				if (item.ID_PRODUCT === id) {
 					// Validaciones de límites
 					if (!Number.isFinite(newQuantity) || newQuantity < 0.01) newQuantity = 0.01;
-					if (newQuantity > item.CANTIDAD) {
+					/*if (newQuantity > item.CANTIDAD) {
 						newQuantity = item.CANTIDAD;
-					}
+					}*/
 					return { ...item, quantity: newQuantity };
 				}
 				return item;
