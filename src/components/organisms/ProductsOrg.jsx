@@ -334,7 +334,7 @@ export default function ProductsOrg() {
 								) : (
 									<div className='w-full text-2xl font-semibold p-10 text-center'>
 										{
-											products ? "Cargando Lista de Productos..." : "No hay productos registrados."
+											products.length !== 0 ? "Cargando Lista de Productos..." : "No hay productos registrados."
 										}
 									</div>
 								)
@@ -359,6 +359,7 @@ export default function ProductsOrg() {
 				isActiveModal &&
 				<ModalContainer
 					setIsActiveModal={handleModalClose}
+					isForm={true}
 					modalTitle={confirmDelete ? "Confirmar borrado" : (editMode ? "Editar Producto" : "Agregar Nuevo Producto")}
 					modalDescription={confirmDelete ? `¿Estás seguro que deseas borrar "${confirmDelete?.name}"? Esta acción no se puede deshacer.` : (editMode ? "Modifica los datos y guarda los cambios" : "Rellena el formulario para agregar un nuevo producto")}
 				>
