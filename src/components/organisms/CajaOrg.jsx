@@ -72,8 +72,9 @@ export default function CajaOrg() {
 					const d = String(today.getDate()).padStart(2, '0');
 					const todayStr = `${y}-${m}-${d}`;
 					const totalHoy = (ventas || []).reduce((acc, v) => {
+						const estado = String(v.estado || '').toLowerCase();
 						const vFecha = (v.fechaFiltro || v.fecha || '').toString();
-						if (vFecha === todayStr) return acc + Number(v.total || 0);
+						if (vFecha === todayStr && estado !== 'cancelado') return acc + Number(v.total || 0);
 						return acc;
 					}, 0);
 					setTotalVentas(prev => ({ ...prev, [sucId]: Number(totalHoy.toFixed(2)) }));
