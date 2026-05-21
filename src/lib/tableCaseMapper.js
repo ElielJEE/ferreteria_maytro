@@ -79,10 +79,12 @@ const buildPatterns = (base, meta) => {
   if (identifierPatternsCache.has(cacheKey)) return identifierPatternsCache.get(cacheKey);
   const escapedBase = escapeRegex(base);
   const patterns = [
+    // Keep already quoted table identifiers intact.
     { regex: new RegExp("`" + escapedBase + "`", 'gi'), value: meta.quoted },
-    { regex: new RegExp("\\b" + escapedBase + "\\b", 'gi'), value: meta.quoted },
     { regex: new RegExp("'" + escapedBase + "'", 'gi'), value: `'${meta.raw}'` },
-    { regex: new RegExp("\"" + escapedBase + "\"", 'gi'), value: `"${meta.raw}"` }
+    { regex: new RegExp('"' + escapedBase + '"', 'gi'), value: `"${meta.raw}"` },
+    // Replace unquoted identifiers only, avoiding string literals and quoted strings.
+    { regex: new RegExp(`(?<!['"\"])\\b${escapedBase}\\b(?!['"\"])`, 'gi'), value: meta.quoted }
   ];
   identifierPatternsCache.set(cacheKey, patterns);
   return patterns;

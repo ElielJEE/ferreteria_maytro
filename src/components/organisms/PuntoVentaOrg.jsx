@@ -232,7 +232,7 @@ export default function PuntoVentaOrg() {
 			prevList.map((item) => {
 				if (item.ID_PRODUCT === id) {
 					// Validaciones de límites
-					if (newQuantity < 1) newQuantity = 1;
+					if (!Number.isFinite(newQuantity) || newQuantity < 0.01) newQuantity = 0.01;
 					if (newQuantity > item.CANTIDAD) {
 						newQuantity = item.CANTIDAD;
 					}
@@ -1028,11 +1028,13 @@ export default function PuntoVentaOrg() {
 												<div className='flex items-center gap-2 mt-1'>
 													<input
 														type='number'
-														min='1'
+                                                        inputMode='decimal'
+														step='0.01'
+                                                    min='0.01'
 														max={product.CANTIDAD}
 														value={product.quantity}
 														onChange={(e) =>
-															updateQuantity(product.ID_PRODUCT, parseInt(e.target.value) || 1)
+															updateQuantity(product.ID_PRODUCT, parseFloat(e.target.value) || 0.01)
 														}
 														className='w-16 text-center border border-dark/20 rounded-md p-1'
 													/>

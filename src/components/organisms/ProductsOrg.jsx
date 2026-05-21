@@ -401,6 +401,8 @@ export default function ProductsOrg() {
 									label={"Categoría"}
 									options={subcategories.map(sub => ({ value: sub.ID_SUBCATEGORIAS, label: sub.NOMBRE_SUBCATEGORIA }))}
 									defaultValue={'Selecciona una categoría'}
+												searchable={true}
+												searchPlaceholder="Buscar categoría..."
 									onChange={value => { setForm({ ...form, subcategoria: value }); setErrors(prev => ({ ...prev, subcategoria: undefined })); }}
 									error={errors.subcategoria}
 								/>

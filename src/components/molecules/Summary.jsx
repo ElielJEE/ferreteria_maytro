@@ -1,16 +1,28 @@
 'use client'
 import { useIsMobile } from '@/hooks';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import DropdownMenu from './DropdownMenu';
 import Input from './Input';
 import { FiSearch } from 'react-icons/fi';
-import { BsBuilding } from 'react-icons/bs';
+import { BsBuilding } from 'react-icons/bs'
 import Card from './Card';
 import StockService from '@/services/StockService';
 
 export default function Summary({ sucursalFilter }) {
 	const [data, setData] = useState([]);
+	const [search, setSearch] = useState('');
 	const isMobile = useIsMobile({ breakpoint: 768 });
+
+	const filteredData = useMemo(() => {
+		if (!search) return data;
+		const query = search.toLowerCase();
+		return data.filter(item => {
+			const nombre = (item.PRODUCT_NAME || '').toString().toLowerCase();
+			const codigo = (item.CODIGO_PRODUCTO || '').toString().toLowerCase();
+			const sucursal = (item.NOMBRE_SUCURSAL || '').toString().toLowerCase();
+			return nombre.includes(query) || codigo.includes(query) || sucursal.includes(query);
+		});
+	}, [data, search]);
 
 	const computeEstado = (item) => {
 		// El backend devuelve en minúsculas por case mapping
@@ -53,7 +65,20 @@ export default function Summary({ sucursalFilter }) {
 				setData([]);
 				return;
 			}
-			const rows = (result.resumen || []).map(r => ({ ...r, status: r.STATUS || '' }));
+			const rows = (result.resumen || []).map(r => ({
+				...r,
+				STOCK_SUCURSAL: r.STOCK_SUCURSAL ?? r.stock_sucursal ?? 0,
+				STOCK_BODEGA: r.STOCK_BODEGA ?? r.stock_bodega ?? 0,
+				FISICO_TOTAL: r.FISICO_TOTAL ?? r.fisico_total ?? 0,
+				DANADOS: r.DANADOS ?? r.danados ?? 0,
+				RESERVADOS: r.RESERVADOS ?? r.reservados ?? 0,
+				MINIMO: r.MINIMO ?? r.minimo ?? '',
+				MAXIMO: r.MAXIMO ?? r.maximo ?? '',
+				PRODUCT_NAME: r.PRODUCT_NAME ?? r.producto ?? '',
+				CODIGO_PRODUCTO: r.CODIGO_PRODUCTO ?? r.codigo ?? '',
+				NOMBRE_SUCURSAL: r.NOMBRE_SUCURSAL ?? r.sucursal ?? '',
+				status: r.STATUS || r.status || ''
+			}));
 			setData(rows);
 		};
 		fetchResumen();
@@ -75,6 +100,8 @@ export default function Summary({ sucursalFilter }) {
 			<div className='w-full flex flex-col gap-1 sticky top-0 bg-light pt-2 mb-4'>
 				<Input
 					placeholder={'Buscar producto...'}
+				value={search}
+				onChange={(e) => setSearch(e.target.value)}
 					type={'search'}
 					iconInput={<FiSearch className='absolute left-3 top-3 h-5 w-5 text-dark/50' />}
 				/>
@@ -100,7 +127,7 @@ export default function Summary({ sucursalFilter }) {
 									</tr>
 								</thead>
 								<tbody className='w-full'>
-									{data.map((item, index) => (
+									{filteredData.map((item, index) => (
 										<tr key={index} className='text-sm font-semibold w-full border-b border-dark/20 hover:bg-dark/3'>
 											<td className='p-2'>{item.CODIGO_PRODUCTO}</td>
 											<td className='p-2 flex flex-col'>
@@ -140,7 +167,7 @@ export default function Summary({ sucursalFilter }) {
 						</div>
 					) : (
 						<div className='flex flex-col mt-2 gap-2'>
-							{data.map((item, index) => (
+							{filteredData.map((item, index) => (
 								<Card
 									key={index}
 									productName={item.PRODUCT_NAME}

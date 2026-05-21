@@ -259,16 +259,26 @@ export default function ControlStockOrg() {
 		const zeros = { en_bodega: 0, en_stock: 0, fisico_total: 0, danados: 0, reservados: 0, criticos: 0, agotados: 0, valor_total: 'C$ 0' };
 		const normNum = (v) => (v == null || v === '' ? 0 : Number(v));
 		const calcCards = (rows) => {
+			const getField = (row, ...keys) => {
+				for (const key of keys) {
+					if (row[key] !== undefined && row[key] !== null) return row[key];
+				}
+				return undefined;
+			};
+
 			// en_stock/danados/reservados se pueden sumar a nivel de fila (ya vienen por sucursal)
-			const en_stock = rows.reduce((sum, r) => sum + normNum(r.STOCK_SUCURSAL), 0);
-			const danados = rows.reduce((sum, r) => sum + normNum(r.DANADOS), 0);
-			const reservados = rows.reduce((sum, r) => sum + normNum(r.RESERVADOS), 0);
+			const en_stock = rows.reduce((sum, r) => sum + normNum(getField(r, 'STOCK_SUCURSAL', 'stock_sucursal')), 0);
+			const danados = rows.reduce((sum, r) => sum + normNum(getField(r, 'DANADOS', 'danados')), 0);
+			const reservados = rows.reduce((sum, r) => sum + normNum(getField(r, 'RESERVADOS', 'reservados')), 0);
 			// Para en_bodega y fisico_total, evitar duplicar por sucursal: sumar por producto único
 			const byProduct = new Map();
 			rows.forEach(r => {
-				const key = r.ID_PRODUCT ?? r.id_product ?? `${r.CODIGO_PRODUCTO}-${r.PRODUCT_NAME}`;
+				const key = r.ID_PRODUCT ?? r.id_product ?? `${getField(r, 'CODIGO_PRODUCTO', 'codigo')}-${getField(r, 'PRODUCT_NAME', 'producto')}`;
 				if (!byProduct.has(key)) {
-					byProduct.set(key, { STOCK_BODEGA: normNum(r.STOCK_BODEGA), FISICO_TOTAL: normNum(r.FISICO_TOTAL) });
+					byProduct.set(key, {
+						STOCK_BODEGA: normNum(getField(r, 'STOCK_BODEGA', 'stock_bodega', 'CANTIDAD', 'cantidad')),
+						FISICO_TOTAL: normNum(getField(r, 'FISICO_TOTAL', 'fisico_total'))
+					});
 				}
 			});
 			let en_bodega = 0; let fisico_total = 0;
@@ -277,8 +287,8 @@ export default function ControlStockOrg() {
 			let agotados = 0;
 
 			rows.forEach(r => {
-				const stock = Number(r.STOCK_SUCURSAL || 0);
-				const minimo = Number(r.MINIMO || 0); // suponiendo que el API te devuelve mínimo
+				const stock = Number(getField(r, 'STOCK_SUCURSAL', 'stock_sucursal') || 0);
+				const minimo = Number(getField(r, 'MINIMO', 'minimo') || 0); // suponiendo que el API te devuelve mínimo
 				if (stock === 0) agotados += 1;
 				else if (stock <= minimo) criticos += 1;
 			});
@@ -659,11 +669,10 @@ export default function ControlStockOrg() {
 
 									{/* 🔹 Producto */}
 									<DropdownMenu
-							label={"Producto (opcional)"}
-										defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
-										onChange={(opt) => {
-											setSelectedProducto(opt);
-											if (opt) setFormErrors(prev => ({ ...prev, producto: '' }));
+						label={"Producto (opcional)"}
+						options={productos.length > 0 ? productos : [{ label: 'Cargando...', value: null }]}
+						defaultValue={selectedProducto ? selectedProducto.label : "Selecciona un producto"}
+						onChange={(opt) => {
 										}}
 										error={formErrors.producto}
 									/>
