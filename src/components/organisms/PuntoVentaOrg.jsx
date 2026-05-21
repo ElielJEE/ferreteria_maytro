@@ -1031,7 +1031,7 @@ export default function PuntoVentaOrg() {
                                                         inputMode='decimal'
 														step='0.01'
                                                     min='0.01'
-														max={product.CANTIDAD}
+		
 														value={product.quantity}
 														onChange={(e) =>
 															updateQuantity(product.ID_PRODUCT, parseFloat(e.target.value) || 0.01)
