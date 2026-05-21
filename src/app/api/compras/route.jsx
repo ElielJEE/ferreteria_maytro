@@ -224,7 +224,7 @@ export async function GET(request) {
             c.ID_USUARIO, c.ID_SUCURSAL, c.ESTADO,
              (SELECT COUNT(1) FROM detalles_compra d WHERE d.ID_COMPRA = c.ID_COMPRA) AS PRODUCT_COUNT
       FROM compras c
-      LEFT JOIN PROVEEDOR p ON p.ID_PROVEEDOR = c.ID_PROVEEDOR
+      LEFT JOIN proveedor p ON p.ID_PROVEEDOR = c.ID_PROVEEDOR
       ${where}
       ORDER BY c.ID_COMPRA DESC
     `, params);
