@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { FiCheckCircle, FiClock, FiDollarSign, FiEye, FiPlus, FiSearch, FiShoppingBag, FiShoppingCart, FiTrash2 } from 'react-icons/fi';
 import { Button, InfoCard, ModalContainer } from '../atoms';
 import { Card, DropdownMenu, Input } from '../molecules';
@@ -21,11 +21,37 @@ export default function PurchasesOrderOrg() {
 	const [isSaving, setIsSaving] = useState(false);
 
 
+	const formatCurrency = (value) => {
+		const numericValue = Number(value);
+		return `C$ ${Number.isFinite(numericValue)
+			? numericValue.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+			: '0.00'}`;
+	}
+
+	const purchaseSummary = useMemo(() => {
+		return ordenesEjemplo.reduce((summary, orden) => {
+			const estado = String(orden?.estado || '').trim().toLowerCase();
+			const total = Number(orden?.total || 0);
+
+			summary.total += 1;
+			if (estado === 'pendiente') summary.pendientes += 1;
+			if (estado === 'recibida') summary.recibidas += 1;
+			if (Number.isFinite(total)) summary.valorTotal += total;
+
+			return summary;
+		}, {
+			total: 0,
+			pendientes: 0,
+			recibidas: 0,
+			valorTotal: 0,
+		});
+	}, [ordenesEjemplo]);
+
 	const cardConfig = [
-		{ key: 0, title: 'Total', color: 'primary', icon: FiShoppingCart },
-		{ key: 0, title: 'Pendientes', color: 'yellow', icon: FiClock },
-		{ key: 0, title: 'Recibidas', color: 'success', icon: FiCheckCircle },
-		{ key: 0, title: 'Valor Total', color: 'success', icon: FiDollarSign },
+		{ value: purchaseSummary.total, title: 'Total', color: 'primary', icon: FiShoppingCart },
+		{ value: purchaseSummary.pendientes, title: 'Pendientes', color: 'yellow', icon: FiClock },
+		{ value: purchaseSummary.recibidas, title: 'Recibidas', color: 'success', icon: FiCheckCircle },
+		{ value: formatCurrency(purchaseSummary.valorTotal), title: 'Valor Total', color: 'success', icon: FiDollarSign },
 	]
 
 	const handleView = async (itemData) => {
@@ -243,9 +269,6 @@ export default function PurchasesOrderOrg() {
 		refreshComprasListado();
 	}, [isActiveModal])
 
-	console.log(ordenesEjemplo);
-	console.log(purchaseData);
-
 	return (
 		<>
 			<div className='p-6 flex flex-col gap-4'>
@@ -254,7 +277,7 @@ export default function PurchasesOrderOrg() {
 						cardConfig.map((cfg, index) => (
 							<InfoCard
 								CardTitle={cfg.title}
-								cardValue={cfg.key}
+								cardValue={cfg.value}
 								cardIcon={<cfg.icon className={`h-4 w-4 md:h-6 md:w-6 text-${cfg.color}`} />}
 								cardIconColor={cfg.color}
 								key={index}
