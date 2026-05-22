@@ -9,7 +9,7 @@ async function ensureCajaTables() {
     USUARIO_APERTURA INT NULL,
     FECHA_APERTURA DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     MONTO_INICIAL DECIMAL(12,2) NOT NULL DEFAULT 0,
-    ESTADO ENUM('abierta','cerrada') NOT NULL DEFAULT 'abierta',
+    ESTADO ENUM('abierta','cerrada', 'cancelada') NOT NULL DEFAULT 'abierta',
     FECHA_CIERRE DATETIME NULL,
     USUARIO_CIERRE INT NULL,
     MONTO_FINAL DECIMAL(12,2) NULL,
@@ -182,5 +182,83 @@ export async function PUT(request) {
     try { await conn.rollback(); } catch { }
     try { conn.release(); } catch { }
     return Response.json({ error: e.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req) {
+  const conn = await pool.getConnection();
+
+  try {
+    const body = await req.json();
+
+    const { sesion_id, sucursal_id } = body;
+
+    if (!sesion_id && !sucursal_id) {
+      return Response.json(
+        { error: 'Sesión o sucursal requerida' },
+        { status: 400 }
+      );
+    }
+
+    // Validar que la sesión exista
+    const [[sesion]] = await conn.query(`
+      SELECT *
+      FROM caja_sesion
+      WHERE ID_SESION = ?
+    `, [sesion_id]);
+
+    if (!sesion) {
+      return Response.json(
+        { error: 'Sesión no encontrada' },
+        { status: 404 }
+      );
+    }
+
+    // Validar que siga abierta
+    if (sesion.ESTADO !== 'abierta') {
+      return Response.json(
+        { error: 'La caja ya no está abierta' },
+        { status: 400 }
+      );
+    }
+
+    // Aquí puedes validar ventas reales
+    // usando factura en vez de ventas
+    const [ventas] = await conn.query(`
+      SELECT COUNT(*) AS total
+      FROM factura
+      WHERE ID_SUCURSAL = ?
+      AND DATE(FECHA) >= DATE(?)
+      AND LOWER(TRIM(IFNULL(ESTADO, ''))) = 'confirmado'
+    `, [sesion.ID_SUCURSAL, sesion.FECHA_APERTURA]);
+
+    if (ventas[0].total > 0) {
+      return Response.json(
+        { error: 'No se puede deshacer porque existen ventas.' },
+        { status: 400 }
+      );
+    }
+
+    // Cancelar sesión
+    await conn.query(`
+      UPDATE caja_sesion
+      SET ESTADO = 'cancelada'
+      WHERE ID_SESION = ?
+    `, [sesion_id]);
+
+    return Response.json({
+      success: true
+    });
+
+  } catch (e) {
+    console.error(e);
+
+    return Response.json(
+      { error: e.message },
+      { status: 500 }
+    );
+
+  } finally {
+    conn.release();
   }
 }

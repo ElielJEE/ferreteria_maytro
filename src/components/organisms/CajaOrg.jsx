@@ -14,6 +14,7 @@ export default function CajaOrg() {
 	const [totalVentas, setTotalVentas] = useState({}); // map sucursalId -> total ventas hoy
 	const [esperadoMap, setEsperadoMap] = useState({});
 	const [cajaErrors, setCajaErrors] = useState({}); // sucursalId -> error message
+	const [cajaAlert, setCajaAlert] = useState(null);
 	console.log(sucursales);
 
 	useEffect(() => {
@@ -141,17 +142,95 @@ export default function CajaOrg() {
 		}
 	};
 
+	const handleUndoOpenCaja = async (id) => {
+		try {
+			const sesionId = cajas?.[id]?.sesionId;
+
+			if (!sesionId) return;
+
+			// Validar que no existan ventas
+			const ventas = Number(totalVentas[id] || 0);
+
+			if (ventas > 0) {
+
+				setCajaAlert({
+					type: 'error',
+					message: 'No puedes deshacer la apertura porque ya existen ventas.'
+				});
+
+				return;
+			}
+
+			await CajaService.deshacerApertura({
+				sesion_id: sesionId,
+				sucursal_id: id
+			});
+
+			// Reset local
+			setCajas(prev => ({
+				...prev,
+				[id]: {
+					status: 'Cerrada',
+					montoInicial: 0,
+					horaApertura: null,
+					sesionId: null,
+					montoFinal: 0,
+					montoFinalRaw: ''
+				}
+			}));
+
+			setCerrarCaja(prev => ({
+				...prev,
+				[id]: false
+			}));
+
+			setEsperadoMap(prev => ({
+				...prev,
+				[id]: 0
+			}));
+
+			setDiferenciaMap(prev => ({
+				...prev,
+				[id]: 0
+			}));
+
+		} catch (e) {
+
+			setCajaAlert({
+				type: 'error',
+				message: e.message || 'Error al deshacer apertura.'
+			});
+			setTimeout(() => {
+				setCajaAlert(null);
+			}, 4000);
+			
+			console.error('Deshacer apertura error:', e);
+		}
+	};
+
 	return (
 		<div className='p-6'>
 			<h2 className='md:text-2xl font-semibold'>Configuracion de cajas en sucursales</h2>
 			<span className='text-sm md:text-medium text-dark/50'>Configura el monto de la apertura de caja para cada una de las sucursales.</span>
-			<div className='grid grid-cols-3 gap-4 mt-4'>
-				<div className='col-span-2 flex flex-col gap-4'>
+			<div className='grid md:grid-cols-3 grid-cols-1 gap-4 mt-4'>
+				<div className='md:col-span-2 flex flex-col gap-4'>
 					{sucursales &&
 						sucursales.map((sucursal, index) => {
 							const caja = cajas[sucursal.value];
 							return (
 								<div key={index} className='border border-dark/20 p-4 rounded-lg flex flex-col gap-2'>
+									{
+										cajaAlert && (
+											<div className={`
+												p-3 rounded-lg mb-3 border
+												${cajaAlert.type === 'error'
+													? 'bg-danger/10 border-danger text-danger'
+													: 'bg-success/10 border-success text-success'}
+											`}>
+												{cajaAlert.message}
+											</div>
+										)
+									}
 									<h2 className='md:text-lg font-semibold'>Caja {sucursal.label}</h2>
 									{caja?.status === 'Cerrada' && (
 										<div className='flex gap-2'>
@@ -214,7 +293,7 @@ export default function CajaOrg() {
 															text={'Deshacer Apertura'}
 															className={'danger'}
 															icon={<FiTrash2 />}
-															func={() => handleCloseCaja(sucursal.value, 0)}
+															func={() => handleUndoOpenCaja(sucursal.value)}
 														/>
 													</>
 												) : (
