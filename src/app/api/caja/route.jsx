@@ -156,13 +156,16 @@ export async function PUT(request) {
       const [sumRows] = await conn.query(
         `SELECT COALESCE(SUM(f.TOTAL), 0) AS total
    FROM factura f
-   WHERE f.ID_SUCURSAL = ? AND DATE(f.FECHA) >= DATE(?) AND DATE(f.FECHA) <= DATE(?)`,
+   WHERE f.ID_SUCURSAL = ?
+     AND DATE(f.FECHA) >= DATE(?)
+     AND DATE(f.FECHA) <= DATE(?)
+     AND LOWER(TRIM(IFNULL(f.ESTADO, ''))) = 'confirmado'`,
         [sesion.ID_SUCURSAL, sesion.FECHA_APERTURA, now]
       );
       totalVentasEqC = Number(sumRows?.[0]?.total || 0);
     } catch { totalVentasEqC = 0; }
 
-    const esperado = Number((Number(sesion.MONTO_INICIAL || 0) + totalVentasEqC).toFixed(2));
+    const esperado = totalVentasEqC;
     console.log("lo esperado: ", esperado, "total de ventas:", totalVentasEqC);
     const diferencia = Number((montoFinal - esperado).toFixed(2));
 
