@@ -1068,7 +1068,7 @@ export default function PuntoVentaOrg() {
 												/>
 												<div className='flex flex-col items-end'>
 													<span className='font-semibold text-primary text-lg'>
-														${(product.PRECIO * product.quantity).toFixed(2)}
+														C${(product.PRECIO * product.quantity).toFixed(2)}
 													</span>
 													<span className='text-dark/70 text-sm flex gap-2'>
 														<Button
@@ -1081,7 +1081,7 @@ export default function PuntoVentaOrg() {
 															className={'noneTwo'}
 															func={() => toggleModalType('price', product)}
 														/>
-														${product.PRECIO} {product.unit || 'c/u'}
+														C${product.PRECIO} {product.unit || 'c/u'}
 													</span>
 												</div>
 											</div>
@@ -1099,7 +1099,7 @@ export default function PuntoVentaOrg() {
 						<div className='flex flex-col gap-2'>
 							<div className='flex justify-between'>
 								<span className='text-dark/70'>Subtotal:</span>
-								<span className='font-semibold'>${subtotal.toFixed(2)}</span>
+								<span className='font-semibold'>C${subtotal.toFixed(2)}</span>
 							</div>
 							<div className='flex justify-between'>
 								<span className='text-dark/70'>Descuento:</span>
@@ -1112,7 +1112,7 @@ export default function PuntoVentaOrg() {
 											func={() => { setAppliedDiscount(null); setSelectedDiscountOpt([]); }}
 										/>
 									)}
-									<span className='font-semibold'>${descuento.toFixed(2)}</span>
+									<span className='font-semibold'>C${descuento.toFixed(2)}</span>
 								</div>
 							</div>
 							<div className='flex justify-between'>
@@ -1127,12 +1127,12 @@ export default function PuntoVentaOrg() {
 											func={() => { setTransportation(0); }}
 										/>
 									)}
-									<span className='font-semibold'>${transportation.toFixed(2)}</span>
+									<span className='font-semibold'>C${transportation.toFixed(2)}</span>
 								</div>
 							</div>
 							<div className='flex justify-between'>
 								<span className='text-dark/70'>Total:</span>
-								<span className='font-semibold text-primary text-lg'>${total.toFixed(2)}</span>
+								<span className='font-semibold text-primary text-lg'>C${total.toFixed(2)}</span>
 							</div>
 						</div>
 						<Button

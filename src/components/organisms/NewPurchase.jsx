@@ -131,7 +131,7 @@ export default function NewPurchase() {
 		return acc + unit * (Number(item.quantity) || 0);
 	}, 0);
 	const descuento = 0; // o podrías usar un estado si más adelante aplicas descuentos
-	const total = subtotal - descuento;
+	const total = Number((subtotal - descuento).toFixed(2));
 
 	const validateFields = (form) => {
 		const newErrors = {};
@@ -445,7 +445,7 @@ export default function NewPurchase() {
 												/>
 												<div className='flex flex-col items-end'>
 													<span className='font-semibold text-primary text-lg'>
-														${(product.PRECIO_COMPRA * product.quantity).toFixed(2)}
+														C${(product.PRECIO_COMPRA * product.quantity).toFixed(2)}
 													</span>
 													<span className='text-dark/70 text-sm flex gap-2 items-center'>
 														<Button
@@ -453,7 +453,7 @@ export default function NewPurchase() {
 															className={'none'}
 															func={() => toggleModalType('modifyPrice', product)}
 														/>
-														${product.PRECIO_COMPRA} c/u
+														C${product.PRECIO_COMPRA} c/u
 													</span>
 												</div>
 											</div>
@@ -471,7 +471,7 @@ export default function NewPurchase() {
 						<div className='flex flex-col gap-2'>
 							<div className='flex justify-between'>
 								<span className='text-dark/70'>Total:</span>
-								<span className='font-semibold text-primary text-lg'>${total.toFixed(2)}</span>
+								<span className='font-semibold text-primary text-lg'>C${total.toFixed(2)}</span>
 							</div>
 						</div>
 						<Button
