@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Button, InfoCard, Loading, ModalContainer } from '@/components/atoms'
 import { FiAlertTriangle, FiBox, FiDelete, FiEdit, FiPlus, FiSearch, FiTrash, FiTrendingDown, FiTrendingUp } from 'react-icons/fi'
 import { BsBoxSeam, BsFillBoxFill } from 'react-icons/bs'
@@ -29,6 +29,8 @@ export default function ProductsOrg() {
 	const { message, setMessage } = useMessage();
 	const [confirmDelete, setConfirmDelete] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [submitting, setSubmitting] = useState(false);
+	const submittingRef = useRef(false);
 
 	const validateForm = () => {
 		const newErrors = {};
@@ -45,7 +47,10 @@ export default function ProductsOrg() {
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
+		if (submittingRef.current) return;
 		if (!validateForm()) return;
+		submittingRef.current = true;
+		setSubmitting(true);
 		try {
 			if (editMode) {
 				await ProductService.editProduct(form);
@@ -70,6 +75,9 @@ export default function ProductsOrg() {
 			setErrors({});
 		} catch (err) {
 			console.error('Error saving product:', err);
+		} finally {
+			submittingRef.current = false;
+			setSubmitting(false);
 		}
 	}
 
@@ -472,7 +480,7 @@ export default function ProductsOrg() {
 									<Button
 										className={'success'}
 										text={'Agregar Producto'}
-										type='submit'
+										type='submit' disabled={submitting}
 									/>
 								</div>
 							</form>

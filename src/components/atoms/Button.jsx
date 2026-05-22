@@ -1,6 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 export default function Button({ func, text, type, className, icon, iconRight, disabled = false }) {
+	const [isProcessing, setIsProcessing] = useState(false)
+	const isDisabled = disabled || isProcessing
+
 	const ColorVariants = {
 		primary: 'bg-primary hover:bg-primary/80 text-light shadow-lg hover:shadow-xl py-2.5 px-4 w-full',
 		success: 'bg-success hover:bg-success/80 text-light shadow-lg hover:shadow-xl py-2.5 px-4 w-full',
@@ -16,12 +19,32 @@ export default function Button({ func, text, type, className, icon, iconRight, d
 		noneTwo: 'bg-transparent',
 	}
 
+	const handleClick = async (e) => {
+		if (isDisabled || typeof func !== 'function') return
+
+		setIsProcessing(true)
+		const result = func(e)
+
+		if (result && typeof result.then === 'function') {
+			try {
+				await result
+			} catch (error) {
+				console.error(error)
+			} finally {
+				setIsProcessing(false)
+			}
+		} else {
+			setTimeout(() => setIsProcessing(false), 300)
+		}
+	}
+
 	return (
 		<button
-			className={`btn ${ColorVariants[className]} sm:text-sm text-xs${disabled ? ' opacity-50 cursor-not-allowed' : ''}`}
-			onClick={(e) => { if (!disabled && typeof func === 'function') func(e); }}
+			className={`btn ${ColorVariants[className]} sm:text-sm text-xs${isDisabled ? ' opacity-50 cursor-not-allowed' : ''}`}
+			onClick={handleClick}
 			type={type}
-			disabled={disabled}
+			disabled={isDisabled}
+			aria-busy={isProcessing}
 		>
 			{icon} {text} {iconRight}
 		</button>

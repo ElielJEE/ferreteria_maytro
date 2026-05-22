@@ -161,6 +161,24 @@ export default function PuntoVentaOrg() {
 		});
 	}, []);
 
+	const createLineId = React.useCallback((product) => {
+		return `${product.ID_PRODUCT}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	}, []);
+
+	const getSelectedUnitKeysForProduct = React.useCallback((productId, excludeLineId = null) => {
+		return productList
+			.filter(item => item.ID_PRODUCT === productId && item.lineId !== excludeLineId)
+			.map(item => String(item.unit_id ?? item.unit ?? item.UNIDAD_ID ?? item.UNIDAD_NOMBRE ?? '').trim().toLowerCase());
+	}, [productList]);
+
+	const getAvailableUnitOptions = React.useCallback((productId, options, excludeLineId = null) => {
+		const selectedKeys = getSelectedUnitKeysForProduct(productId, excludeLineId);
+		return options.filter(opt => {
+			const key = String(opt.value ?? opt.label ?? '').trim().toLowerCase();
+			return !selectedKeys.includes(key);
+		});
+	}, [getSelectedUnitKeysForProduct]);
+
 	const showUnitModal = React.useCallback((product, options, preselect = null) => {
 		if (!Array.isArray(options) || options.length === 0) {
 			setError(prev => ({ ...(prev || {}), general: 'No hay unidades disponibles para este producto.' }));
@@ -179,20 +197,6 @@ export default function PuntoVentaOrg() {
 			setError(prev => ({ ...(prev || {}), general: 'Producto sin stock en la sucursal' }));
 			return;
 		}
-		const existingProduct = productList.find(item => item.ID_PRODUCT === product.ID_PRODUCT);
-		if (existingProduct) {
-			setProductList((prevList) => prevList.map((item) => {
-				if (item.ID_PRODUCT === product.ID_PRODUCT) {
-					const newQuantity = item.quantity + 1;
-					/*if (newQuantity > product.CANTIDAD) {
-						return item;
-					}*/
-					return { ...item, quantity: newQuantity };
-				}
-				return item;
-			}));
-			return;
-		}
 
 		let unitOptions = [];
 		try {
@@ -202,9 +206,43 @@ export default function PuntoVentaOrg() {
 			console.error('Error obteniendo unidades del producto:', fetchErr);
 		}
 
-		const productEntry = { ...product, quantity: 1 };
+		const productEntry = { ...product, quantity: 1, lineId: createLineId(product) };
+
 		if (unitOptions.length === 1) {
 			const single = unitOptions[0];
+			productEntry.unit = single.label;
+			productEntry.unit_id = single.value;
+			productEntry.cantidad_por_unidad = single.cantidad_por_unidad ?? 1;
+			if (single.precio !== undefined && single.precio !== null) {
+				const parsedPrice = Number(single.precio);
+				if (!Number.isNaN(parsedPrice) && parsedPrice > 0) {
+					productEntry.PRECIO = parsedPrice;
+				}
+			}
+
+			const sameLine = productList.find(item => item.ID_PRODUCT === product.ID_PRODUCT && String(item.unit_id ?? item.unit ?? '').trim().toLowerCase() === String(single.value ?? single.label ?? '').trim().toLowerCase());
+			if (sameLine) {
+				setProductList(prevList => prevList.map(item => {
+					if (item.lineId === sameLine.lineId) {
+						return { ...item, quantity: item.quantity + 1 };
+					}
+					return item;
+				}));
+				return;
+			}
+
+			setProductList(prevList => [...prevList, productEntry]);
+			return;
+		}
+
+		const availableOptions = getAvailableUnitOptions(product.ID_PRODUCT, unitOptions);
+		if (availableOptions.length === 0) {
+			setError(prev => ({ ...(prev || {}), general: 'Ya agregaste todas las unidades de medida disponibles para este producto.' }));
+			return;
+		}
+
+		if (availableOptions.length === 1) {
+			const single = availableOptions[0];
 			productEntry.unit = single.label;
 			productEntry.unit_id = single.value;
 			productEntry.cantidad_por_unidad = single.cantidad_por_unidad ?? 1;
@@ -218,24 +256,14 @@ export default function PuntoVentaOrg() {
 			return;
 		}
 
-		if (unitOptions.length > 1) {
-			showUnitModal(productEntry, unitOptions, null);
-			return;
-		}
-
-		// Si no hay unidades disponibles, agregar sin unidad (fallback)
-		setProductList(prevList => [...prevList, productEntry]);
+		showUnitModal(productEntry, availableOptions, null);
 	};
 
-	const updateQuantity = (id, newQuantity) => {
+	const updateQuantity = (lineId, newQuantity) => {
 		setProductList((prevList) =>
 			prevList.map((item) => {
-				if (item.ID_PRODUCT === id) {
-					// Validaciones de límites
+				if (item.lineId === lineId) {
 					if (!Number.isFinite(newQuantity) || newQuantity < 0.01) newQuantity = 0.01;
-					/*if (newQuantity > item.CANTIDAD) {
-						newQuantity = item.CANTIDAD;
-					}*/
 					return { ...item, quantity: newQuantity };
 				}
 				return item;
@@ -243,9 +271,9 @@ export default function PuntoVentaOrg() {
 		);
 	};
 
-	const removeFromProductList = (id) => {
+	const removeFromProductList = (lineId) => {
 		setProductList((prevList) =>
-			prevList.filter((item) => item.ID_PRODUCT !== id)
+			prevList.filter((item) => item.lineId !== lineId)
 		);
 	};
 
@@ -267,8 +295,9 @@ export default function PuntoVentaOrg() {
 			try {
 				const unidades = await ProductService.getProductUnits(product.ID_PRODUCT);
 				const opts = normalizeUnitOptions(unidades);
-				const existing = opts.find(o => o.label === product.unit || o.value === product.unit_id);
-				showUnitModal(product, opts, existing || null);
+				const available = getAvailableUnitOptions(product.ID_PRODUCT, opts, product.lineId);
+				const existing = available.find(o => o.label === product.unit || o.value === product.unit_id) || opts.find(o => o.label === product.unit || o.value === product.unit_id);
+				showUnitModal(product, available.length > 0 ? available : opts, existing || null);
 			} catch (e) {
 				console.error('Error cargando unidades del producto:', e);
 				setError(prev => ({ ...(prev || {}), general: 'No se pudieron cargar las unidades de este producto, intenta nuevamente.' }));
@@ -720,35 +749,25 @@ export default function PuntoVentaOrg() {
 
 	const handleUnitSubmit = () => {
 		if (unitProduct && selectedUnitOption) {
-			// Crear producto con unidad seleccionada
 			const productWithUnit = {
 				...unitProduct,
 				unit: selectedUnitOption.label,
 				unit_id: selectedUnitOption.value,
-				cantidad_por_unidad: selectedUnitOption.cantidad_por_unidad ?? 1
+				cantidad_por_unidad: selectedUnitOption.cantidad_por_unidad ?? 1,
+				lineId: unitProduct.lineId || createLineId(unitProduct)
 			};
-			// Si la unidad tiene precio asociado, actualizar PRECIO
 			if (selectedUnitOption.precio !== undefined && selectedUnitOption.precio !== null) {
 				productWithUnit.PRECIO = Number(selectedUnitOption.precio) || unitProduct.PRECIO;
 			}
-			
-			// Verificar si el producto ya existe en la lista
-			const productoExiste = productList.some(p => p.ID_PRODUCT === unitProduct.ID_PRODUCT);
-			
-			if (productoExiste) {
-				// Si existe, actualizar
-				setProductList((prev) => prev.map(p => {
-					if (p.ID_PRODUCT === unitProduct.ID_PRODUCT) {
-						return { ...p, ...productWithUnit };
-					}
-					return p;
-				}));
-			} else {
-				// Si no existe, agregar
-				setProductList((prev) => [...prev, productWithUnit]);
-			}
+
+			setProductList((prev) => {
+				const existingIndex = prev.findIndex(p => p.lineId === productWithUnit.lineId);
+				if (existingIndex >= 0) {
+					return prev.map(p => p.lineId === productWithUnit.lineId ? { ...p, ...productWithUnit } : p);
+				}
+				return [...prev, productWithUnit];
+			});
 		}
-		// cerrar modal y limpiar estado de unidad
 		setIsActiveModal(false);
 		setUnitProduct(null);
 		setUnitOptions([]);
@@ -759,13 +778,11 @@ export default function PuntoVentaOrg() {
 		try {
 			const parsed = parseFloat(customPriceInput);
 			if (isNaN(parsed) || parsed <= 0) {
-				// invalid input, keep modal open for correction
 				return;
 			}
-			// update only the current sale's line price (do NOT persist to DB)
 			setProductList(prev => prev.map(item => {
 				if (!customPriceProduct) return item;
-				if (item.ID_PRODUCT === customPriceProduct.ID_PRODUCT) {
+				if (item.lineId === customPriceProduct.lineId) {
 					return { ...item, PRECIO: Number(parsed) };
 				}
 				return item;
@@ -1016,9 +1033,9 @@ export default function PuntoVentaOrg() {
 							{!productList.length
 								? <span className="text-dark/70 text-medium w-full text-center">No hay productos en la lista</span>
 								: (
-									productList.map((product, index) => (
+									productList.map((product) => (
 										<div
-											key={index}
+											key={product.lineId}
 											className='w-full flex items-center justify-between border rounded-lg border-dark/20 p-2'
 										>
 											<div className='flex flex-col'>
@@ -1034,9 +1051,9 @@ export default function PuntoVentaOrg() {
                                                     min='0.01'
 		
 														value={product.quantity}
-														onChange={(e) =>
-															updateQuantity(product.ID_PRODUCT, parseFloat(e.target.value) || 0.01)
-														}
+															onChange={(e) =>
+																updateQuantity(product.lineId, parseFloat(e.target.value) || 0.01)
+															}
 														className='w-16 text-center border border-dark/20 rounded-md p-1'
 													/>
 												</div>
@@ -1047,7 +1064,7 @@ export default function PuntoVentaOrg() {
 													className={'noneTwo'}
 													text={''}
 													icon={<FiTrash2 className='h-5 w-5 text-danger' />}
-													func={() => removeFromProductList(product.ID_PRODUCT)}
+													func={() => removeFromProductList(product.lineId)}
 												/>
 												<div className='flex flex-col items-end'>
 													<span className='font-semibold text-primary text-lg'>

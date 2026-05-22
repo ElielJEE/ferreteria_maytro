@@ -2,7 +2,7 @@
 import { useActive, useIsMobile } from '@/hooks';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FiBox, FiCheck, FiCheckCircle, FiClock, FiEdit, FiEye, FiShoppingCart, FiUser } from 'react-icons/fi';
-import { Button, InfoCard, ModalContainer } from '../atoms';
+import { Button, InfoCard, ModalContainer, SwitchButton } from '../atoms';
 import { BsBuilding, BsTelephone } from 'react-icons/bs';
 import Card from './Card';
 import Input from './Input';
@@ -191,15 +191,10 @@ export default function Reserved({ sucursalFilter = 'Todas' }) {
 					</div>
 					<div className='flex items-center gap-2'>
 						<span className='font-semibold'>Mostar cancelados</span>
-						<button
-							onClick={() => setEnabled(!enabled)}
-							className={`cursor-pointer relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${enabled ? "bg-primary" : "bg-gray-400"}`}
-						>
-							<span
-								className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${enabled 
-									? "translate-x-6" : "translate-x-1"}`}
-							/>
-						</button>
+						<SwitchButton
+							text={''}
+							onToggle={setEnabled}
+						/>
 					</div>
 				</div>
 
