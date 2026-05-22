@@ -24,7 +24,6 @@ export async function POST(request) {
       id_sucursal,
       fecha_pedido,
       fecha_entrega,
-      total,
       items
     } = body;
 
@@ -117,33 +116,40 @@ export async function POST(request) {
         }
       }
 
+      const detallesCompra = [];
+      let totalCompra = 0;
+      for (const it of items) {
+        const productId = it.ID_PRODUCT || it.id || it.productId;
+        const cantidad = Number(it.quantity ?? it.AMOUNT ?? it.cantidad) || 0;
+        if (!productId || cantidad <= 0) {
+          throw new Error('Producto y cantidad validos son requeridos para cada item');
+        }
+
+        const [prodPriceRows] = await conn.query('SELECT PRECIO_COMPRA FROM productos WHERE ID_PRODUCT = ? LIMIT 1', [productId]);
+        if (!prodPriceRows || prodPriceRows.length === 0) {
+          throw new Error(`Producto no encontrado: ${productId}`);
+        }
+        const precioUnit = Number(prodPriceRows[0].PRECIO_COMPRA) || 0;
+        if (precioUnit <= 0) {
+          throw new Error(`PRECIO_COMPRA no definido para el producto ${productId}. Configure el precio de compra en el producto antes de procesar la compra.`);
+        }
+
+        const subTotal = Number((precioUnit * cantidad).toFixed(2));
+        totalCompra = Number((totalCompra + subTotal).toFixed(2));
+        detallesCompra.push({ productId, cantidad, precioUnit, subTotal });
+      }
+
       // Insertar compra
       const [res] = await conn.query(
         'INSERT INTO compras (FECHA_PEDIDO, FECHA_ENTREGA, TOTAL, ID_PROVEEDOR, ID_USUARIO, ID_SUCURSAL, ESTADO) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [fecha_pedido || new Date(), fecha_entrega, Number(total) || 0, proveedorIdResolved || null, usuarioIdResolved || null, idSucursalResolved || null, 'Pendiente']
+        [fecha_pedido || new Date(), fecha_entrega, totalCompra, proveedorIdResolved || null, usuarioIdResolved || null, idSucursalResolved || null, 'Pendiente']
       );
       const compraId = res.insertId;
 
       // Insertar detalles (no actualizar stock por sucursal al crear la compra)
-      for (const it of items) {
-        const productId = it.ID_PRODUCT || it.id || it.productId;
-          const cantidad = Number(it.quantity ?? it.AMOUNT ?? it.cantidad) || 0;
-
-          // Obtener PRECIO_COMPRA desde la tabla PRODUCTOS y usarlo siempre
-          const [prodPriceRows] = await conn.query('SELECT PRECIO_COMPRA FROM productos WHERE ID_PRODUCT = ? LIMIT 1', [productId]);
-          if (!prodPriceRows || prodPriceRows.length === 0) {
-            throw new Error(`Producto no encontrado: ${productId}`);
-          }
-          const precioDb = Number(prodPriceRows[0].PRECIO_COMPRA) || 0;
-          if (precioDb <= 0) {
-            throw new Error(`PRECIO_COMPRA no definido para el producto ${productId}. Configure el precio de compra en el producto antes de procesar la compra.`);
-          }
-
-          const precioUnit = precioDb;
-          const subTotal = Number((precioUnit * cantidad).toFixed(2));
-
+      for (const { productId, cantidad, precioUnit, subTotal } of detallesCompra) {
         // Insertar detalle usando la columna CANTIDAD y sin NUMERO_REFERENCIA/TIPO_PAGO
-        const [detRes] = await conn.query(
+        await conn.query(
           'INSERT INTO detalles_compra (ID_COMPRA, ID_PRODUCT, CANTIDAD, PRECIO_UNIT, SUB_TOTAL, ID_PROVEEDOR) VALUES (?, ?, ?, ?, ?, ?) ',
           [compraId, productId, cantidad, precioUnit, subTotal, proveedorIdResolved || null]
         );
