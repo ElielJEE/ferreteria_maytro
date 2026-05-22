@@ -60,8 +60,8 @@ export default function CajaOrg() {
 		for (const sucId of keys) {
 			(async () => {
 				try {
-					// pedir historial de ventas para la sucursal (ruta /api/ventas?sucursal=...)
-					const res = await SalesService.getSalesHistory(sucId);
+					// pedir solo facturas confirmadas para la sucursal (ruta /api/ventas?sucursal=...&estado=Confirmado)
+					const res = await SalesService.getSalesHistory(sucId, 'Confirmado');
 					let ventas = [];
 					if (!res) ventas = [];
 					else if (Array.isArray(res)) ventas = res;
@@ -73,9 +73,9 @@ export default function CajaOrg() {
 					const d = String(today.getDate()).padStart(2, '0');
 					const todayStr = `${y}-${m}-${d}`;
 					const totalHoy = (ventas || []).reduce((acc, v) => {
-						const estado = String(v.estado || '').toLowerCase();
+						const estado = String(v.estado || '').trim().toLowerCase();
 						const vFecha = (v.fechaFiltro || v.fecha || '').toString();
-						if (vFecha === todayStr && estado !== 'cancelado') return acc + Number(v.total || 0);
+						if (vFecha === todayStr && estado === 'confirmado') return acc + Number(v.total || 0);
 						return acc;
 					}, 0);
 					setTotalVentas(prev => ({ ...prev, [sucId]: Number(totalHoy.toFixed(2)) }));

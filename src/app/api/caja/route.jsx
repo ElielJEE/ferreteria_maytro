@@ -19,6 +19,24 @@ async function ensureCajaTables() {
     INDEX idx_caja_suc_estado (ID_SUCURSAL, ESTADO),
     INDEX idx_caja_fecha (FECHA_APERTURA)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
+
+  const requiredColumns = [
+    ['TOTAL_VENTAS_EQ_C', 'DECIMAL(12,2) NULL'],
+    ['DIFERENCIA', 'DECIMAL(12,2) NULL'],
+  ];
+  for (const [columnName, definition] of requiredColumns) {
+    const [rows] = await pool.query(
+      `SELECT COUNT(*) AS CNT
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'caja_sesion'
+         AND COLUMN_NAME = ?`,
+      [columnName]
+    );
+    if (!Number(rows?.[0]?.CNT || 0)) {
+      await pool.query(`ALTER TABLE caja_sesion ADD COLUMN ${columnName} ${definition}`);
+    }
+  }
 }
 
 function getUserFromToken(req) {
@@ -51,7 +69,7 @@ export async function GET(request) {
         if (sucursalId) sucursalParam = sucursalId;
       } catch {}
       let sql = `SELECT cs.ID_SESION, cs.ID_SUCURSAL, s.NOMBRE_SUCURSAL, cs.FECHA_APERTURA, cs.FECHA_CIERRE,
-                        cs.MONTO_INICIAL, cs.MONTO_FINAL, cs.DIFERENCIA, cs.ESTADO
+                        cs.MONTO_INICIAL, cs.MONTO_FINAL, cs.TOTAL_VENTAS_EQ_C, cs.DIFERENCIA, cs.ESTADO
                  FROM caja_sesion cs
                  LEFT JOIN sucursal s ON s.ID_SUCURSAL = cs.ID_SUCURSAL `;
       if (sucursalParam) { sql += 'WHERE cs.ID_SUCURSAL = ? '; params.push(sucursalParam); }
@@ -150,23 +168,25 @@ export async function PUT(request) {
     }
 
     const now = new Date();
-    // calcular ventas desde apertura hasta ahora para la sucursal
+    // calcular ventas confirmadas del dia de apertura hasta el momento de cierre
     let totalVentasEqC = 0;
     try {
       const [sumRows] = await conn.query(
         `SELECT COALESCE(SUM(f.TOTAL), 0) AS total
    FROM factura f
    WHERE f.ID_SUCURSAL = ?
-     AND DATE(f.FECHA) >= DATE(?)
-     AND DATE(f.FECHA) <= DATE(?)
-     AND LOWER(TRIM(IFNULL(f.ESTADO, ''))) = 'confirmado'`,
+     AND f.FECHA >= DATE(?)
+     AND f.FECHA <= ?
+     AND TRIM(IFNULL(f.ESTADO, '')) = 'Confirmado'`,
         [sesion.ID_SUCURSAL, sesion.FECHA_APERTURA, now]
       );
       totalVentasEqC = Number(sumRows?.[0]?.total || 0);
-    } catch { totalVentasEqC = 0; }
+    } catch (err) {
+      throw new Error(`No se pudo calcular el Total de Ventas: ${err?.message || err}`);
+    }
 
-    const esperado = totalVentasEqC;
-    console.log("lo esperado: ", esperado, "total de ventas:", totalVentasEqC);
+    const montoInicial = Number(sesion.MONTO_INICIAL || 0);
+    const esperado = Number((montoInicial + totalVentasEqC).toFixed(2));
     const diferencia = Number((montoFinal - esperado).toFixed(2));
 
     const { usuarioId } = getUserFromToken(request);
