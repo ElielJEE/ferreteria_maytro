@@ -40,3 +40,13 @@ export const cerrarCaja = async ({ sesion_id, sucursal_id, monto_final, observac
   });
   return parse(res);
 };
+
+export const deshacerApertura = async ({ sesion_id, sucursal_id }) => {
+  const res = await fetch(API_URL, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sesion_id, sucursal_id })
+  });
+
+  return parse(res);
+};

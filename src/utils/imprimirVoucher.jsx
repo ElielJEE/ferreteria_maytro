@@ -57,7 +57,10 @@ export const imprimirVoucher = async (data) => {
 
     console.log("Factura completa:", factura);
 
-    const clienteNombre = factura.cliente?.nombre || "Consumidor Final";
+    const clienteNombre =
+      factura.cliente?.nombre ||
+      (typeof factura.cliente === "string" ? factura.cliente : null) ||
+      "Consumidor Final";
     const sucursalNombre = factura.sucursal?.nombre || "Sucursal N/A";
     const usuarioNombre = factura.usuario?.nombre || "Vendedor N/A";
 
@@ -148,7 +151,10 @@ export const imprimirVoucherCotizacion = async (data) => {
       return;
     }
 
-    const clienteNombre = cotizacion.cliente?.nombre || "Consumidor Final";
+    const clienteNombre =
+      cotizacion.cliente?.nombre ||
+      (typeof cotizacion.cliente === "string" ? cotizacion.cliente : null) ||
+      "Consumidor Final";
     const sucursalNombre =
       cotizacion.sucursal?.name || cotizacion.sucursal?.label || "Sucursal N/A";
     const usuarioNombre =
