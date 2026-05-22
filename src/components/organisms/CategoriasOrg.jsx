@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Button, InfoCard, Loading, ModalContainer } from '../atoms';
 import { BiCategory, BiCategoryAlt } from 'react-icons/bi';
 import { FiArrowRight, FiEdit, FiPlus, FiSearch, FiTrash } from 'react-icons/fi';
@@ -16,6 +16,8 @@ export default function CategoriasOrg() {
   const [editMode, setEditMode] = useState(false);
   const [editCategory, setEditCategory] = useState({ id: null, categoryType: null })
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const { toggleActiveItem, isActiveItem, setIsActiveModal, isActiveModal } = useActive();
   const { visibleItems, loadMore } = useLoadMore();
   const [loading, setLoading] = useState(true);
@@ -29,11 +31,14 @@ export default function CategoriasOrg() {
 
   const handleCategoryForm = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     if (!newCategory.name || newCategory.name.trim() === '') {
       setError('El nombre es requerido');
       setMessage("");
       return;
     }
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
       if (editMode) {
         await CategoriesService.editCategory({ id: editCategory.id, name: newCategory.name, type: editCategory.categoryType });
@@ -57,6 +62,9 @@ export default function CategoriasOrg() {
       console.error('Exception in handleAddCategory:', error);
       setError(error.message || 'Error en la operación');
       setMessage("");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -316,6 +324,7 @@ export default function CategoriasOrg() {
                         className={"success"}
                         text={editMode ? "Guardar Cambios" : "Agregar Categoria"}
                         type="submit"
+                        disabled={submitting}
                       />
                     </div>
                     {error && <span className='text-danger text-center'>{error}</span>}

@@ -58,6 +58,22 @@ export default function FacturasOrg() {
     setIsActiveModal(true);
   };
 
+  const parseFacturaDate = (value) => {
+    if (!value) return new Date(0);
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      const dateParts = trimmed.split('/');
+      if (dateParts.length === 3) {
+        const [day, month, year] = dateParts;
+        return new Date(Number(year), Number(month) - 1, Number(day));
+      }
+      const timestamp = Date.parse(trimmed);
+      return isNaN(timestamp) ? new Date(0) : new Date(timestamp);
+    }
+    if (value instanceof Date) return value;
+    return new Date(value);
+  };
+
   const loadFacturas = async () => {
     setLoading(true);
     try {
@@ -72,7 +88,8 @@ export default function FacturasOrg() {
         cliente: item.cliente || item.cliente?.nombre || 'Consumidor Final',
         creadaPor: item.hecho_por || item.creado_por || item.creadaPor || '',
       }));
-      setFacturas(mappedFacturas);
+      const sortedFacturas = mappedFacturas.sort((a, b) => parseFacturaDate(b.fecha) - parseFacturaDate(a.fecha));
+      setFacturas(sortedFacturas);
     } catch (err) {
       console.error('Error cargando facturas:', err);
       setFacturas([]);
