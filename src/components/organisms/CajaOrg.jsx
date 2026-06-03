@@ -9,6 +9,7 @@ export default function CajaOrg() {
 	const [sucursales, setSucursales] = useState([]);
 	const [cajas, setCajas] = useState({}); // por sucursal: { status, montoInicial, horaApertura, sesionId }
 	const [cerrarCaja, setCerrarCaja] = useState({}); // flags por sucursal
+	const [retiradoMap, setRetiradoMap] = useState({}); // sucursalId -> monto retirado del inicial
 	const [diferenciaMap, setDiferenciaMap] = useState({});
 	const [historial, setHistorial] = useState([]);
 	const [totalVentas, setTotalVentas] = useState({}); // map sucursalId -> total ventas hoy
@@ -29,13 +30,17 @@ export default function CajaOrg() {
 					const est = await CajaService.getEstado(s.value);
 					const abierta = est?.abierta;
 					if (abierta) {
-								initialState[s.value] = {
-									status: 'Abierta',
-									montoInicial: Number(abierta.MONTO_INICIAL || 0),
-									horaApertura: new Date(abierta.FECHA_APERTURA).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-									fechaApertura: abierta.FECHA_APERTURA,
-									sesionId: abierta.ID_SESION,
-								};
+							initialState[s.value] = {
+								status: 'Abierta',
+								montoInicial: Number(abierta.MONTO_INICIAL || 0),
+								horaApertura: new Date(abierta.FECHA_APERTURA).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+								fechaApertura: abierta.FECHA_APERTURA,
+								sesionId: abierta.ID_SESION,
+								montoRetirado: Number(abierta.MONTO_RETIRADO_INICIAL || 0),
+							};
+							if (Number(abierta.MONTO_RETIRADO_INICIAL || 0) > 0) {
+								setRetiradoMap(prev => ({ ...prev, [s.value]: Number(abierta.MONTO_RETIRADO_INICIAL || 0) }));
+							}
 					} else {
 						initialState[s.value] = { status: 'Cerrada', montoInicial: 0, horaApertura: null, sesionId: null };
 					}
@@ -80,13 +85,14 @@ export default function CajaOrg() {
 					}, 0);
 					setTotalVentas(prev => ({ ...prev, [sucId]: Number(totalHoy.toFixed(2)) }));
 					const inicial = Number(cajas?.[sucId]?.montoInicial || 0);
-					setEsperadoMap(prev => ({ ...prev, [sucId]: Number((inicial + totalHoy).toFixed(2)) }));
+					const retirado = Number(retiradoMap[sucId] || 0);
+					setEsperadoMap(prev => ({ ...prev, [sucId]: Number(((inicial - retirado) + totalHoy).toFixed(2)) }));
 				} catch (err) {
 					console.error('Error cargando ventas para cierre de caja:', err);
 				}
 			})();
 		}
-	}, [cerrarCaja]);
+	}, [cerrarCaja, retiradoMap, cajas]);
 
 	// Recalcular diferencias cuando cambia el esperado (ventas cargadas) o montoFinal en cajas
 	useEffect(() => {
@@ -127,6 +133,7 @@ export default function CajaOrg() {
 			await CajaService.cerrarCaja({ sesion_id: sesionId, sucursal_id: id, monto_final: Number(montoFinal || 0) });
 			setCajas(prev => ({ ...prev, [id]: { status: 'Cerrada', montoInicial: 0, horaApertura: null, sesionId: null } }));
 			setCerrarCaja(prev => ({ ...prev, [id]: false }));
+			setRetiradoMap(prev => ({ ...prev, [id]: 0 }));
 			// refrescar historial y aplicar la diferencia calculada localmente para que se muestre inmediatamente
 			const h = await CajaService.getHistorial({ limit: 20 });
 			const rawHist = h?.historial || [];
@@ -184,6 +191,8 @@ export default function CajaOrg() {
 				[id]: false
 			}));
 
+			setRetiradoMap(prev => ({ ...prev, [id]: 0 }));
+
 			setEsperadoMap(prev => ({
 				...prev,
 				[id]: 0
@@ -205,6 +214,29 @@ export default function CajaOrg() {
 			}, 4000);
 			
 			console.error('Deshacer apertura error:', e);
+		}
+	};
+
+	const handleRetirarInicial = async (id) => {
+		try {
+			const sesionId = cajas?.[id]?.sesionId;
+			if (!sesionId) return;
+			const montoInicial = Number(cajas?.[id]?.montoInicial || 0);
+			// llamar servicio
+			const res = await CajaService.retirarMontoInicial({ sesion_id: sesionId, sucursal_id: id, monto_retirado: montoInicial });
+			const montoRet = Number(res?.monto_retirado || montoInicial);
+			// actualizar estados locales: marcar como retirado y ajustar esperado/diferencia
+			setRetiradoMap(prev => ({ ...prev, [id]: montoRet }));
+			setEsperadoMap(prev => ({ ...prev, [id]: Number(((Number(prev[id] || 0) - montoRet)).toFixed(2)) }));
+			// recompute diferencia based on current montoFinal
+			const montoFinal = Number(cajas?.[id]?.montoFinal || 0);
+			const esperado = Number(((Number(esperadoMap[id] || 0) - montoRet))).toFixed(2);
+			setDiferenciaMap(prev => ({ ...prev, [id]: Number((montoFinal - Number(esperado)).toFixed(2)) }));
+			setCajas(prev => ({ ...prev, [id]: { ...prev[id], montoRetirado: montoRet } }));
+		} catch (e) {
+			setCajaAlert({ type: 'error', message: e.message || 'Error al registrar retiro.' });
+			setTimeout(() => setCajaAlert(null), 4000);
+			console.error('Retirar monto inicial error:', e);
 		}
 	};
 
@@ -319,7 +351,18 @@ export default function CajaOrg() {
 															}}
 															/>
 															{cajaErrors[sucursal.value] && <span className='text-danger text-xs'>{cajaErrors[sucursal.value]}</span>}
-														<Input
+															{/* Retiro de monto inicial para auditoría */}
+															{!retiradoMap[sucursal.value] || Number(retiradoMap[sucursal.value] || 0) === 0 ? (
+																<Button
+																	text={'Retirar Monto Inicial'}
+																	className={'danger'}
+																	func={() => handleRetirarInicial(sucursal.value)}
+																/>
+															) : (
+																<div className='text-sm font-semibold text-dark/60'>Monto inicial retirado: C${Number(retiradoMap[sucursal.value]).toFixed(2)}</div>
+															)}
+
+															<Input
 															label={'Total de Ventas (C$)'}
 															placeholder={'0.00'}
 															inputClass={'no icon'}
@@ -419,6 +462,10 @@ export default function CajaOrg() {
 										<div className='flex flex-col'>
 											<span className='font-semibold text-sm text-dark/60'>Monto Inicial</span>
 											<span className='font-semibold'>C${Number(h.MONTO_INICIAL || 0).toFixed(2)}</span>
+										</div>
+										<div className='flex flex-col'>
+											<span className='font-semibold text-sm text-dark'>Monto Retirado</span>
+											<span className='font-semibold text-danger'>C${Number(h.MONTO_RETIRADO_INICIAL || 0).toFixed(2)}</span>
 										</div>
 										<div className='flex flex-col'>
 											<span className='font-semibold text-sm text-dark/60'>Monto Final</span>
