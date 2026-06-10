@@ -23,6 +23,7 @@ async function ensureCajaTables() {
   const requiredColumns = [
     ['TOTAL_VENTAS_EQ_C', 'DECIMAL(12,2) NULL'],
     ['DIFERENCIA', 'DECIMAL(12,2) NULL'],
+    ['MONTO_RETIRADO_INICIAL', 'DECIMAL(12,2) NULL DEFAULT 0'],
   ];
   for (const [columnName, definition] of requiredColumns) {
     const [rows] = await pool.query(
@@ -69,7 +70,7 @@ export async function GET(request) {
         if (sucursalId) sucursalParam = sucursalId;
       } catch {}
       let sql = `SELECT cs.ID_SESION, cs.ID_SUCURSAL, s.NOMBRE_SUCURSAL, cs.FECHA_APERTURA, cs.FECHA_CIERRE,
-                        cs.MONTO_INICIAL, cs.MONTO_FINAL, cs.TOTAL_VENTAS_EQ_C, cs.DIFERENCIA, cs.ESTADO
+                        cs.MONTO_INICIAL, cs.MONTO_FINAL, cs.MONTO_RETIRADO_INICIAL, cs.TOTAL_VENTAS_EQ_C, cs.DIFERENCIA, cs.ESTADO
                  FROM caja_sesion cs
                  LEFT JOIN sucursal s ON s.ID_SUCURSAL = cs.ID_SUCURSAL `;
       if (sucursalParam) { sql += 'WHERE cs.ID_SUCURSAL = ? '; params.push(sucursalParam); }
@@ -186,13 +187,14 @@ export async function PUT(request) {
     }
 
     const montoInicial = Number(sesion.MONTO_INICIAL || 0);
-    const esperado = Number((montoInicial + totalVentasEqC).toFixed(2));
+    const montoRetirado = Number(sesion.MONTO_RETIRADO_INICIAL || 0);
+    const esperado = Number(((montoInicial - montoRetirado) + totalVentasEqC).toFixed(2));
     const diferencia = Number((montoFinal - esperado).toFixed(2));
 
     const { usuarioId } = getUserFromToken(request);
     await conn.query(
-      'UPDATE caja_sesion SET ESTADO = "cerrada", FECHA_CIERRE = ?, USUARIO_CIERRE = ?, MONTO_FINAL = ?, TOTAL_VENTAS_EQ_C = ?, DIFERENCIA = ?, OBSERVACIONES = ? WHERE ID_SESION = ?',
-      [now, usuarioId, montoFinal, totalVentasEqC, diferencia, observaciones, sesionId]
+      'UPDATE caja_sesion SET ESTADO = "cerrada", FECHA_CIERRE = ?, USUARIO_CIERRE = ?, MONTO_FINAL = ?, TOTAL_VENTAS_EQ_C = ?, DIFERENCIA = ?, MONTO_RETIRADO_INICIAL = ?, OBSERVACIONES = ? WHERE ID_SESION = ?',
+      [now, usuarioId, montoFinal, totalVentasEqC, diferencia, montoRetirado, observaciones, sesionId]
     );
 
     await conn.commit();

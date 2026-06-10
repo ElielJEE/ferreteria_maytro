@@ -50,3 +50,12 @@ export const deshacerApertura = async ({ sesion_id, sucursal_id }) => {
 
   return parse(res);
 };
+
+export const retirarMontoInicial = async ({ sesion_id, sucursal_id, monto_retirado }) => {
+  const res = await fetch(`${API_URL}/retiro`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sesion_id, sucursal_id, monto_retirado })
+  });
+  return parse(res);
+};
